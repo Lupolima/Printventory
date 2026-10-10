@@ -1530,6 +1530,60 @@ async function browserChecks(base, wsUrl, session) {
           );
         check('More like this compares the model with the library', compared);
 
+        // Version history on the model's page: the Edit dialog's changes above are listed; Upload New Version keeps the old file.
+        const historyShown = await page
+          .waitForFunction(() => /License/.test(document.getElementById('jp-history-changes')?.textContent || ''), null, { timeout: 15000 })
+          .then(
+            () => true,
+            () => false
+          );
+        const original = fs.readFileSync(cardPath);
+        const canUpload = await page.isVisible('#jp-upload-version');
+        // The test library is inside the app's folder, where uploads are refused: the new file is put next to the model as an upload would.
+        const uploadedCopy = path.join(folder, `e2e-new-version${path.extname(cardPath)}`);
+        fs.writeFileSync(uploadedCopy, original);
+        await invoke(base, session, 'replace-model-file', [cardPath, uploadedCopy]);
+        const versioned = await page.waitForSelector('#jp-history-versions li', { timeout: 15000 }).then(
+          () => true,
+          () => false
+        );
+        const kept = ((await invoke(base, session, 'get-model-history', [cardPath])).result || {}).versions || [];
+        check(
+          'version history lists the changes and keeps the replaced file',
+          historyShown && canUpload && versioned && kept.length === 1 && fs.readFileSync(cardPath).equals(original) && !fs.existsSync(uploadedCopy),
+          JSON.stringify({ historyShown, canUpload, versioned, kept: kept.length })
+        );
+        for (const version of kept) await invoke(base, session, 'delete-model-version', [version.id]);
+
+        // Assembly view: a folder's layout is kept.
+        const savedLayout = (await invoke(base, session, 'save-assembly', [folder, { layout: 'laid-out', poses: {} }])).result;
+        const readLayout = (await invoke(base, session, 'get-assembly', [folder])).result;
+        await invoke(base, session, 'save-assembly', [folder, null]);
+        check('an assembly layout is saved for its folder', savedLayout?.layout === 'laid-out' && readLayout?.layout === 'laid-out');
+
+        // Typed search: fields and NOT in the search box.
+        await page.evaluate(() => {
+          window.location.hash = '#/library';
+        });
+        await page.fill('.jp-topbar__search input', `name:"${stem}" -name:zzzz`);
+        await page.press('.jp-topbar__search input', 'Enter');
+        const typed = await page
+          .waitForFunction(
+            (want) => {
+              const shown = [...document.querySelectorAll('.file-grid [data-filepath]')].map((el) => el.getAttribute('data-filepath'));
+              const chips = document.querySelector('.filter-pills-search-chain')?.textContent || '';
+              return shown.includes(want) && /NOT/.test(chips) && /File name/.test(chips);
+            },
+            cardPath,
+            { timeout: 10000 }
+          )
+          .then(
+            () => true,
+            () => false
+          );
+        check('a typed search reads fields and NOT', typed);
+        await page.click('#clear-all-filters-button').catch(() => {});
+
         // The AI searches: the buttons, and the photo dialog (no AI service in this run).
         await page.click('#jp-search-photo');
         const photoDialog = await page.waitForSelector('#photo-search-dialog[open]', { timeout: 5000 }).catch(() => null);

@@ -43,7 +43,7 @@ const STATIC_FOLDERS = [
 
 const APP_DIR = path.join(__dirname, '..', '..');
 
-const SERVER_GENERATED_FILE = /^justtprint-(backup|library)-[\w.-]+\.(db|json|zip)$/i;
+const SERVER_GENERATED_FILE = /^justtprint-(?:(backup|library)-[\w.-]+\.(db|json|zip)|version-[\w.-]+\.[a-z0-9]{2,8})$/i;
 /** Automatic backups (src/server/auto-backup.js), in their own folder. */
 const AUTO_BACKUP_FILE = /^justtprint-auto-\d{8}-\d{6}(-\d+)?\.db$/;
 
@@ -216,6 +216,11 @@ const NETWORK_IPC_PATH_RULES = {
   'get-folder': [[0, 'modelDir']],
   'save-folder-notes': [[0, 'modelDir']],
   'get-assembly': [[0, 'modelDir']],
+  'get-model-history': [[0, 'file']],
+  'replace-model-file': [
+    [0, 'file'],
+    [1, 'file']
+  ],
   'save-assembly': [[0, 'modelDir']],
   'get-kit': [[0, 'file']],
   'set-kit-part': [[0, 'file']],

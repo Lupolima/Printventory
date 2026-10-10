@@ -19,6 +19,7 @@ import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
 import { showCategory } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
+import { ModelHistory } from './ModelHistory';
 
 /** What the page shows of a model (get-model). */
 type PageModel = PanelModel &
@@ -558,6 +559,13 @@ export function ModelPage({ filePath }: { filePath: string }) {
           )}
 
           {!online && <KitChecklist target={model.filePath} />}
+
+          {!online && !model.filePath.includes('::') && (
+            <ModelHistory
+              filePath={model.filePath}
+              folder={model.filePath.slice(0, Math.max(model.filePath.lastIndexOf('/'), model.filePath.lastIndexOf('\\')))}
+            />
+          )}
 
           <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">
             <h2 className="jp-panel-title" id="jp-model-page-history">

@@ -14,8 +14,8 @@ const fs = require('fs');
 const path = require('path');
 const { getDatabasePath } = require('../core/db-path');
 
-/** justtprint-backup-<time>.db and justtprint-library-<time>.json. */
-const DOWNLOAD_FILE = /^justtprint-(backup|library)-[\w.-]+\.(db|json)$/;
+/** justtprint-backup-<time>.db, justtprint-library-<time>.json, and an earlier version of a model (justtprint-version-<time>-<name>.<ext>). */
+const DOWNLOAD_FILE = /^justtprint-(?:(backup|library)-[\w.-]+\.(db|json)|version-[\w.-]+\.[a-z0-9]{2,8})$/i;
 const HOUR = 60 * 60 * 1000;
 /** How long a download file is kept. */
 const KEEP_MS = HOUR;

@@ -378,3 +378,38 @@ dialog.assembly-dialog {
     max-height: 160px;
   }
 }
+
+/* Version history (pages/ModelHistory.tsx) */
+.jp-history__label {
+  margin: var(--jp-space-3) 0 var(--jp-space-1);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.jp-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-history__list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--jp-space-2);
+}
+.jp-history__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.jp-history__actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}

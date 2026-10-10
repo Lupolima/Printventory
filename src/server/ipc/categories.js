@@ -37,7 +37,10 @@ ipcMain.handle('delete-category', async (event, id) => {
 ipcMain.handle('set-model-categories', async (event, filePath, names) => {
   const model = database.db.prepare('SELECT id FROM models WHERE filePath = ?').get(filePath);
   if (!model) throw new Error('This model is not in the library');
-  const result = categories.setModelCategories(model.id, names, 'manual');
+  const history = require('../model-versions');
+  const result = await history.tracking([model.id], event && event.user ? event.user.username : null, async () =>
+    categories.setModelCategories(model.id, names, 'manual')
+  );
   changed();
   return result;
 });
