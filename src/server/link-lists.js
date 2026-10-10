@@ -38,10 +38,12 @@ async function bambuJson(apiPath, fetchImpl) {
  */
 async function makerWorldDesigner(handle, fetchImpl) {
   const wanted = String(handle).toLowerCase();
-  let rows = [];
+  /** @type {{ key: string, data: string }[]} */
+  let rows;
   try {
     rows = database.db.prepare("SELECT key, data FROM site_details WHERE key LIKE 'makerworld:%'").all();
   } catch (_) {
+    // No MakerWorld details kept yet.
     rows = [];
   }
   for (const row of rows) {
