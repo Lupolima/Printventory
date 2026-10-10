@@ -20,6 +20,11 @@ function refreshSoon() {
 /** Pasted text → the model links in it, each marked new or already in the library. */
 ipcMain.handle('check-model-links', async (event, text) => checkLinks(database.db, text));
 
+/** A designer's or collection's model links (Add Links): { url, title, links, total }. `uid`: a MakerWorld designer's id when known. */
+ipcMain.handle('list-model-links', async (event, url, options) =>
+  require('../link-lists').listModelLinks(url, { uid: options && typeof options.uid === 'string' ? options.uid : null })
+);
+
 /** Add one model link to the library (the dialog calls this link by link, to show progress). */
 /** `options.downloadFolder`: download MakerWorld models into that library folder (site-details.js). */
 ipcMain.handle('import-model-link', async (event, url, options) => {

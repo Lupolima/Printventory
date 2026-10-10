@@ -34,8 +34,20 @@ interface CheckedLink {
   existing: { filePath: string; fileName: string } | null;
 }
 
+/** A designer's page or a collection in the pasted text: its models can be listed. */
+interface ListLink {
+  site: string;
+  siteLabel: string;
+  kind: 'designer' | 'collection';
+  url: string;
+  /** As pasted: replaced by the model links. */
+  raw: string;
+  label: string;
+}
+
 interface CheckResult {
   links: CheckedLink[];
+  lists?: ListLink[];
   unsupported: string[];
   skipped: number;
 }
@@ -158,6 +170,9 @@ export function LinkImportDialog() {
   const [text, setText] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [unsupported, setUnsupported] = useState<string[]>([]);
+  const [lists, setLists] = useState<ListLink[]>([]);
+  /** Per list link: listing its models, or why that failed. */
+  const [listState, setListState] = useState<Record<string, { busy?: boolean; error?: string }>>({});
   const [skipped, setSkipped] = useState(0);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState('');
@@ -224,6 +239,7 @@ export function LinkImportDialog() {
     const timer = setTimeout(async () => {
       if (!text.trim()) {
         setRows([]);
+        setLists([]);
         setUnsupported([]);
         setSkipped(0);
         return;
@@ -235,6 +251,7 @@ export function LinkImportDialog() {
         setRows(next);
         void lookUpFiles(next, id);
         setUnsupported(result.unsupported);
+        setLists(result.lists || []);
         setSkipped(result.skipped);
       } catch (error) {
         if (id === checkId.current) setSummary(`The links could not be checked: ${errorText(error)}`);
@@ -264,6 +281,25 @@ export function LinkImportDialog() {
       } catch {
         /* the download picks the files itself then */
       }
+    }
+  }
+
+  /** Get a designer's or collection's models: the list link is replaced by their model links. */
+  async function expandList(list: ListLink) {
+    setListState((now) => ({ ...now, [list.url]: { busy: true } }));
+    try {
+      const found = await callAction<{ title: string; links: string[]; total: number }>('list-model-links', list.url);
+      if (!found.links.length) throw new Error('No models found');
+      setText((now) => {
+        const block = found.links.join('\n');
+        return now.includes(list.raw) ? now.split(list.raw).join(block) : `${now.trim()}\n${block}`;
+      });
+      setListState((now) => ({ ...now, [list.url]: {} }));
+      setSummary(
+        `${found.title}: ${found.links.length} ${found.links.length === 1 ? 'model' : 'models'}${found.total > found.links.length ? ` (the first ${found.links.length} of ${found.total})` : ''} added to the list.`
+      );
+    } catch (error) {
+      setListState((now) => ({ ...now, [list.url]: { error: errorText(error) } }));
     }
   }
 
@@ -516,6 +552,24 @@ export function LinkImportDialog() {
               )}
             </li>
           ))}
+        </ul>
+      )}
+      {lists.length > 0 && (
+        <ul className="jp-links__lists" id="jp-links-lists">
+          {lists.map((list) => {
+            const state = listState[list.url] || {};
+            return (
+              <li key={list.url} className="jp-links__list">
+                <span className="jp-links__list-name">
+                  {list.siteLabel} {list.kind === 'designer' ? 'designer' : ''} <strong>{list.label}</strong>
+                  {state.error && <span className="jp-meta jp-links__list-error">{state.error}</span>}
+                </span>
+                <button type="button" className="jp-btn jp-btn--secondary jp-btn--sm" disabled={state.busy || busy} onClick={() => void expandList(list)}>
+                  {state.busy ? 'Getting…' : 'Get Their Models'}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
       {(unsupported.length > 0 || skipped > 0) && (

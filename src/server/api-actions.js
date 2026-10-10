@@ -40,6 +40,7 @@ const ACTIONS = {
 
   // Bulk import from Printables, Thingiverse and MakerWorld links (ipc/link-import.js)
   'check-model-links': ['string'],
+  'list-model-links': ['string', 'object?'],
   'import-model-link': ['string', 'object?'],
   'list-site-files': ['string'],
   'site-download-files': ['object'],
@@ -331,6 +332,7 @@ const EDITOR_ACTIONS = new Set([
   'start-geometry-scan',
   'stop-geometry-scan',
   'check-model-links',
+  'list-model-links',
   'import-model-link',
   'list-site-files',
   'site-download-files',

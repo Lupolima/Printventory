@@ -204,7 +204,7 @@ function knownModels(db) {
 
 /** Pasted text → the links in it, each marked new or already in the library. */
 function checkLinks(db, text) {
-  const { links, unsupported, skipped } = findModelLinks(text);
+  const { links, lists, unsupported, skipped } = findModelLinks(text);
   const known = knownModels(db);
   return {
     links: links.map((link) => {
@@ -219,6 +219,15 @@ function checkLinks(db, text) {
         existing: existing ? { filePath: existing.filePath, fileName: existing.fileName } : null
       };
     }),
+    // Designers and collections: Add Links offers to list their models.
+    lists: lists.map((list) => ({
+      site: list.site,
+      siteLabel: SITES[list.site].label,
+      kind: list.kind,
+      url: list.url,
+      raw: list.raw,
+      label: list.kind === 'designer' ? `${list.handle ? `@${list.handle}` : list.user}` : `collection ${list.id}`
+    })),
     unsupported,
     skipped
   };
