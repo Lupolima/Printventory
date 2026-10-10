@@ -297,3 +297,84 @@
   font: inherit;
   resize: vertical;
 }
+
+/* Assembly view (kits/AssemblyDialog.tsx): the scene, and the parts beside it. */
+dialog.assembly-dialog {
+  width: min(1280px, 96vw);
+  max-width: 96vw;
+}
+.assembly {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--jp-space-3);
+  height: min(70vh, 760px);
+}
+.assembly__stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--jp-radius-md);
+  background: var(--jp-preview-bg);
+}
+.assembly__stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.assembly__status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--jp-text-2);
+  text-align: center;
+  white-space: pre-line;
+}
+.assembly__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+  min-height: 0;
+}
+.assembly__parts {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.assembly__parts li {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  padding: 2px var(--jp-space-1);
+  border-radius: var(--jp-radius-sm);
+}
+.assembly__parts li.is-selected {
+  background: var(--jp-accent-soft);
+}
+.assembly__part-name {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.assembly__part-name:focus-visible {
+  box-shadow: var(--jp-focus-ring);
+}
+@media (max-width: 800px) {
+  .assembly {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 80vh;
+  }
+  .assembly__parts {
+    max-height: 160px;
+  }
+}

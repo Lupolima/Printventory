@@ -64,6 +64,7 @@ import { MakerWorldDownloadDialog } from './makerworld/MakerWorldDownloadDialog'
 import { MakerWorldSettingsDialog } from './makerworld/MakerWorldSettingsDialog';
 import { EditModelDialog } from './details/EditModelDialog';
 import { PhotoSearchDialog } from './search/PhotoSearchDialog';
+import { AssemblyDialog } from './kits/AssemblyDialog';
 import { MakerWorldSignInDialog } from './makerworld/MakerWorldSignInDialog';
 import { AddToCollectionDialog } from './collections/AddToCollectionDialog';
 import { ShareDialog } from './share/ShareDialog';
@@ -92,6 +93,7 @@ function Screens() {
       <MakerWorldSettingsDialog />
       <EditModelDialog />
       <PhotoSearchDialog />
+      <AssemblyDialog />
       <ThingiverseSettingsDialog />
       <SiteFilesDownloadDialog />
       <AddToCollectionDialog />

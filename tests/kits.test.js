@@ -88,6 +88,22 @@ async function main() {
   assert.strictEqual(folders.getFolder(database.db, kitDir).notes, 'Glue the head last.');
   assert.strictEqual(folders.getFolder(database.db, path.join(tmp, 'empty')), null);
 
+  // --- Assembly view: a folder's layout, checked ---
+  assert.strictEqual(folders.getAssembly(database.db, kitDir), null);
+  const saved = folders.saveAssembly(database.db, `${kitDir}${path.sep}`, {
+    layout: 'laid-out',
+    poses: {
+      [kitId]: { position: [1, 2, 3], quaternion: [0, 0, 0, 1] },
+      [swordId]: { position: [1, 'x', 3], quaternion: [0, 0, 0, 1] },
+      evil: { position: [0, 0, 0], quaternion: [0, 0, 0, 1] }
+    }
+  });
+  assert.deepStrictEqual(saved, { layout: 'laid-out', poses: { [kitId]: { position: [1, 2, 3], quaternion: [0, 0, 0, 1] } } });
+  assert.deepStrictEqual(folders.getAssembly(database.db, kitDir), saved);
+  assert.strictEqual(folders.saveAssembly(database.db, kitDir, { layout: 'sideways', poses: null }).layout, 'designed');
+  folders.saveAssembly(database.db, kitDir, null);
+  assert.strictEqual(folders.getAssembly(database.db, kitDir), null);
+
   // --- Kit progress ---
   const kits = require('../src/server/kits');
   const kit = await kits.getKit(kitDir);

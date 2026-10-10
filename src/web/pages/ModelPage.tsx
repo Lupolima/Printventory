@@ -421,7 +421,10 @@ export function ModelPage({ filePath }: { filePath: string }) {
                 <button type="button" className="jp-link-button" id="jp-model-page-folder" onClick={() => navigate('folder', folderPath)}>
                   The folder as one model
                 </button>{' '}
-                (all its files, notes and kit progress)
+                (all its files, notes and kit progress) ·{' '}
+                <button type="button" className="jp-link-button" id="jp-model-page-assembly" onClick={() => window.openAssembly?.(folderPath)}>
+                  Assembly view
+                </button>
               </p>
             )}
             <ul className="jp-model-page__file-grid" id="jp-model-page-file-grid">

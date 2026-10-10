@@ -215,6 +215,8 @@ const NETWORK_IPC_PATH_RULES = {
   'look-alike-models': [[0, 'file']],
   'get-folder': [[0, 'modelDir']],
   'save-folder-notes': [[0, 'modelDir']],
+  'get-assembly': [[0, 'modelDir']],
+  'save-assembly': [[0, 'modelDir']],
   'get-kit': [[0, 'file']],
   'set-kit-part': [[0, 'file']],
   'get-kit-summaries': [[0, 'files']],

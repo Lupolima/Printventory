@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, FolderOpen, FolderPlus, Library, Pencil } from 'lucide-react';
+import { ArrowLeft, Boxes, FolderOpen, FolderPlus, Library, Pencil } from 'lucide-react';
+import { isPreviewablePath } from '../preview/studio';
 import { callAction, LIBRARY_CHANGED } from '../api';
 import { Button, cx } from '../components/Button';
 import { EmptyState, Panel, Skeleton } from '../components/Panel';
@@ -271,6 +272,11 @@ export function FolderPage({ path }: { path: string }) {
               >
                 Open All in Slicer
               </Button>
+              {paths.filter(isPreviewablePath).length > 1 && (
+                <Button icon={Boxes} id="jp-folder-assembly" onClick={() => window.openAssembly?.(folder.path)}>
+                  Assembly View
+                </Button>
+              )}
               {canEdit && (
                 <Button icon={FolderPlus} onClick={() => window.openAddToCollection?.(paths)}>
                   Add to Collection

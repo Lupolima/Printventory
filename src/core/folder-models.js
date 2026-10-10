@@ -20,6 +20,14 @@ function ensureTables(db) {
     updated_at TEXT NOT NULL
   )`
   ).run();
+  // Assembly view: how the folder's parts were laid out ({ layout, poses: { modelId: pose } }).
+  db.prepare(
+    `CREATE TABLE IF NOT EXISTS folder_assembly (
+    path TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`
+  ).run();
   readyFor.add(db);
 }
 
@@ -97,4 +105,38 @@ function saveFolderNotes(db, dir, notes) {
   return { notes: text };
 }
 
-module.exports = { folderFiles, folderKey, getFolder, saveFolderNotes };
+const MAX_PARTS = 200;
+const finite = (list, length) => Array.isArray(list) && list.length === length && list.every((n) => typeof n === 'number' && Number.isFinite(n));
+
+/** A folder's saved assembly: { layout: 'designed' | 'laid-out', poses: { [modelId]: { position, quaternion } } }, or null. */
+function getAssembly(db, dir) {
+  ensureTables(db);
+  const row = db.prepare('SELECT data FROM folder_assembly WHERE path = ?').get(folderKey(dir));
+  if (!row) return null;
+  try {
+    return JSON.parse(row.data);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Keep a folder's assembly (checked: a known layout, at most 200 parts, numbers only). Null forgets it. */
+function saveAssembly(db, dir, assembly) {
+  ensureTables(db);
+  const key = folderKey(dir);
+  if (!assembly) {
+    db.prepare('DELETE FROM folder_assembly WHERE path = ?').run(key);
+    return null;
+  }
+  const layout = assembly.layout === 'laid-out' ? 'laid-out' : 'designed';
+  const poses = {};
+  for (const [id, pose] of Object.entries(assembly.poses && typeof assembly.poses === 'object' ? assembly.poses : {}).slice(0, MAX_PARTS)) {
+    if (!/^\d+$/.test(id) || !pose || !finite(pose.position, 3) || !finite(pose.quaternion, 4)) continue;
+    poses[id] = { position: pose.position, quaternion: pose.quaternion };
+  }
+  const data = { layout, poses };
+  db.prepare('INSERT OR REPLACE INTO folder_assembly (path, data, updated_at) VALUES (?, ?, ?)').run(key, JSON.stringify(data), new Date().toISOString());
+  return data;
+}
+
+module.exports = { folderFiles, folderKey, getAssembly, getFolder, saveAssembly, saveFolderNotes };
