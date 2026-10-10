@@ -2,6 +2,18 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [Unreleased]
+
+**Changes:**
+- **Folders as models:** a folder button in the library's toolbar shows each folder of model files as one card (its pictures, how many files, its kit progress); click it for the folder's page: its pictures, notes of its own, kit progress, every file with Load 3D, Open and Download, what the files share (designers, licenses, tags, categories, sources), Open All in Slicer, Add to Collection and Show in Library. The card's arrow still opens the folder in the grid. Kept per account; nothing on disk changes. A model's page links to its folder's page ("The folder as one model").
+- **Kit progress:** a 3MF project with several plates (Bambu Studio, OrcaSlicer) is a kit of its plates, with their names and, when sliced, their print time and grams; a folder is a kit of its files and their plates. Tick parts as they are printed on the model's or folder's page (logging a print as Printed ticks every part of that file); pages show "3 of 12 printed" and what is left to print, folder cards their progress.
+- **Smart collections:** Save Search, next to Clear All Filters, keeps the library's current search as a collection that always shows the models it finds (a new model that matches shows up by itself). On its page, Show in Library opens the search again and Use Current Search changes it. Share links of a smart collection show what it finds when they are opened.
+- **Search by meaning:** ✨ next to the search box: the AI service (Settings → AI Tagging) turns what you typed into related words ("phone stand" also finds holders, docks and cradles) and the library shows models matching any of them, as chips you can change.
+- **Search with a photo:** the camera next to the search box: drop, paste, choose or (on a phone) take a photo of the part or thing you need; the AI service says what it shows and the library is searched for that. The photo is made small, sent to that service and not kept. Guests cannot use the AI searches.
+- **More like this:** on a model's page, models with a similar shape at any size (from the measurements the Duplicates page uses; sharing tags or categories brings them closer). Measure Them Now measures models that have not been measured yet.
+- **Add a designer's or a collection's models:** paste a designer's page or a collection in Add Links and choose Get Their Models: its model links (up to 200) take its place, to add like any others. MakerWorld designers (once one of their models is in the library, or from "Other models" next to the designer in a model's MakerWorld section) and collections; Printables designers (Printables does not let other programs list a collection's models); Thingiverse designers and collections with a Thingiverse API token.
+- **Phones:** the top bar's Add Links is left out on phones (it is in the library's toolbar) to give the search box room next to the two AI search buttons.
+
 ## [7.14.0] - 2026-10-10
 
 **Upgrading:** no changes needed. Reload open browser tabs after the update. The categories (MakerWorld's main ones) are added on the first start; no model is put in one until you run **Categorize Library** or pick categories in **Edit**.
