@@ -32,7 +32,13 @@ function networkPathContext() {
     dataDir,
     isExtractTemp: (candidate) => isJusttPrintExtractTempPath(candidate),
     realpath: (candidate) => fs.realpathSync.native(candidate),
-    isKnownModel: (candidate) => !!(database.db && database.db.prepare('SELECT 1 FROM models WHERE filePath = ? LIMIT 1').get(candidate))
+    isKnownModel: (candidate) => !!(database.db && database.db.prepare('SELECT 1 FROM models WHERE filePath = ? LIMIT 1').get(candidate)),
+    hasModelsIn: (dir) => {
+      const folder = String(dir || '').replace(/[\\/]+$/, '');
+      if (!database.db || !folder) return false;
+      const like = `${folder.replace(/[\\%_]/g, (c) => `\\${c}`)}${path.sep}%`;
+      return !!database.db.prepare("SELECT 1 FROM models WHERE filePath LIKE ? ESCAPE '\\' LIMIT 1").get(like);
+    }
   };
 }
 

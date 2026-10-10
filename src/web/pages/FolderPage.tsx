@@ -43,14 +43,16 @@ function showInLibrary(change: () => void) {
 
 /** The folder's pictures: one per file that has one, large, with a strip to pick from. */
 function Pictures({ files }: { files: Folder['files'] }) {
-  const images = files.map((file) => file.image).filter((image): image is string => !!image);
+  const [broken, setBroken] = useState<Set<string>>(new Set());
+  const images = files.map((file) => file.image).filter((image): image is string => !!image && !broken.has(image));
   const [index, setIndex] = useState(0);
+  const drop = (src: string) => setBroken((now) => new Set(now).add(src));
   if (!images.length) return null;
   const shown = images[index < images.length ? index : 0];
   return (
     <div className="jp-model-page__gallery">
       <div className="jp-model-page__stage">
-        <img src={shown} alt="" draggable={false} />
+        <img src={shown} alt="" draggable={false} onError={() => drop(shown)} />
       </div>
       {images.length > 1 && (
         <div className="jp-details__strip" role="listbox" aria-label="Pictures" aria-orientation="horizontal">
@@ -64,7 +66,7 @@ function Pictures({ files }: { files: Folder['files'] }) {
               className={cx('jp-details__thumb', i === index && 'is-selected')}
               onClick={() => setIndex(i)}
             >
-              <img src={src} alt="" draggable={false} />
+              <img src={src} alt="" draggable={false} onError={() => drop(src)} />
             </button>
           ))}
         </div>

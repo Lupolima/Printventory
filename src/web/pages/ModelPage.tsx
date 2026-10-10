@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Box, ClipboardPen, Download, FileBox, Heart, MoreHorizontal, Pencil } from 'lucide-react';
-import { callAction, downloadUrl, LIBRARY_CHANGED, models as modelApi, prints, type PrintEvent } from '../api';
+import { callAction, dedup, downloadUrl, LIBRARY_CHANGED, models as modelApi, prints, type PrintEvent } from '../api';
 import { Button, IconButton, cx } from '../components/Button';
 import { EmptyState, Panel, Skeleton } from '../components/Panel';
 import { formatAdded, panelImages, Prop, Rating, saveCardField, SlicerButton, type PanelModel } from '../details/ModelDetailsPanel';
@@ -150,7 +150,15 @@ export function FileCard({ file, current }: { file: FolderFile; current: boolean
           <InlineViewer filePath={file.filePath} />
         ) : (
           <>
-            <img src={file.image || 'assets/3d.png'} alt="" draggable={false} />
+            <img
+              src={file.image || 'assets/3d.png'}
+              alt=""
+              draggable={false}
+              onError={(event) => {
+                // A picture that cannot be shown: the placeholder.
+                if (!event.currentTarget.src.endsWith('assets/3d.png')) event.currentTarget.src = 'assets/3d.png';
+              }}
+            />
             {canLoad && (
               <button type="button" className="jp-model-file__load" onClick={() => setLive(true)}>
                 <Box size={14} aria-hidden="true" />
@@ -203,6 +211,28 @@ function MoreLikeThis({ filePath }: { filePath: string }) {
   const [result, setResult] = useState<{ models: LookAlike[]; unmeasured: number; reason: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [measuring, setMeasuring] = useState(false);
+  const canEdit = useCan('editor');
+
+  // Measuring the library (the geometry scan Duplicates uses): compare again when it is done.
+  useEffect(() => {
+    if (!measuring) return undefined;
+    return onServerEvent('geometry-complete', () => {
+      setMeasuring(false);
+      void find();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measuring]);
+
+  async function measure() {
+    setMeasuring(true);
+    try {
+      await dedup.startGeometry(null);
+    } catch (failure) {
+      setMeasuring(false);
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  }
 
   async function find() {
     setBusy(true);
@@ -241,11 +271,14 @@ function MoreLikeThis({ filePath }: { filePath: string }) {
       )}
       {result && result.unmeasured > 0 && (
         <p className="jp-meta">
-          {result.unmeasured.toLocaleString()} {result.unmeasured === 1 ? 'model has' : 'models have'} not been measured yet, so they are not compared:{' '}
-          <button type="button" className="jp-link-button" onClick={() => navigate('duplicates')}>
-            run Find: Same geometry on Duplicates
-          </button>{' '}
-          to include them.
+          {measuring
+            ? 'Measuring the library… the list fills in when it is done.'
+            : `${result.unmeasured.toLocaleString()} ${result.unmeasured === 1 ? 'model has' : 'models have'} not been measured yet, so ${result.unmeasured === 1 ? 'it is' : 'they are'} not compared.`}{' '}
+          {canEdit && !measuring && (
+            <Button size="sm" id="jp-measure-library" onClick={() => void measure()}>
+              Measure Them Now
+            </Button>
+          )}
         </p>
       )}
     </section>
