@@ -7,6 +7,8 @@ import { exposeGlobal } from '../page';
 import { applyFilterChange, getSearchStatus, labels, onReloadOptions, runSearch, subscribeSearchStatus } from './search';
 import { filterActions, getFilterState, subscribeFilters } from './store';
 import { pickFromList } from '../components/ListPicker';
+import { useCan } from '../session';
+import { saveCurrentSearch } from './savedSearches';
 
 /** What the sidebar asks of the library (src/web/library/hosts.ts). */
 export interface SidebarHost {
@@ -141,6 +143,7 @@ function StripView({ items, disabled, onRemove }: { items: StripItem[]; disabled
 
 /** The "current filter" strip (#current-filter): result count and active filters (#current-filter-body), search logic and Clear All. */
 function FilterStrip({ container, body, actions }: { container: HTMLElement; body: HTMLElement; actions: HTMLElement }) {
+  const canSave = useCan('editor');
   const state = useFilters();
   const { loading, count } = useSearchStatus();
   const strip = filterStrip(state, labels);
@@ -214,6 +217,19 @@ function FilterStrip({ container, body, actions }: { container: HTMLElement; bod
           >
             Clear All Filters
           </button>
+          {canSave && (
+            <button
+              type="button"
+              id="save-search-button"
+              className="clear-filter-button"
+              hidden={!strip.active}
+              disabled={loading}
+              title="Save this search as a smart collection"
+              onClick={() => void saveCurrentSearch()}
+            >
+              Save Search
+            </button>
+          )}
         </>,
         actions
       )}

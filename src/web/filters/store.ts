@@ -17,6 +17,7 @@ import {
   emptyFilterState,
   invertNext,
   removeToken,
+  restoredState,
   type AtomKind,
   type ChipRemove,
   type Combine,
@@ -156,6 +157,11 @@ export const filterActions = {
       case 'directory':
         return set({ ...state, directory: '' });
     }
+  },
+
+  /** Show a saved search (a smart collection) in the library. */
+  restore(saved: unknown) {
+    set(restoredState(state, saved));
   },
 
   /** Clear All Filters / View Entire Library. */

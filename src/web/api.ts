@@ -897,6 +897,10 @@ export interface CollectionSummary {
   modelCount: number;
   /** The most recently added model, for the cover. */
   coverPath: string | null;
+  /** A saved search: its models are what the search finds now. */
+  smart?: boolean;
+  /** The library filters of a smart collection's search (filters/query.ts SavedSearch). */
+  query?: unknown;
 }
 
 export interface CollectionModel {
@@ -926,7 +930,11 @@ export const collections = {
   membership: (filePaths: string[]) =>
     callAction<{ models: number; collections: (CollectionSummary & { selectedInIt: number })[] }>('get-collection-membership', filePaths),
   create: (name: string, description = '') => callAction<CollectionSummary>('create-collection', { name, description }),
-  update: (id: number, changes: { name?: string; description?: string }) => callAction<CollectionSummary>('update-collection', id, changes),
+  /** A smart collection: `query` the library's filters, `filters` the get-models-filtered payload. */
+  createSmart: (name: string, query: unknown, filters: Record<string, unknown>) =>
+    callAction<CollectionSummary>('create-collection', { name, smart: { query, filters } }),
+  update: (id: number, changes: { name?: string; description?: string; smart?: { query: unknown; filters: Record<string, unknown> } }) =>
+    callAction<CollectionSummary>('update-collection', id, changes),
   remove: (id: number) => callAction<unknown>('delete-collection', id),
   add: (id: number, filePaths: string[]) => callAction<{ added: number; name: string }>('add-to-collection', id, filePaths),
   take: (id: number, filePaths: string[]) => callAction<{ removed: number; name: string }>('remove-from-collection', id, filePaths)

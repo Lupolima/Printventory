@@ -155,16 +155,23 @@ function resolveShareLink(db, token, now = new Date()) {
     if (!models.length) return null;
     title = models[0].fileName;
   } else {
-    const collection = db.prepare('SELECT name, description FROM collections WHERE id = ?').get(row.target_id);
+    const collections = require('./collections');
+    collections.ensureCollectionsSchema(db);
+    const collection = db.prepare('SELECT name, description, smart_filters FROM collections WHERE id = ?').get(row.target_id);
     if (!collection) return null;
     title = collection.name;
     description = collection.description || '';
-    models = db
-      .prepare(
-        `SELECT ${columns} FROM collection_models cm JOIN models m ON m.id = cm.model_id
+    // A smart collection shows what its search finds now.
+    models = collection.smart_filters
+      ? collections
+          .getCollection(db, row.target_id)
+          .models.map(({ id, filePath, fileName, designer, license, source, size }) => ({ id, filePath, fileName, designer, license, source, size }))
+      : db
+          .prepare(
+            `SELECT ${columns} FROM collection_models cm JOIN models m ON m.id = cm.model_id
       WHERE cm.collection_id = ? ORDER BY cm.added_at DESC, m.id DESC`
-      )
-      .all(row.target_id);
+          )
+          .all(row.target_id);
   }
   const tagsOf = db.prepare('SELECT t.name FROM tags t JOIN model_tags mt ON mt.tag_id = t.id WHERE mt.model_id = ? ORDER BY t.name COLLATE NOCASE');
   return {

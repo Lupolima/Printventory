@@ -563,3 +563,75 @@ export function clearedState(state: FilterState): FilterState {
   const empty = emptyFilterState();
   return { ...empty, combine: state.combine, includeNotes: state.includeNotes, sort: state.sort, viewingEntireLibrary: true };
 }
+
+// ------------------------------------------------------------------ saved searches
+
+/** What a saved search (a smart collection) keeps of the filters: no view, sort or "new models" moment. */
+export type SavedSearch = Pick<
+  FilterState,
+  | 'designer'
+  | 'license'
+  | 'parentModel'
+  | 'tags'
+  | 'combine'
+  | 'printed'
+  | 'isNew'
+  | 'favorite'
+  | 'rating'
+  | 'ratingMin'
+  | 'fileType'
+  | 'tokens'
+  | 'inverted'
+  | 'directory'
+  | 'includeNotes'
+>;
+
+export function savedSearch(state: FilterState): SavedSearch {
+  return {
+    designer: [...state.designer],
+    license: [...state.license],
+    parentModel: [...state.parentModel],
+    tags: [...state.tags],
+    combine: { ...state.combine },
+    printed: state.printed,
+    isNew: state.isNew,
+    favorite: state.favorite,
+    rating: state.rating,
+    ratingMin: state.ratingMin,
+    fileType: state.fileType,
+    tokens: normalizeTokens(state.tokens),
+    inverted: { ...state.inverted },
+    directory: state.directory,
+    includeNotes: state.includeNotes
+  };
+}
+
+const strings = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+const text = (value: unknown, fallback: string) => (typeof value === 'string' ? value : fallback);
+
+/** The library filters for a saved search (anything missing or malformed is left off); view and sort stay. */
+export function restoredState(state: FilterState, saved: unknown): FilterState {
+  const base = { ...clearedState(state), viewingEntireLibrary: false };
+  if (!saved || typeof saved !== 'object') return base;
+  const s = saved as Partial<Record<keyof SavedSearch, unknown>>;
+  const combine = s.combine && typeof s.combine === 'object' ? (s.combine as Partial<Record<MultiKind, Combine>>) : {};
+  const inverted = s.inverted && typeof s.inverted === 'object' ? (s.inverted as Partial<Record<InvertKind, boolean>>) : {};
+  return {
+    ...base,
+    designer: strings(s.designer),
+    license: strings(s.license),
+    parentModel: strings(s.parentModel),
+    tags: strings(s.tags),
+    combine: { ...base.combine, ...combine },
+    printed: text(s.printed, base.printed),
+    isNew: text(s.isNew, base.isNew),
+    favorite: text(s.favorite, base.favorite),
+    rating: text(s.rating, base.rating),
+    ratingMin: text(s.ratingMin, base.ratingMin),
+    fileType: text(s.fileType, base.fileType),
+    tokens: Array.isArray(s.tokens) ? normalizeTokens(s.tokens as SearchToken[]) : [],
+    inverted: { ...base.inverted, ...inverted },
+    directory: text(s.directory, ''),
+    includeNotes: typeof s.includeNotes === 'boolean' ? s.includeNotes : base.includeNotes
+  };
+}
