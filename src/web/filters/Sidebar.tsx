@@ -245,7 +245,7 @@ function SearchControls({ container }: { container: HTMLElement }) {
   const search = () => {
     const text = draft.trim();
     applyFilterChange(() => {
-      if (text) filterActions.search('all', text);
+      if (text) filterActions.searchTyped(text);
       else filterActions.setViewingEntireLibrary(false);
     });
     if (text) setDraft('');

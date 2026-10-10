@@ -5,6 +5,7 @@
  * backed by this store, so they stay in step.
  */
 import { settings } from '../api';
+import { looksTyped, parseTyped } from './typed';
 import {
   DEFAULT_SORT,
   SORT_OPTIONS,
@@ -16,6 +17,7 @@ import {
   consumeIntoQuery,
   emptyFilterState,
   invertNext,
+  normalizeTokens,
   removeToken,
   restoredState,
   type AtomKind,
@@ -131,6 +133,23 @@ export const filterActions = {
         : [{ t: 'clause', field: 'all', value }]
     );
     userChange({ ...state, tokens, awaiting: false, inverted: { ...state.inverted, search: false } });
+  },
+
+  /**
+   * The search box's text: a typed search (filters/typed.ts) becomes its terms (in brackets after
+   * a query already there), plain words search every field as before. Answers what could not be read.
+   */
+  searchTyped(text: string): string | null {
+    if (!looksTyped(text)) {
+      userChange(appendClause(state, 'all', text));
+      return null;
+    }
+    const { tokens, error } = parseTyped(text);
+    if (!tokens.length) return error;
+    const before = normalizeTokens(state.tokens);
+    const joined: SearchToken[] = before.length ? [...before, { t: 'op', op: 'AND' }, { t: 'open' }, ...tokens, { t: 'close' }] : tokens;
+    userChange({ ...state, tokens: normalizeTokens(joined), awaiting: false, inverted: { ...state.inverted, search: false } });
+    return error;
   },
 
   /** Add the search box text to the query. */

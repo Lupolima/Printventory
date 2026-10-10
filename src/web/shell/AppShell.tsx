@@ -205,8 +205,12 @@ function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean })
     const query = text.trim();
     if (!query) return;
     navigate('library');
-    applyFilterChange(() => filterActions.search('all', query));
+    let problem: string | null = null;
+    applyFilterChange(() => {
+      problem = filterActions.searchTyped(query);
+    });
     setText('');
+    if (problem) void showMessage('Search', problem);
   }
 
   return (
@@ -228,6 +232,7 @@ function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean })
         label="Search the library"
         value={text}
         placeholder="Search models, designers, tags, or anything..."
+        title={'Search every field, or type a query: tag:robot creator:"M Armory" -tag:broken (category:Toys OR category:Art) is:unprinted rating:4+'}
         shortcut={shortcutLabel(navigator.platform)}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={onKeyDown}

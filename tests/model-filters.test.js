@@ -67,3 +67,23 @@ test('a file type not in the list filters by its extension instead of failing', 
   db.prepare("INSERT INTO models (filePath, fileName) VALUES ('/lib/gear.f3d', 'gear.f3d')").run();
   assert.deepStrictEqual(names(db, { fileType: 'f3d' }), ['gear.f3d']);
 });
+
+test('brackets group a typed search; unpaired ones are mended', () => {
+  const db = createDb();
+  const c = (field, value) => ({ t: 'clause', field, value });
+  // (box OR cube) AND cu → cube; without brackets AND binds first: box OR (cube AND cu) → both.
+  const grouped = [
+    { t: 'open' },
+    c('fileName', 'box'),
+    { t: 'op', op: 'OR' },
+    c('fileName', 'cube'),
+    { t: 'close' },
+    { t: 'op', op: 'AND' },
+    c('fileName', 'cu')
+  ];
+  assert.deepStrictEqual(names(db, { searchTokens: grouped }), ['cube.stl']);
+  const flat = grouped.filter((tok) => tok.t !== 'open' && tok.t !== 'close');
+  assert.deepStrictEqual(names(db, { searchTokens: flat }), ['box.3mf', 'cube.stl']);
+  assert.deepStrictEqual(names(db, { searchTokens: [{ t: 'open' }, c('fileName', 'cone')] }), ['cone.stl'], 'an open bracket is closed');
+  assert.deepStrictEqual(names(db, { searchTokens: [c('fileName', 'cone'), { t: 'close' }] }), ['cone.stl'], 'a lone close bracket is dropped');
+});

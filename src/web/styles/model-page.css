@@ -84,8 +84,10 @@
   right: var(--jp-space-3);
   bottom: var(--jp-space-3);
 }
-.jp-model-page__gallery .jp-details__strip {
+/* Below the picture (the details panel tucks its strip under the preview; strong enough to beat that rule). */
+:is(#model-details, .jp-model-page) .jp-model-page__gallery .jp-details__strip {
   margin-top: var(--jp-space-2);
+  padding-top: 2px;
 }
 
 .jp-model-page__markdown {
