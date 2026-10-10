@@ -22,7 +22,8 @@ import {
   type ChipRemove,
   type Combine,
   type FilterState,
-  type MultiKind
+  type MultiKind,
+  type SearchToken
 } from './query';
 
 type Listener = (state: FilterState) => void;
@@ -115,6 +116,21 @@ export const filterActions = {
 
   setCombine(kind: MultiKind, combine: Combine) {
     set({ ...state, combine: { ...state.combine, [kind]: combine } });
+  },
+
+  /** Search for any of these words (the AI searches); the filters stay. */
+  searchAny(words: string[]) {
+    const clean = words.map((word) => word.trim()).filter(Boolean);
+    if (!clean.length) return;
+    const tokens = clean.flatMap((value, i): SearchToken[] =>
+      i
+        ? [
+            { t: 'op', op: 'OR' },
+            { t: 'clause', field: 'all', value }
+          ]
+        : [{ t: 'clause', field: 'all', value }]
+    );
+    userChange({ ...state, tokens, awaiting: false, inverted: { ...state.inverted, search: false } });
   },
 
   /** Add the search box text to the query. */

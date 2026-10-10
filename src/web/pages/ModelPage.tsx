@@ -190,6 +190,67 @@ function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
   );
 }
 
+interface LookAlike {
+  filePath: string;
+  fileName: string | null;
+  distance: number;
+  image: string | null;
+}
+
+/** More like this: models shaped like this one at any size (geometry-job.js lookAlikes), found when asked. */
+function MoreLikeThis({ filePath }: { filePath: string }) {
+  const [result, setResult] = useState<{ models: LookAlike[]; unmeasured: number; reason: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function find() {
+    setBusy(true);
+    setError('');
+    try {
+      setResult(await callAction('look-alike-models', filePath));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="jp-model-page__alike" aria-labelledby="jp-model-page-alike">
+      <h2 className="jp-panel-title" id="jp-model-page-alike">
+        More like this
+      </h2>
+      {!result && (
+        <p className="jp-meta">
+          Models with a similar shape, at any size; sharing tags or categories brings them closer.{' '}
+          <Button size="sm" id="jp-more-like-this" disabled={busy} onClick={() => void find()}>
+            {busy ? 'Comparing…' : 'Find Models Shaped Like This'}
+          </Button>
+        </p>
+      )}
+      {error && <p className="jp-meta jp-mw__note">{error}</p>}
+      {result?.reason && <p className="jp-meta">{result.reason}.</p>}
+      {result && !result.reason && !result.models.length && <p className="jp-meta">No other model in the library has a similar shape.</p>}
+      {result && result.models.length > 0 && (
+        <ul className="jp-model-page__file-grid jp-model-page__alike-grid" id="jp-more-like-this-list">
+          {result.models.map((m) => (
+            <FileCard key={m.filePath} file={{ filePath: m.filePath, fileName: m.fileName, size: null, image: m.image }} current={false} />
+          ))}
+        </ul>
+      )}
+      {result && result.unmeasured > 0 && (
+        <p className="jp-meta">
+          {result.unmeasured.toLocaleString()} {result.unmeasured === 1 ? 'model has' : 'models have'} not been measured yet, so they are not compared:{' '}
+          <button type="button" className="jp-link-button" onClick={() => navigate('duplicates')}>
+            run Find: Same geometry on Duplicates
+          </button>{' '}
+          to include them.
+        </p>
+      )}
+    </section>
+  );
+}
+
 /**
  * A model's page (#/model/<path>): everything the details sidebar shows, on a page of its own,
  * like a model page on a model site. The pictures, notes, the site's details and the other files
@@ -327,6 +388,8 @@ export function ModelPage({ filePath }: { filePath: string }) {
               ))}
             </ul>
           </section>
+
+          {!online && <MoreLikeThis key={model.filePath} filePath={model.filePath} />}
         </div>
 
         <aside className="jp-model-page__side">

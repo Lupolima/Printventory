@@ -289,4 +289,18 @@ function similarShape(a, b) {
   return distance <= SIMILAR.shape;
 }
 
-module.exports = { SIMILAR, eigenSymmetric, geometrySignature, similarShape, stlSignature, threeMfSignature };
+/**
+ * How far apart two shapes are, whatever their size (More like this): the shape histograms'
+ * difference plus that of their proportions (the second and third spreads against the first).
+ * 0 is the same shape; different shapes are about 0.35 and more apart. Infinity without measures.
+ */
+function shapeDistance(a, b) {
+  if (!a || !b || !Array.isArray(a.spreads) || !Array.isArray(b.spreads) || !Array.isArray(a.shape) || !Array.isArray(b.shape)) return Infinity;
+  if (!(a.spreads[0] > 0) || !(b.spreads[0] > 0)) return Infinity;
+  let distance = 0;
+  for (let i = 0; i < a.shape.length; i++) distance += Math.abs(a.shape[i] - (b.shape[i] || 0));
+  for (let i = 1; i < 3; i++) distance += Math.abs(a.spreads[i] / a.spreads[0] - b.spreads[i] / b.spreads[0]);
+  return distance;
+}
+
+module.exports = { SIMILAR, eigenSymmetric, geometrySignature, shapeDistance, similarShape, stlSignature, threeMfSignature };

@@ -1,6 +1,23 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, CircleUserRound, Home, Library, Link2, ListChecks, Lock, LogIn, Menu as MenuIcon, MousePointerClick, Printer, X } from 'lucide-react';
+import {
+  Camera,
+  ChevronDown,
+  CircleUserRound,
+  Home,
+  Library,
+  Link2,
+  ListChecks,
+  Lock,
+  LogIn,
+  Menu as MenuIcon,
+  MousePointerClick,
+  Printer,
+  Sparkles,
+  X
+} from 'lucide-react';
+import { searchByMeaning } from '../search/aiSearch';
+import { showMessage } from '../page';
 import { library, type LibraryCounts, type LibraryStorage } from '../api';
 import { Menu } from '../components/Menu';
 import { cx } from '../components/Button';
@@ -142,6 +159,26 @@ function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean })
   const input = useRef<HTMLInputElement>(null);
   const user = useCurrentUser();
   const [text, setText] = useState('');
+  const [meaningBusy, setMeaningBusy] = useState(false);
+
+  /** Search by meaning with what is typed (or ask for it). */
+  async function meaning() {
+    const query = text.trim();
+    if (!query) {
+      input.current?.focus();
+      await showMessage('Search by Meaning', 'Type what you are looking for in the search box first (for example "phone stand"), then click ✨.');
+      return;
+    }
+    setMeaningBusy(true);
+    try {
+      await searchByMeaning(query);
+      setText('');
+    } catch (error) {
+      await showMessage('Search by Meaning', error instanceof Error ? error.message : String(error));
+    } finally {
+      setMeaningBusy(false);
+    }
+  }
 
   // Ctrl+K / ⌘K focuses the search from anywhere (spec §35).
   useEffect(() => {
@@ -193,6 +230,31 @@ function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean })
         onChange={(event) => setText(event.target.value)}
         onKeyDown={onKeyDown}
       />
+      {!!user && !user.guest && (
+        <span className="jp-topbar__ai">
+          <button
+            type="button"
+            id="jp-search-meaning"
+            className={cx('jp-icon-btn jp-icon-btn--md', meaningBusy && 'jp-mw__spinning')}
+            aria-label="Search by meaning"
+            title={meaningBusy ? 'Asking the AI service…' : 'Search by meaning: the AI service finds related words (type what you are looking for first)'}
+            disabled={meaningBusy}
+            onClick={() => void meaning()}
+          >
+            <Sparkles size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            id="jp-search-photo"
+            className="jp-icon-btn jp-icon-btn--md"
+            aria-label="Search with a photo"
+            title="Search with a photo: the AI service says what it shows"
+            onClick={() => window.openPhotoSearch?.()}
+          >
+            <Camera size={18} aria-hidden="true" />
+          </button>
+        </span>
+      )}
       {!!user && !user.guest && roleAllows(user.role, 'editor') && (
         <button
           type="button"

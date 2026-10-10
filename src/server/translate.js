@@ -6,7 +6,6 @@
  * for AI Tagging, 'off' does not translate. Names already in Latin script are left as they are.
  */
 
-const { OpenAI } = require('openai');
 const { needsTranslation } = require('../core/makerworld');
 const { httpsFetch, readLimited, USER_AGENT } = require('./link-import');
 
@@ -75,29 +74,7 @@ function parseAiAnswer(content, count) {
  * @param {{ aiSettings?: any, puterHandler?: any }} deps
  */
 async function translateAi(texts, { aiSettings, puterHandler }) {
-  const { apiKey, apiEndpoint, aiModel, aiService } = aiSettings;
-  const service = String(aiService || 'openai').toLowerCase();
-  if (service === 'puter') {
-    if (!puterHandler) throw new Error('Puter runs in the browser: open the model in a browser to translate');
-    return parseAiAnswer(await puterHandler(PROMPT(texts), null, aiModel || 'gpt-5-nano'), texts.length);
-  }
-  const { completionOptions, defaultBaseURLForService, defaultModelForService, requiresApiKey } = require('../core/aitagging');
-  if (requiresApiKey(service, apiEndpoint) && !apiKey) throw new Error('The AI service has no API key (Settings → AI Tagging)');
-  const endpoint = apiEndpoint && !/puter\.com/i.test(apiEndpoint) ? `${apiEndpoint.trim().replace(/\/+$/, '')}/` : defaultBaseURLForService(service);
-  const client = new OpenAI({
-    apiKey: apiKey || 'not-needed',
-    baseURL: endpoint,
-    timeout: 60000,
-    maxRetries: 1,
-    ...(service === 'claude' ? { defaultHeaders: { 'anthropic-version': '2023-06-01' } } : {})
-  });
-  const model = aiModel || defaultModelForService(service);
-  const reply = await client.chat.completions.create({
-    model,
-    messages: [{ role: 'user', content: PROMPT(texts) }],
-    ...completionOptions(service, model, { maxTokens: 2000, temperature: 0 })
-  });
-  return parseAiAnswer(reply.choices && reply.choices[0] && reply.choices[0].message && reply.choices[0].message.content, texts.length);
+  return parseAiAnswer(await require('./ai-ask').askAi(PROMPT(texts), { aiSettings, puterHandler, maxTokens: 2000 }), texts.length);
 }
 
 /**

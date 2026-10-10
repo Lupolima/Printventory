@@ -210,6 +210,7 @@ const NETWORK_IPC_PATH_RULES = {
   'rename-model': [[0, 'file']],
   'set-model-categories': [[0, 'file']],
   'get-folder-models': [[0, 'file']],
+  'look-alike-models': [[0, 'file']],
   'delete-file': [[0, 'file']],
   'show-context-menu': [[0, 'contextFiles']],
   get3MFImages: [[0, 'file']],

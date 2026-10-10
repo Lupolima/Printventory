@@ -14,6 +14,9 @@
 const ACTIONS = {
   // Models
   'get-model': ['string'],
+  'search-by-meaning': ['string'],
+  'search-by-photo': ['string'],
+  'look-alike-models': ['string'],
   'get-folder-models': ['string'],
   'save-model': ['object'],
   'save-model-batch': ['array'],
@@ -242,6 +245,9 @@ const ACTIONS = {
 
 /** Actions that only read: every logged-in user. */
 const VIEWER_ACTIONS = new Set([
+  'search-by-meaning',
+  'search-by-photo',
+  'look-alike-models',
   'get-categories',
   'get-folder-models',
   'get-notifications',

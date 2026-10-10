@@ -468,3 +468,11 @@ button.jp-notify__row:focus-visible {
   color: var(--jp-text-3);
   font-size: var(--jp-text-small);
 }
+
+/* Search by meaning and with a photo, right of the search box. */
+.jp-topbar__ai {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  margin-left: var(--jp-space-1);
+}
