@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { normalizeRating, tileStyle } from './ModelCard';
-import type { GridModel, GridView, GroupRecord } from './layout';
+import { folderOf, type GridModel, type GridView, type GroupRecord } from './layout';
+import { kitSummary, progressText } from '../kits/kits';
 import { applyColumns } from './columns';
 
 /** What a group card asks of the library (library/hosts.ts). */
@@ -132,7 +133,26 @@ export interface GroupCardProps {
   /** The JusttPrint 5 card (desktop grid view), sized like the model cards. */
 }
 
-/** A ZIP bundle or parent-model group in the library grid. */
+/** A folder card's kit progress ("3 of 12 printed"), else its print summary. */
+function FolderKit({ folder, fallback, printed }: { folder: string; fallback: string; printed: boolean }) {
+  const [summary, setSummary] = useState<{ done: number; total: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (folder) kitSummary(folder, (found) => live && setSummary(found));
+    return () => {
+      live = false;
+    };
+  }, [folder]);
+  if (!summary) return <span className={`jp-status jp-status--${printed ? 'success' : 'neutral'}`}>{fallback}</span>;
+  const complete = summary.done === summary.total;
+  return (
+    <span className={`jp-status jp-status--${complete ? 'success' : summary.done ? 'accent' : 'neutral'} jp-folder-kit`} title="Kit progress: parts printed">
+      {progressText(summary.done, summary.total)}
+    </span>
+  );
+}
+
+/** A ZIP bundle, parent-model group or folder (Folders as models) in the library grid. */
 export function GroupCard({ host, record, view, index, position, fixedHeight }: GroupCardProps) {
   const tile = view === 'detailed';
   const cardRef = useRef<HTMLDivElement>(null);
@@ -144,6 +164,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
   const kind = record.groupKind;
   const bundleKind = kind === 'bundle' ? String(record.children[0]?.bundleKind || 'folder') : '';
   const isBundle = kind === 'bundle';
+  const isFolder = kind === 'folder';
   const kindLabel = bundleKind === 'zip' ? 'zip archive' : isBundle ? 'folder' : '';
   const count = record.children.length;
   const print = host.groupPrintSummary(record.children);
@@ -314,7 +335,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
 
   let body;
   if (tile) {
-    const kindBadge = isBundle ? (bundleKind === 'zip' ? 'ZIP' : 'Folder') : 'Group';
+    const kindBadge = isFolder ? 'Folder' : isBundle ? (bundleKind === 'zip' ? 'ZIP' : 'Folder') : 'Group';
     body = (
       <>
         <div className="jp-model-card__preview">
@@ -324,13 +345,30 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
         <div className="jp-model-card__body parent-model-group-details">
           {titleRow}
           <div className="parent-model-group-meta jp-model-card__byline" title={isBundle ? 'Right-click for Preview and more options' : undefined}>
-            {isBundle ? `${count} part${count === 1 ? '' : 's'}` : `${count} model${count === 1 ? '' : 's'}`}
+            {isFolder
+              ? `${count} file${count === 1 ? '' : 's'}`
+              : isBundle
+                ? `${count} part${count === 1 ? '' : 's'}`
+                : `${count} model${count === 1 ? '' : 's'}`}
           </div>
           <div className="jp-model-card__badges">
-            <span className="jp-badge" title={isBundle ? `${kindLabel || 'folder'} bundle` : 'Models with the same parent model'}>
+            <span
+              className="jp-badge"
+              title={
+                isFolder
+                  ? 'A folder shown as one model: click for its page'
+                  : isBundle
+                    ? `${kindLabel || 'folder'} bundle`
+                    : 'Models with the same parent model'
+              }
+            >
               {kindBadge}
             </span>
-            <span className={`jp-status jp-status--${print.printedCount > 0 ? 'success' : 'neutral'}`}>{print.label}</span>
+            {isFolder ? (
+              <FolderKit folder={folderOf(record.children[0] || { filePath: '' })} fallback={print.label} printed={print.printedCount > 0} />
+            ) : (
+              <span className={`jp-status jp-status--${print.printedCount > 0 ? 'success' : 'neutral'}`}>{print.label}</span>
+            )}
           </div>
         </div>
       </>

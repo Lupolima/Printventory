@@ -28,7 +28,8 @@ const PER_USER_SETTING_KEYS = new Set([
   'hasRunBefore',
   'uiTheme',
   'uiColorScheme',
-  'detailsSidebar'
+  'detailsSidebar',
+  'folderModels'
 ]);
 
 /** Server-wide settings any user may save: the update check and the accepted terms. Everything else needs an admin. */

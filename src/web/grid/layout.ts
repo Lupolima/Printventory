@@ -29,7 +29,7 @@ export interface ModelRecord {
 export interface GroupRecord {
   type: 'group';
   key: string;
-  groupKind: 'bundle' | 'parentModel';
+  groupKind: 'bundle' | 'parentModel' | 'folder';
   groupKey: string;
   groupLabel: string;
   children: GridModel[];
@@ -140,6 +140,19 @@ export function bundleKey(model: GridModel): string {
   return model.bundleKey ? String(model.bundleKey).trim().toLowerCase() : zipBundleFields(model).key;
 }
 
+/** Folders as models: a file's folder (not for models inside a ZIP, or online models). */
+export function folderOf(model: GridModel): string {
+  const path = model.filePath || '';
+  if (!path || path.includes('::')) return '';
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return cut > 0 ? path.slice(0, cut) : '';
+}
+export const folderLabel = (model: GridModel) => {
+  const folder = folderOf(model);
+  return folder ? folder.split(/[\\/]/).filter(Boolean).pop() || folder : '';
+};
+export const folderKey = (model: GridModel) => normalizePath(folderOf(model)).toLowerCase();
+
 export const parentModelLabel = (model: GridModel) => (model.parentModel ? String(model.parentModel).trim() : '');
 export const parentModelKey = (label: string) =>
   String(label || '')
@@ -223,10 +236,14 @@ export function groupRecords(records: DisplayRecord[], options: GroupingOptions)
 export interface ExpandedGroups {
   bundles: ReadonlySet<string>;
   parentModels: ReadonlySet<string>;
+  folders?: ReadonlySet<string>;
 }
 
-/** The grid's records: each file once, ZIP entries bundled, then models grouped by parent model. */
-export function buildDisplayRecords(models: GridModel[], expanded: ExpandedGroups): DisplayRecord[] {
+/**
+ * The grid's records: each file once, ZIP entries bundled, then (Folders as models) the files of
+ * each folder as one, then models grouped by parent model.
+ */
+export function buildDisplayRecords(models: GridModel[], expanded: ExpandedGroups, options: { folders?: boolean } = {}): DisplayRecord[] {
   const records: DisplayRecord[] = [];
   const seen = new Set<string>();
   models.forEach((model, index) => {
@@ -242,7 +259,16 @@ export function buildDisplayRecords(models: GridModel[], expanded: ExpandedGroup
     label: bundleLabel,
     key: bundleKey
   });
-  return groupRecords(bundled, {
+  const foldered = options.folders
+    ? groupRecords(bundled, {
+        groupKind: 'folder',
+        keyPrefix: 'folder',
+        expanded: expanded.folders || new Set(),
+        label: folderLabel,
+        key: folderKey
+      })
+    : bundled;
+  return groupRecords(foldered, {
     groupKind: 'parentModel',
     keyPrefix: 'parent',
     expanded: expanded.parentModels,

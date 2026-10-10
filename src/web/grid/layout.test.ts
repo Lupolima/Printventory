@@ -157,3 +157,31 @@ describe('layout', () => {
     expect(scrollTopForSelection(layout, 600, () => false)).toBeNull();
   });
 });
+
+describe('folders as models', () => {
+  const library = [
+    model(1, '/lib/Voltron/legs.stl'),
+    model(2, '/lib/Cosplay/helmet.stl'),
+    model(3, '/lib/Voltron/head.3mf'),
+    model(4, '/lib/kit.zip::a.stl'),
+    model(5, '/lib/kit.zip::b.stl'),
+    model(6, 'url::https://makerworld.com/en/models/1')
+  ];
+  const kinds = (records: DisplayRecord[]) =>
+    records.map((r) => (r.type === 'group' ? `${r.groupKind}:${r.groupLabel}:${r.children.length}` : `model:${r.model.filePath}`));
+
+  it('shows each folder of two or more files as one card; ZIP files and online models as before', () => {
+    expect(kinds(buildDisplayRecords(library, none, { folders: true }))).toEqual([
+      'folder:Voltron:2',
+      'model:/lib/Cosplay/helmet.stl',
+      'bundle:kit.zip:2',
+      'model:url::https://makerworld.com/en/models/1'
+    ]);
+  });
+
+  it('is off unless asked, and an expanded folder is followed by its files', () => {
+    expect(kinds(buildDisplayRecords(library, none)).filter((k) => k.startsWith('folder'))).toEqual([]);
+    const open = buildDisplayRecords(library, { ...none, folders: new Set(['folder:/lib/voltron']) }, { folders: true });
+    expect(kinds(open).slice(0, 3)).toEqual(['folder:Voltron:2', 'model:/lib/Voltron/legs.stl', 'model:/lib/Voltron/head.3mf']);
+  });
+});

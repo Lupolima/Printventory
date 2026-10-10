@@ -18,7 +18,8 @@ export const PAGES = [
   'organize',
   'settings',
   'help',
-  'model'
+  'model',
+  'folder'
 ] as const;
 export type PageId = (typeof PAGES)[number];
 

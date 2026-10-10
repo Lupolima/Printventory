@@ -37,6 +37,8 @@ import { QueuePage } from '../pages/QueuePage';
 import { TagsPage } from '../pages/TagsPage';
 import { CategoriesPage } from '../pages/CategoriesPage';
 import { ModelPage } from '../pages/ModelPage';
+import { FolderPage } from '../pages/FolderPage';
+import { loadFolderMode } from '../library/folderMode';
 import { loadSidebarPref } from '../details/sidebarPref';
 import { SettingsPage } from '../pages/SettingsPage';
 import { StatsPage } from '../pages/StatsPage';
@@ -426,6 +428,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   collections: 'Collections',
   categories: 'Categories',
   model: 'Model',
+  folder: 'Folder',
   tags: 'Tags',
   duplicates: 'Duplicates',
   organize: 'Organize Library',
@@ -470,6 +473,7 @@ export function AppShell() {
   useEffect(() => {
     if (isThumbnailWorker) return undefined;
     void loadSidebarPref();
+    void loadFolderMode();
     document.body.classList.add('jp-shell-on');
     return () => document.body.classList.remove('jp-shell-on');
   }, []);
@@ -561,6 +565,7 @@ export function AppShell() {
           {allowed && page === 'tags' && <TagsPage />}
           {allowed && page === 'categories' && <CategoriesPage />}
           {allowed && page === 'model' && <ModelPage key={section} filePath={section} />}
+          {allowed && page === 'folder' && <FolderPage key={section} path={section} />}
           {allowed && page === 'duplicates' && <DuplicatesPage />}
           {allowed && page === 'organize' && <OrganizePage />}
           {allowed && page === 'settings' && <SettingsPage section={section} />}

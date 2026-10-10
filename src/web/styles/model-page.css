@@ -241,3 +241,57 @@
     height: min(50vh, 420px);
   }
 }
+
+/* Kit progress (kits/KitChecklist.tsx) */
+.jp-kit__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--jp-space-3);
+  margin-bottom: var(--jp-space-2);
+}
+.jp-kit__count {
+  color: var(--jp-text-2);
+  font-weight: 600;
+}
+.jp-kit__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  max-height: 420px;
+  margin: var(--jp-space-3) 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.jp-kit__parts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jp-space-1) var(--jp-space-3);
+}
+.jp-kit__parts label {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  min-width: 0;
+  cursor: pointer;
+}
+.jp-kit__parts li.is-done .jp-kit__label {
+  color: var(--jp-text-2);
+  text-decoration: line-through;
+}
+.jp-kit__label {
+  overflow-wrap: anywhere;
+}
+
+/* Folder page notes */
+.jp-folder-page__notes-input {
+  width: 100%;
+  min-height: 160px;
+  padding: var(--jp-space-3);
+  box-sizing: border-box;
+  font: inherit;
+  resize: vertical;
+}

@@ -18,6 +18,7 @@ import { useCan } from '../session';
 import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
 import { showCategory } from './CategoriesPage';
+import { KitChecklist } from '../kits/KitChecklist';
 
 /** What the page shows of a model (get-model). */
 type PageModel = PanelModel &
@@ -30,7 +31,7 @@ type PageModel = PanelModel &
   };
 
 /** A library file next to the model (get-folder-models). */
-interface FolderFile {
+export interface FolderFile {
   filePath: string;
   fileName: string | null;
   size: number | null;
@@ -136,7 +137,7 @@ function InlineViewer({ filePath }: { filePath: string }) {
 }
 
 /** One file of the folder: its picture (or 3D), its names, and Open, Load 3D and Download. */
-function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
+export function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
   const [live, setLive] = useState(false);
   const online = file.filePath.startsWith('url::');
   const name = file.fileName || file.filePath.split(/[\\/]/).pop() || '';
@@ -382,6 +383,14 @@ export function ModelPage({ filePath }: { filePath: string }) {
             <h2 className="jp-panel-title" id="jp-model-page-files">
               Files{folder ? <span className="jp-meta"> in {folder}</span> : null}
             </h2>
+            {!online && !model.filePath.includes('::') && files.length > 1 && (
+              <p className="jp-meta">
+                <button type="button" className="jp-link-button" id="jp-model-page-folder" onClick={() => navigate('folder', folderPath)}>
+                  The folder as one model
+                </button>{' '}
+                (all its files, notes and kit progress)
+              </p>
+            )}
             <ul className="jp-model-page__file-grid" id="jp-model-page-file-grid">
               {(files.length ? files : [{ filePath: model.filePath, fileName: model.fileName || null, size: model.size || null, image: null }]).map((file) => (
                 <FileCard key={file.filePath} file={file} current={file.filePath === model.filePath} />
@@ -511,6 +520,8 @@ export function ModelPage({ filePath }: { filePath: string }) {
               </ul>
             </section>
           )}
+
+          {!online && <KitChecklist target={model.filePath} />}
 
           <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">
             <h2 className="jp-panel-title" id="jp-model-page-history">
