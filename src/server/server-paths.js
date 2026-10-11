@@ -223,6 +223,8 @@ const NETWORK_IPC_PATH_RULES = {
   'remove-model-media': [[0, 'modelDir']],
   'add-model-youtube': [[0, 'modelDir']],
   'remove-model-youtube': [[0, 'modelDir']],
+  'tidy-model-folders-preview': [[0, 'dir']],
+  'tidy-model-folders': [[0, 'dir']],
   'get-assembly': [[0, 'modelDir']],
   'get-model-history': [[0, 'file']],
   'replace-model-file': [

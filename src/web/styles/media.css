@@ -287,3 +287,38 @@
   gap: var(--jp-space-2);
   width: auto;
 }
+
+/* Tidy Into Model Folders (Organize) */
+.jp-tidy__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  max-height: 320px;
+  overflow: auto;
+  margin: var(--jp-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-tidy__list label,
+.jp-tidy__covers {
+  display: flex;
+  align-items: baseline;
+  gap: var(--jp-space-2);
+  cursor: pointer;
+}
+.jp-tidy__list input,
+.jp-tidy__covers input {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
+.jp-tidy__to {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.jp-tidy__files {
+  overflow-wrap: anywhere;
+}
+.jp-organize__card + .jp-organize__card {
+  margin-top: var(--jp-space-4);
+}

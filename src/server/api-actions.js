@@ -34,6 +34,8 @@ const ACTIONS = {
   'remove-model-media': ['string', 'string', 'string'],
   'add-model-youtube': ['string', 'any'],
   'remove-model-youtube': ['string', 'string'],
+  'tidy-model-folders-preview': ['string?'],
+  'tidy-model-folders': ['string?', 'array?', 'boolean?'],
   'search-by-meaning': ['string'],
   'translate-notes': ['string'],
   'search-by-photo': ['string'],

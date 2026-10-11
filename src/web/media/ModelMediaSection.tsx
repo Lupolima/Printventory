@@ -157,7 +157,7 @@ export function ModelMediaSection({ folder, alone }: { folder: string; alone: bo
           </>
         ) : (
           <p className="jp-meta">
-            This folder holds other models too. Pictures, videos and documents belong to a model's own folder: Library → Tidy Into Model Folders gives each
+            This folder holds other models too. Pictures, videos and documents belong to a model's own folder: Organize → Tidy Into Model Folders gives each
             model one.
           </p>
         )}
