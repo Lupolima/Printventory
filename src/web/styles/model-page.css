@@ -413,3 +413,28 @@ dialog.assembly-dialog {
   flex: none;
   gap: 2px;
 }
+
+/* English under notes in another language (notes/NotesEnglish.tsx) */
+.jp-notes-english {
+  margin-top: var(--jp-space-3);
+  padding-top: var(--jp-space-3);
+  border-top: 1px solid var(--jp-border);
+}
+.jp-notes-english__label {
+  margin: 0 0 var(--jp-space-1);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+}
+.jp-notes-english.is-compact {
+  font-size: var(--jp-text-meta);
+}
+.jp-notes-english__error {
+  margin-top: var(--jp-space-2);
+}
+.jp-notes-original {
+  margin-top: var(--jp-space-3);
+  color: var(--jp-text-2);
+}
+.jp-notes-original summary {
+  cursor: pointer;
+}

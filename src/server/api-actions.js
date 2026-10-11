@@ -28,6 +28,7 @@ const ACTIONS = {
   'get-kit-summaries': ['array'],
   'save-folder-notes': ['string', 'string'],
   'search-by-meaning': ['string'],
+  'translate-notes': ['string'],
   'search-by-photo': ['string'],
   'look-alike-models': ['string'],
   'get-folder-models': ['string'],
@@ -259,6 +260,7 @@ const ACTIONS = {
 
 /** Actions that only read: every logged-in user. */
 const VIEWER_ACTIONS = new Set([
+  'translate-notes',
   'search-by-meaning',
   'search-by-photo',
   'look-alike-models',

@@ -213,6 +213,7 @@ const NETWORK_IPC_PATH_RULES = {
   'set-model-categories': [[0, 'file']],
   'get-folder-models': [[0, 'file']],
   'look-alike-models': [[0, 'file']],
+  'translate-notes': [[0, 'file']],
   'get-folder': [[0, 'modelDir']],
   'save-folder-notes': [[0, 'modelDir']],
   'get-assembly': [[0, 'modelDir']],

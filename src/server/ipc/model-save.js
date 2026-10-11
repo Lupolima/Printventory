@@ -106,6 +106,8 @@ async function updateModelsBatch(modelDataBatch) {
         const finalDesigner = designer !== undefined ? designer || null : existingModel.designer;
         const finalSource = source !== undefined ? source || null : existingModel.source;
         const finalNotes = notes !== undefined ? notes || null : existingModel.notes;
+        // Notes arriving for the first time (a 3MF's description, say): English for them in the background.
+        if (finalNotes && !existingModel.notes) notesArrived(existingModel.id, finalNotes);
         const printFields = printEvents.resolvePrintFieldsOnSave(existingModel, { printed, printStatus });
         const finalPrinted = printFields.printed;
         const finalPrintStatus = printFields.print_status;
@@ -206,6 +208,16 @@ function sortedTagNames(tags) {
     .map((t) => String(t).trim())
     .filter(Boolean)
     .sort();
+}
+
+/** A model got notes for the first time: translated into English in the background when they need it (notes-translation.js). */
+function notesArrived(modelId, notes) {
+  try {
+    const translation = require('../notes-translation');
+    if (translation.notesNeedTranslation(notes)) translation.noteAdded(Number(modelId));
+  } catch (error) {
+    console.warn('[Notes] Could not queue a translation:', error.message);
+  }
 }
 
 // Add this function before the IPC handlers
@@ -311,6 +323,7 @@ async function saveModel(modelData) {
         const finalDesigner = designer !== undefined ? designer || null : existingModelData.designer;
         const finalSource = source !== undefined ? source || null : existingModelData.source;
         const finalNotes = notes !== undefined ? notes || null : existingModelData.notes;
+        if (finalNotes && !existingModelData.notes) notesArrived(existingModel.id, finalNotes);
         const printFields = printEvents.resolvePrintFieldsOnSave(existingModelData, { printed, printStatus });
         const finalPrinted = printFields.printed;
         const finalPrintStatus = printFields.print_status;
@@ -530,6 +543,7 @@ async function saveModel(modelData) {
 
     if (insertedNewModel) {
       scheduleBackgroundHashGeneration('save-model');
+      if (notes) notesArrived(Number(modelId), notes);
     }
     return { success: true, modelId };
   } catch (error) {

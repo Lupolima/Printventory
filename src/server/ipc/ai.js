@@ -196,4 +196,7 @@ ipcMain.handle('search-by-photo', async (event, dataUrl) => {
   return { words: await require('../ai-search').searchWordsForPhoto(dataUrl, searchDeps(event)) };
 });
 
+/** English for a model's notes, to show under them (notes-translation.js): { english, by, error }. */
+ipcMain.handle('translate-notes', async (event, filePath) => require('../notes-translation').englishForModel(filePath, searchDeps(event)));
+
 module.exports = { createPuterIPCHandler, getAISettings, puterPendingRequests };

@@ -20,6 +20,7 @@ import { navigate } from '../shell/routes';
 import { showCategory } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
 import { ModelHistory } from './ModelHistory';
+import { NotesEnglish } from '../notes/NotesEnglish';
 
 /** What the page shows of a model (get-model). */
 type PageModel = PanelModel &
@@ -403,7 +404,22 @@ export function ModelPage({ filePath }: { filePath: string }) {
           {model.notes && String(model.notes).trim() && (
             <section className="jp-card jp-model-page__notes">
               <h2 className="jp-panel-title">Notes</h2>
-              <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(String(model.notes)) }} />
+              {(() => {
+                // Notes saved in English keep the original under "Original:": folded away.
+                const [english, original] = String(model.notes).split('\n\n---\n\nOriginal:\n\n');
+                return (
+                  <>
+                    <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(english) }} />
+                    {original !== undefined && (
+                      <details className="jp-notes-original">
+                        <summary>Original</summary>
+                        <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(original) }} />
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
+              <NotesEnglish filePath={model.filePath} notes={model.notes} />
             </section>
           )}
 
