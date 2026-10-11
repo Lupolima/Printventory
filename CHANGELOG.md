@@ -2,7 +2,9 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.15.0] - 2026-10-11
+
+**Upgrading:** no changes needed. Reload open browser tabs after the update. Earlier versions of model files (Upload New Version) are kept in `versions/` next to the database, so in the data volume.
 
 **Changes:**
 - **Notes in English:** notes in another language (a MakerWorld designer's description in Chinese, say) show an English translation under them on the model's page and in the details panel. A new model's notes are translated when they arrive and saved in English, with the original kept under it ("Original", folded away on the model's page). The translator is the one under Settings → MakerWorld (the free MyMemory service, the AI service, or off); each text is translated once.

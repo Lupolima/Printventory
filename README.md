@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.14.0**
+**Version 7.15.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -25,13 +25,19 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **A page for every model**: **Open** shows a model on its own page with large pictures, notes, the site's details, every detail and action of the sidebar, and the other files in its folder with a 3D view right on the page; the details sidebar can be turned off, and a click then opens the page
 - **Edit everything in one place**: the **Edit** dialog changes a model's name (renaming its file), designer, source, parent model, license, tags, categories, rating and notes at once, and for models from MakerWorld, Printables or Thingiverse also the site's title, description, tags and print profile names
 - **Categories**: shelves for your models, starting with MakerWorld's main categories; **Categorize Library** sorts models into them from their site category, folder names, tags and names, and asks the AI service about the rest when you want
-- **Collections**: group models from any folders into projects, gift lists or spare-part sets
+- **Folders as models and kit progress**: show each folder of model files as one model with a page of its own; tick off a kit's parts (a 3MF's plates, a folder's files) as you print them
+- **Assembly view**: a folder's parts in one 3D scene, as designed or laid out, moved and turned and saved
+- **Version history**: upload a new version of a model and keep the old file; every change to a model's details listed, with a way back
+- **Collections**: group models from any folders into projects, gift lists or spare-part sets, and **smart collections** that keep a search and always show what it finds
+- **Search by meaning, with a photo, and More like this**: the AI service finds related words or tells what a photo shows; models with a similar shape at any size
+- **Typed search**: `tag:robot creator:"M Armory" -tag:broken (category:Toys OR category:Art) is:unprinted rating:4+` in the search box
+- **Notes in English**: notes in another language get an English translation, and new models' notes are saved in English with the original kept
 - **Share links and QR codes**: a read-only page for a model or a collection that opens without an account, with a 3D view, optional downloads and an expiry date
 - **Statistics**: prints per month, success rate, top designers, most printed models and printers
 - **3D preview** of single models or every part in a folder or ZIP bundle
 - **Tags, designers, licenses, notes and source links** for every model
 - **Print status and history**: Unprinted, Want, Queued, Printing, Printed, Failed, with dated print logs
-- **Search and filters** by name, folder, tag, designer, status and more
+- **Search and filters** by name, folder, tag, designer, category, status and more
 - **Multi-edit** to change many models at once
 - **Undo** for metadata and tag edits, for renaming, merging and deleting tags, and for the Metadata Editor's renames, merges and clears: the Undo button after a change, or Ctrl/⌘ Z for the last 20
 - **Duplicate finder** based on file contents
@@ -168,6 +174,11 @@ The sidebar holds every page: **Home**, **Library**, **Collections**, **Categori
 - **Model page**: **Open** on a model (on its card, picture tile or list row, or in its menu) shows it on a page of its own: large pictures, notes, the MakerWorld, Printables or Thingiverse details, and the files in the same folder or zip, each with **Load 3D**, **Open** and **Download**; on the right Open in Slicer, Log Print, Edit and every detail of the sidebar. The page has its own address, so it can be bookmarked. The sidebar button in the Library's toolbar turns the details sidebar off (for you only): a click on a model then opens its page, while multi-edit and zip bundles still use the sidebar.
 - **Edit** (details panel or model page): one dialog for everything about a model. A new name renames its file in its folder (files inside a zip and zip files keep theirs; online models just change their name). For a model from MakerWorld, Printables or Thingiverse, changes to the site's title, designer, license, categories, tags, description and print profile names are kept in JusttPrint and shown instead of the site's, also after Refresh; **Use MakerWorld's Details** undoes them. Editors and admins only.
 - **Categories** (sidebar): click a category to see its models; a model can be in several, and its categories show in its details. Editors create, rename and delete categories and change the words each is recognized by. **Categorize Library** puts every model that is in no category into categories: first, for free, the category MakerWorld, Printables or Thingiverse gives it, else a category's words in its folder names, tags or name; then, if ticked, the AI Tagging service looks at each remaining model's picture and picks from your categories, and you review its picks before they are saved.
+- **Folders as models**: the folder button in the Library's toolbar shows each folder of model files as one card; its page has the folder's pictures, notes of its own, kit progress and files, **Assembly View**, **Open All in Slicer** and **Add to Collection**. For you only; nothing on disk changes.
+- **Kit progress**: a 3MF project with several plates, and a folder, is a kit of parts; tick them on the model's or folder's page as you print them (logging a print as Printed ticks every part of that file). Pages and folder cards show "3 of 12 printed" and what is left to print.
+- **Version history** (a model's page): **Upload New Version** replaces the model's file in place and keeps the old one (download it, put it back or delete it); the list of changes shows who changed which detail and when, with **Put back**. Earlier versions are kept in `versions/` next to the database.
+- **Search**: type words to search every field, or a query: fields (`tag:`, `creator:`/`by:`, `category:`, `name:`, `notes:`, `folder:`, `source:`, `license:`, `parent:`), filters (`is:printed`, `is:unprinted`, `is:favorite`, `is:new`, `rating:4+`, `type:3mf`), AND, OR and NOT in capitals, `-` for NOT, quotes and brackets. **Save Search** keeps the search as a smart collection. ✨ next to the search box searches by meaning and the camera with a photo (both use the AI Tagging service); **More like this** on a model's page finds models of a similar shape.
+- **Add Links** also takes a designer's page or a collection: **Get Their Models** puts their model links in the list (MakerWorld designers once one of their models is in the library, MakerWorld collections, Printables designers, Thingiverse designers and collections with an API token).
 - **Collections** (sidebar): choose **Add to Collection…** in a model's menu (it works on a selection too) or make one with **New Collection**; a model can be in several. Everyone can browse collections; editors and admins change them.
 - **Share links**: **Share…** in a model's menu, or **Share** on a collection, makes a read-only link with a QR code (to scan, or to print and stick on a box of parts). The page shows names, pictures, designer, license, tags and source link, never notes or file locations; downloads only when you allow them; STL and 3MF models can be turned around in 3D (on view-only links only when you tick **Show STL and 3MF models in 3D**, since the model's shape then reaches the visitor's browser); links can expire after 1 to 90 days. Anyone who can reach your JusttPrint backend's address can open a link, so links work outside your home network only if JusttPrint is reachable from there (for example behind a reverse proxy with HTTPS). See and turn off every link under **Settings → Sharing**.
 - **Statistics** (sidebar): prints per month by outcome, the success rate (printed out of printed and failed), the designers, models and printers printed most, and how many models were added, for the last 6 or 12 months, 2 years or all time. The figures come from the print log, so log your prints to see them.
