@@ -2,7 +2,7 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.17.0] - 2026-10-11
 
 **Changes:**
 - **A folder for every model:** uploads and downloads from MakerWorld, Printables and Thingiverse go into a folder named after the model, holding its model files (the main file and print profiles, with their own names) and `image/`, `video/` and `document/` folders for its pictures (.avif .bmp .gif .jpg .jpeg .jpe .pjpeg .png .svg .tif .tiff .webp), videos (.mp4 .m4v .mpeg .mpg .mpe .webm) and documents (.html .md .doc .docx .pdf .txt .text). They are part of the model, not models of their own: scans skip those three folders inside a model folder.
