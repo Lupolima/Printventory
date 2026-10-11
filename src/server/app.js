@@ -165,6 +165,13 @@ async function start() {
   scheduleBackgroundHashGeneration('startup');
   purgeOversizedThumbnails();
   gridThumbnails.scheduleAtStartup();
+  // A new category list (an update): every model is sorted into it once, with what is free.
+  setTimeout(() => {
+    require('../core/categories').ensureTables();
+    require('./category-scan')
+      .resortIfPending()
+      .catch((error) => console.error('[Categories] Could not sort the library into the new categories:', error));
+  }, 30000).unref?.();
   setTimeout(() => {
     try {
       verifyDatabaseIntegrity();

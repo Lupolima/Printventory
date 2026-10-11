@@ -319,7 +319,10 @@ export function AiConfigDialog() {
             <input type="checkbox" id="ai-tag-use-categories" checked={form.useCategories} onChange={(event) => set('useCategories', event.target.checked)} />
             <label htmlFor="ai-tag-use-categories">Use Category-Based Tagging</label>
           </div>
-          <small>Organize tags into categories (object type, style, complexity, material)</small>
+          <small>
+            Organize tags into categories (object type, style, complexity, material). Separately, every AI Tagging run also gives each model without one its
+            Category and Subcategory (the Categories page), in the same request.
+          </small>
         </div>
         <div className="form-group">
           <div className="checkbox-container ai-config-checkbox">

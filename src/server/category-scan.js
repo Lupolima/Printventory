@@ -1,12 +1,14 @@
 'use strict';
 
 /**
- * Categorize Library (the Categories page): puts the models that are in no category yet into
- * categories. First what the models themselves say, which is free: the category their site gives
- * them (MakerWorld, Printables, Thingiverse), else a category's words in their folders, tags or
- * name. Those placements are saved right away. Then, when asked, the AI service set up for AI
- * Tagging looks at the picture of each model still left and picks from the list; its picks wait
- * for a review on the Categories page. One run at a time; every open page follows its progress.
+ * Categorize Library (the Categories page): gives every model without one its place, a Category
+ * and a Subcategory (categories.js). First the category its site gives it (MakerWorld uses this
+ * very list, so its models are placed for free). Then, with the AI, the AI service set up for AI
+ * Tagging looks at each remaining model's picture and picks its Category and Subcategory, saved
+ * right away; models placed earlier by a guess from words are looked at again. Without the AI,
+ * the list's words in folder names, tags and model names place what they can ("Other …" when only
+ * the Category is clear). `again` sorts every model again, except places a person chose. One run
+ * at a time; every open page follows its progress.
  */
 
 const events = require('./events');
@@ -37,8 +39,9 @@ function summary() {
     left: job.left,
     aiTotal: job.aiTotal,
     aiDone: job.aiDone,
-    suggestions: job.suggestions.length,
+    aiPlacedCount: job.aiPlaced.length,
     noPicture: job.noPicture,
+    again: job.again,
     error: job.error
   };
 }
@@ -50,10 +53,10 @@ function announce(force = false) {
   events.broadcast('category-scan', summary());
 }
 
-/** The run with the AI's picks: { ...summary, suggestions: [{ filePath, fileName, categories }] }, or null. */
+/** The run with what the AI placed: { ...summary, aiPlaced: [{ filePath, fileName, category, subcategory }] }, or null. */
 function snapshot() {
   if (!job) return null;
-  return { ...summary(), suggestions: job.suggestions.map((s) => ({ ...s })) };
+  return { ...summary(), aiPlaced: job.aiPlaced.map((s) => ({ ...s })) };
 }
 
 const running = () => !!(job && job.running);
@@ -96,31 +99,47 @@ async function eachLimited(items, limit, work) {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
+/** At most this many of the AI's places are listed on the Categories page (to check them). */
+const MAX_LISTED = 500;
+
+/** The free step: the site's category, and without the AI the list's words. Answers the models left for the AI. */
 async function freeStep(models, list, fetchImpl) {
   const tagsOf = database.db.prepare('SELECT t.name FROM model_tags mt JOIN tags t ON t.id = mt.tag_id WHERE mt.model_id = ?');
   const left = [];
   await eachLimited(models, SITE_CONCURRENCY, async (model) => {
-    const matches = categories.freeMatches(
+    const hint = model.hint ? categories.findCategory(model.hint, list) : null;
+    let match = categories.freeMatches(
       {
         siteCategories: await siteCategories(model, fetchImpl),
         filePath: model.filePath,
         fileName: model.fileName,
         tags: tagsOf.all(model.id).map((row) => row.name)
       },
-      list
+      list,
+      { words: !job.useAi }
     );
-    if (matches.length) {
-      for (const match of matches) categories.addModelCategories(model.id, [match.id], match.source);
-      const source = matches[0].source;
+    // A Category a person chose stays: only its Subcategories count.
+    if (match && hint && match.category.id !== hint.id) match = null;
+    let place = match ? match.subcategory : null;
+    const source = match ? match.source : null;
+    if (!place && match && !job.useAi) {
+      // Only the Category is clear: its "Other …" Subcategory.
+      place = categories.otherOf(match.category, list);
+    }
+    if (place) {
+      categories.setModelPlace(model.id, place.name, source);
       job.placed[source] = (job.placed[source] || 0) + 1;
     } else {
-      left.push(model);
+      left.push({ ...model, main: (match && match.category) || hint || null });
     }
     job.processed++;
     announce();
   });
   return left;
 }
+
+const AI_PROMPT =
+  'You are sorting 3D printable models in a library. Look at this picture of a model and name what it is in one or two words in the "tags" list. ';
 
 async function aiStep(models, list, event, ask) {
   const settings = require('./ipc/ai').getAISettings();
@@ -132,7 +151,7 @@ async function aiStep(models, list, event, ask) {
     aitagging.initializeOpenAI(settings.apiKey, settings.apiEndpoint, settings.aiService, puter);
     ask = (base64, options, filePath) => aitagging.generateTagsForImage(base64, settings.aiModel, options, 1000, 3, filePath);
   }
-  const prompt = categories.aiPrompt(list);
+  const byId = new Map(list.map((c) => [c.id, c]));
   const concurrency = Math.max(1, Math.min(Number(settings.aiTagConcurrency) || 3, 10));
   await eachLimited(models, concurrency, async (model) => {
     if (job.error) return;
@@ -145,25 +164,31 @@ async function aiStep(models, list, event, ask) {
         const answer = await ask(
           picture.base64,
           {
-            customPrompt: prompt,
-            maxTags: 3,
+            customPrompt: AI_PROMPT,
+            maxTags: 2,
             useJsonResponse: true,
             mimeType: picture.mimeType,
             folderLevels: settings.aiTagFolderLevels,
-            notes: full.notes || ''
+            notes: full.notes || '',
+            categoryChoices: categories.aiChoices(list, model.main)
           },
           model.filePath
         );
-        const ids = categories.matchAiAnswer(answer, list);
-        if (ids.length) {
-          job.suggestions.push({
-            filePath: model.filePath,
-            fileName: model.fileName || model.filePath.split(/[\\/]/).pop(),
-            categories: list.filter((c) => ids.includes(c.id)).map((c) => c.name)
-          });
+        const sub = categories.matchAiCategory(answer && answer.category, list);
+        if (sub && (!model.main || sub.parent_id === model.main.id)) {
+          categories.setModelPlace(model.id, sub.name, 'ai');
+          job.placed.ai = (job.placed.ai || 0) + 1;
+          if (job.aiPlaced.length < MAX_LISTED) {
+            job.aiPlaced.push({
+              filePath: model.filePath,
+              fileName: model.fileName || model.filePath.split(/[\\/]/).pop(),
+              category: byId.get(sub.parent_id).name,
+              subcategory: sub.name
+            });
+          }
         }
       } catch (error) {
-        // A rate limit or a failed sign-in stops the AI step; the picks so far stay.
+        // A rate limit or a failed sign-in stops the AI step; what was placed so far stays.
         if (/rate limit|authentication|api key/i.test(error.message || '')) job.error = error.message;
         else console.warn(`[Categories] AI could not categorize ${model.filePath}: ${error.message}`);
       }
@@ -174,18 +199,52 @@ async function aiStep(models, list, event, ask) {
 }
 
 /**
- * Start a run: { useAi } asks the AI about the models the free step leaves. Answers the summary,
- * or null while another run is going. `deps.fetchImpl` and `deps.ask` replace the network and the
- * AI service (tests).
+ * The models a run looks at: without a Subcategory; with the AI also those placed by a guess from
+ * words; with `again` every model except the ones a person placed. `hint` is a Category a person
+ * chose alone.
  */
-function start({ by = null, useAi = false, event = null } = {}, deps = {}) {
-  if (running()) return null;
+function modelsToSort({ useAi, again }) {
   categories.ensureTables();
-  const models = database.db.prepare('SELECT id, filePath, fileName, source FROM models WHERE id NOT IN (SELECT model_id FROM model_categories)').all();
+  const places = new Map();
+  for (const row of database.db
+    .prepare('SELECT mc.model_id, c.name, c.parent_id, mc.source FROM model_categories mc JOIN categories c ON c.id = mc.category_id')
+    .all()) {
+    const place = places.get(row.model_id) || { main: null, sub: null, source: null };
+    if (row.parent_id) place.sub = row.name;
+    else place.main = row.name;
+    place.source = row.source;
+    places.set(row.model_id, place);
+  }
+  return database.db
+    .prepare('SELECT id, filePath, fileName, source FROM models')
+    .all()
+    .filter((model) => {
+      const place = places.get(model.id);
+      if (!place || !place.sub) {
+        model.hint = place && place.source === 'manual' ? place.main : null;
+        return true;
+      }
+      if (place.source === 'manual') return false;
+      if (again) return true;
+      return useAi && categories.GUESSES.includes(place.source);
+    });
+}
+
+/**
+ * Start a run: { useAi } asks the AI about the models the free step leaves, { again } sorts every
+ * model again (not the places a person chose). Answers the summary, or null while another run is
+ * going. `deps.fetchImpl` and `deps.ask` replace the network and the AI service (tests).
+ * @param {{ by?: string | null, useAi?: boolean, again?: boolean, event?: any }} [options]
+ * @param {{ fetchImpl?: Function, ask?: Function }} [deps]
+ */
+function start({ by = null, useAi = false, again = false, event = null } = {}, deps = {}) {
+  if (running()) return null;
+  const models = modelsToSort({ useAi, again });
   job = {
     id: nextId++,
     by,
     useAi: !!useAi,
+    again: !!again,
     running: true,
     stopping: false,
     phase: 'free',
@@ -196,7 +255,7 @@ function start({ by = null, useAi = false, event = null } = {}, deps = {}) {
     aiTotal: 0,
     aiDone: 0,
     noPicture: 0,
-    suggestions: [],
+    aiPlaced: [],
     error: null
   };
   const current = job;
@@ -210,6 +269,7 @@ function start({ by = null, useAi = false, event = null } = {}, deps = {}) {
         current.aiTotal = left.length;
         announce(true);
         await aiStep(left, list, event, deps.ask);
+        current.left = categories.uncategorizedCount();
       }
     } catch (error) {
       console.error('[Categories] Categorize Library failed:', error);
@@ -219,6 +279,7 @@ function start({ by = null, useAi = false, event = null } = {}, deps = {}) {
       current.phase = 'done';
       announce(true);
       events.broadcast('refresh-grid');
+      events.broadcast('categories-changed');
     }
   })();
   announce(true);
@@ -232,30 +293,7 @@ function stop() {
   return true;
 }
 
-/**
- * Accept the AI's picks: [{ filePath, categories: names }] (what the person kept ticked). The
- * reviewed models leave the list. Answers how many models got categories.
- */
-function apply(picks) {
-  const byPath = database.db.prepare('SELECT id FROM models WHERE filePath = ?');
-  const ids = new Map(categories.listCategories().map((c) => [categories.normalize(c.name), c.id]));
-  let placed = 0;
-  for (const pick of Array.isArray(picks) ? picks : []) {
-    const model = pick && typeof pick.filePath === 'string' ? byPath.get(pick.filePath) : null;
-    if (!model) continue;
-    const chosen = (Array.isArray(pick.categories) ? pick.categories : []).map((name) => ids.get(categories.normalize(name))).filter(Boolean);
-    if (chosen.length && categories.addModelCategories(model.id, chosen, 'ai')) placed++;
-  }
-  if (job) {
-    const done = new Set((Array.isArray(picks) ? picks : []).map((pick) => pick && pick.filePath));
-    job.suggestions = job.suggestions.filter((s) => !done.has(s.filePath));
-    announce(true);
-  }
-  if (placed) events.broadcast('refresh-grid');
-  return placed;
-}
-
-/** Close a finished run and drop the picks not reviewed. */
+/** Close a finished run. */
 function dismiss() {
   if (!job || job.running) return false;
   job = null;
@@ -263,4 +301,19 @@ function dismiss() {
   return true;
 }
 
-module.exports = { aiReady, apply, dismiss, snapshot, start, stop, running, summary, _job: () => job };
+/**
+ * After the list changed (an update), sort every model once with what is free (no AI: it costs);
+ * the Categories page offers the AI for the rest.
+ */
+async function resortIfPending() {
+  const row = database.db && database.db.prepare("SELECT value FROM settings WHERE key = 'categoriesResort'").get();
+  if (!row || row.value !== '1' || running()) return false;
+  const started = start({ by: 'JusttPrint', useAi: false });
+  if (!started) return false;
+  await job.promise;
+  database.db.prepare("DELETE FROM settings WHERE key = 'categoriesResort'").run();
+  console.log(`[Categories] Sorted the library into the new categories: ${JSON.stringify(job.placed)}; ${job.left} left for the AI`);
+  return true;
+}
+
+module.exports = { aiReady, dismiss, resortIfPending, snapshot, start, stop, running, summary, _job: () => job };

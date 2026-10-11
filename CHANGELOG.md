@@ -2,6 +2,16 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [Unreleased]
+
+**Changes:**
+- **Categories and Subcategories:** the categories are now a fixed list of 11 Categories, each with its Subcategories (MakerWorld's own list: Art › 2D Art, Coin & Badges, Signs & Logos, Sculptures…; Toys & Games › Board Games, Characters, Puzzles…; 3D Printer › Accessories, Parts, Test Models; Generative 3D Model › Hueforge & Lithophane, Make My Sign, Statue Maker…). Every model has exactly one place, a Category and a Subcategory, shown as "Toys & Games › Puzzles" in its details and on its page; searching `category:` finds either.
+- **The AI places models:** Categorize Library asks the AI service to pick each remaining model's Category and Subcategory from its picture and saves it straight away (the run lists what the AI placed, to check it); every AI Tagging run (Generate Tags) also places the models it tags, in the same request at no extra cost. MakerWorld models get MakerWorld's own place for free first. Places chosen in the Edit dialog, and the site's, are never changed; words in folder names, tags and names are used only without the AI, and the next AI run looks at those models again. **Sort every model again** redoes every place except the ones you chose.
+- **Edit dialog:** one Category › Subcategory choice instead of the category tick boxes.
+- The Categories page shows each Category with its Subcategories folded under it; editors can change the words each one is recognized by. Categories can no longer be created, renamed or deleted (the list is fixed).
+
+**Upgrading:** the old categories are replaced by the new list. Places you chose by hand are kept when their category is on the list (a Category alone gets its Subcategory at the next sort); every other place is cleared and, a little after the update starts, every model is sorted again for free (site categories and words). Run **Categorize Library** with the AI on the Categories page to place the rest. Categories of your own that are not on the list are removed. Reload open browser tabs after the update.
+
 ## [7.17.0] - 2026-10-11
 
 **Changes:**

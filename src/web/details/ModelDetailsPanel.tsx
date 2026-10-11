@@ -12,7 +12,7 @@ import { useAdopt } from '../shell/adopt';
 import { loadSlicers, offerSlicerSettings, sendToSlicer, type Slicer } from '../slicer';
 import { useCan } from '../session';
 import { MakerWorldSection } from '../makerworld/MakerWorldSection';
-import { showCategory } from '../pages/CategoriesPage';
+import { CategoryPlace } from '../pages/CategoriesPage';
 import { NotesEnglish } from '../notes/NotesEnglish';
 
 /** The model the panel shows, as get-model returns it (with its images). */
@@ -366,19 +366,7 @@ export function ModelDetailsPanel() {
             <span className="jp-prop__label">Location</span>
             <div className="jp-prop__value" ref={setPathHost} />
           </div>
-          <Prop label="Categories">
-            {model?.categories?.length ? (
-              <span className="jp-details__categories" id="jp-details-categories">
-                {model.categories.map((name) => (
-                  <button key={name} type="button" className="jp-chip" title={`Show the models in ${name}`} onClick={() => showCategory(name)}>
-                    {name}
-                  </button>
-                ))}
-              </span>
-            ) : (
-              '—'
-            )}
-          </Prop>
+          <Prop label="Category">{model?.categories?.length ? <CategoryPlace names={model?.categories} id="jp-details-categories" /> : '—'}</Prop>
           <Prop label="Added">{formatAdded(model?.dateAdded) || '—'}</Prop>
           <Prop label="Rating">{model && <Rating model={model} readOnly={!canEdit} onSaved={(rating) => setModel({ ...model, rating })} />}</Prop>
         </div>
