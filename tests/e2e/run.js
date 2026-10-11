@@ -4850,6 +4850,89 @@ async function uploadAs(base, session, folder, name, body) {
 }
 
 /**
+ * Model folders (src/server/model-folders.js): a folder per model with image, video and document
+ * subfolders, the media route, site-free parts of saving, and Tidy Into Model Folders.
+ */
+async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
+  console.log('\n# Model folders');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  check('viewers cannot make model folders', (await invoke(base, viewer, 'make-model-folder', [uploadLibrary, 'Nope'])).status === 403);
+  const made = (await invoke(base, editor, 'make-model-folder', [uploadLibrary, 'E2E Robot: Mk/2'])).result || {};
+  const robot = made.folder || '';
+  check(
+    'an editor makes a model folder named after the model',
+    robot === path.join(uploadLibrary, 'E2E Robot Mk 2') && fs.existsSync(robot),
+    JSON.stringify(made)
+  );
+  const model = await uploadAs(base, editor, robot, 'Robot.stl', cubeBytes);
+  const picture = await uploadAs(base, editor, path.join(robot, 'image'), 'Front view.png', png);
+  const guide = await uploadAs(base, editor, path.join(robot, 'document'), 'Guide.md', '# Guide\n\n<script>x</script>');
+  check(
+    'pictures and documents upload into their subfolders',
+    model.status === 200 && picture.status === 200 && guide.status === 200 && fs.existsSync(path.join(robot, 'image', 'Front view.png')),
+    JSON.stringify([model, picture, guide])
+  );
+  check('a subfolder takes only its kind', (await uploadAs(base, editor, path.join(robot, 'image'), 'Guide.pdf', '%PDF')).status === 400);
+  check('pictures are not uploaded into a plain folder', (await uploadAs(base, editor, uploadLibrary, 'loose.png', png)).status === 400);
+  check(
+    'only a model folder gets media subfolders',
+    (await uploadAs(base, editor, path.join(uploadLibrary, 'image'), 'x.png', png)).status === 400 && !fs.existsSync(path.join(uploadLibrary, 'image'))
+  );
+  const added = (await invoke(base, editor, 'add-uploaded-files', [robot, [model.filePath, picture.filePath, guide.filePath]])).result || {};
+  check('the upload counts its pictures and documents', added.inLibrary === 3 && added.media === 2, JSON.stringify(added));
+  const inFolder = (await invoke(base, viewer, 'get-folder-models', [model.filePath])).result || [];
+  check('pictures and documents are not models of their own', inFolder.length === 1, JSON.stringify(inFolder.map((m) => m.fileName)));
+  let media = (await invoke(base, viewer, 'get-model-media', [robot])).result || {};
+  check(
+    'viewers see a model folder with its cover, pictures and documents',
+    media.isModelFolder && media.cover === 'Front view.png' && media.image?.length === 1 && media.document?.[0]?.name === 'Guide.md',
+    JSON.stringify(media)
+  );
+  const thumb = ((await invoke(base, viewer, 'get-model', [model.filePath])).result || {}).thumbnail || '';
+  check('the cover is the first thumbnail', thumb.startsWith('data:image/'), thumb.slice(0, 40));
+
+  const mediaUrl = (filePath, query = '') => `${base}/api/media/${encodeURIComponent(filePath)}${query}`;
+  const shown = await fetch(mediaUrl(picture.filePath), { headers: { cookie: viewer.cookie } });
+  check('a picture is shown to viewers', shown.status === 200 && shown.headers.get('content-type') === 'image/png');
+  const part = await fetch(mediaUrl(picture.filePath), { headers: { cookie: viewer.cookie, range: 'bytes=0-3' } });
+  check('media are sent in ranges (videos seek)', part.status === 206 && /^bytes 0-3\//.test(part.headers.get('content-range') || ''));
+  const doc = await fetch(mediaUrl(guide.filePath), { headers: { cookie: viewer.cookie } });
+  check(
+    'documents run nothing (a sandbox)',
+    /sandbox/.test(doc.headers.get('content-security-policy') || '') && doc.headers.get('x-content-type-options') === 'nosniff'
+  );
+  const saved = await fetch(mediaUrl(guide.filePath, '?download=1'), { headers: { cookie: viewer.cookie } });
+  check('documents download', /attachment/.test(saved.headers.get('content-disposition') || ''));
+  check('the media route serves only model folder media', (await fetch(mediaUrl(model.filePath), { headers: { cookie: viewer.cookie } })).status === 404);
+  check('the media route needs a login', (await fetch(mediaUrl(picture.filePath))).status === 401);
+
+  check('viewers cannot choose the cover', (await invoke(base, viewer, 'set-model-cover', [robot, null])).status === 403);
+  media = (await invoke(base, editor, 'add-model-youtube', [robot, ['https://youtu.be/dQw4w9WgXcQ']])).result || {};
+  check('a YouTube video is kept as a link', media.youtube?.[0]?.id === 'dQw4w9WgXcQ', JSON.stringify(media.youtube));
+  check('only YouTube links', (await invoke(base, editor, 'add-model-youtube', [robot, ['https://example.com/v']])).status === 500);
+  media = (await invoke(base, editor, 'remove-model-media', [robot, 'document', 'Guide.md'])).result || {};
+  check('a document is removed (to the Trash)', media.document?.length === 0 && !fs.existsSync(guide.filePath), JSON.stringify(media.document));
+  check('removing outside a model folder is refused', (await invoke(base, editor, 'remove-model-media', [uploadLibrary, 'image', 'x.png'])).status !== 200);
+
+  // Tidy Into Model Folders: loose models get folders of their own.
+  const loose = path.join(uploadLibrary, 'Loose');
+  fs.mkdirSync(loose, { recursive: true });
+  for (const name of ['Gear.stl', 'Wheel.stl']) await uploadAs(base, editor, loose, name, cubeBytes);
+  fs.writeFileSync(path.join(loose, 'Gear.png'), png);
+  await invoke(base, editor, 'add-uploaded-files', [loose, [path.join(loose, 'Gear.stl'), path.join(loose, 'Wheel.stl')]]);
+  check('only admins tidy', (await invoke(base, editor, 'tidy-model-folders-preview', [loose])).status === 403);
+  const tidyPreview = (await invoke(base, admin, 'tidy-model-folders-preview', [loose])).result || {};
+  check('the tidy preview lists the moves', tidyPreview.moveCount === 2 && fs.existsSync(path.join(loose, 'Gear.stl')), JSON.stringify(tidyPreview));
+  const tidied = (await invoke(base, admin, 'tidy-model-folders', [loose, null, false])).result || {};
+  check(
+    'tidying moves each model into its folder, its picture along',
+    tidied.moved === 2 && fs.existsSync(path.join(loose, 'Gear', 'Gear.stl')) && fs.existsSync(path.join(loose, 'Gear', 'image', 'Gear.png')),
+    JSON.stringify(tidied)
+  );
+  check('the moved model keeps its record', !!(await invoke(base, viewer, 'get-model', [path.join(loose, 'Wheel', 'Wheel.stl')])).result);
+}
+
+/**
  * User accounts, roles, uploads and the Statistics page. Runs after the browser checks, which end
  * with an empty library (Purge Models), so the uploads here do not change the counts above.
  */
@@ -5066,6 +5149,8 @@ async function accountChecks(base, wsUrl, admin) {
     (await api(editor, 'POST', '/api/upload/sessions', JSON.stringify({ folder, name: 'huge.stl', size: 1e15 }))).status === 413
   );
   await invoke(base, editor, 'add-uploaded-files', [folder, [finished.filePath]]);
+
+  await modelFolderChecks(base, { admin, editor, viewer }, cubeBytes);
 
   console.log('\n# Statistics');
   const uploadedPath = path.join(folder, 'Uploaded Cube.stl');
@@ -5343,11 +5428,12 @@ async function accountChecks(base, wsUrl, admin) {
     if (picker) await editorPage.keyboard.press('Escape');
     await editorPage.setInputFiles('#jp-upload-input', [
       { name: 'Browser Upload.stl', mimeType: 'application/octet-stream', buffer: cubeBytes },
-      { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a model') }
+      { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('assembly notes') },
+      { name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('not a model') }
     ]);
     check(
       'files of other types are skipped before sending',
-      await editorPage.waitForSelector('.jp-upload__item.is-skipped:has-text("notes.txt")', { timeout: 5000 }).then(
+      await editorPage.waitForSelector('.jp-upload__item.is-skipped:has-text("setup.exe")', { timeout: 5000 }).then(
         () => true,
         () => false
       )
@@ -5359,14 +5445,39 @@ async function accountChecks(base, wsUrl, admin) {
         () => editorPage.textContent('#jp-upload-summary'),
         () => editorPage.textContent('#jp-upload-summary').catch(() => '')
       );
-    check('the dialog uploads in pieces and adds the model', /Uploaded 1 file; it is in the library/.test(summary || ''), summary);
+    check('the dialog uploads in pieces and adds the model', /Uploaded 2 files into “Browser Upload”; all are in the library/.test(summary || ''), summary);
     const uploadedTo = (((await invoke(base, admin, 'get-all-models')).result || []).find((m) => m.fileName === 'Browser Upload.stl') || {}).filePath || '';
     check(
-      'the browser upload went into the chosen folder, whole',
-      path.dirname(uploadedTo) === folder && fs.existsSync(uploadedTo) && fs.readFileSync(uploadedTo).equals(cubeBytes),
+      'the browser upload went into a model folder in the chosen folder, whole, its document with it',
+      path.dirname(uploadedTo) === path.join(folder, 'Browser Upload') &&
+        fs.existsSync(uploadedTo) &&
+        fs.readFileSync(uploadedTo).equals(cubeBytes) &&
+        fs.existsSync(path.join(folder, 'Browser Upload', 'document', 'notes.txt')),
       uploadedTo
     );
     await editorPage.keyboard.press('Escape');
+    // The model's page lists its document and reads it in the page.
+    await editorPage.evaluate((file) => {
+      window.location.hash = `#/model/${encodeURIComponent(file)}`;
+    }, uploadedTo);
+    const docButton = '#jp-media-documents li[data-name="notes.txt"] button';
+    const docListed = await editorPage.waitForSelector(docButton, { timeout: 15000 }).then(
+      () => true,
+      () => false
+    );
+    if (docListed) await editorPage.click(docButton);
+    const docRead = await editorPage
+      .waitForFunction(() => /assembly notes/.test(document.querySelector('.jp-media-viewer .jp-doc-view__pre')?.textContent || ''), null, { timeout: 10000 })
+      .then(
+        () => true,
+        () => false
+      );
+    check("a model's page lists its documents and opens them in the page", docListed && docRead, JSON.stringify({ docListed, docRead }));
+    await editorPage.keyboard.press('Escape');
+    await editorPage.evaluate(() => {
+      window.location.hash = '#/library';
+    });
+    await editorPage.waitForSelector('#jp-upload-button', { timeout: 10000 }).catch(() => {});
 
     // Add Links: pasted links are checked as you type.
     await editorPage.click('#jp-links-button');
