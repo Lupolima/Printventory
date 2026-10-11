@@ -91,6 +91,35 @@ function registerLibraryFileRoutes(expressApp) {
     }
   });
 
+  // A model folder's pictures, videos and documents (model-folders.js), with byte ranges so videos
+  // seek. HTML and SVG run nothing: a sandbox with no scripts. ?download=1 saves the file.
+  expressApp.get('/api/media/*', (req, res) => {
+    const modelFolders = require('./model-folders');
+    const filePath = decodeURIComponent(req.path.replace('/api/media/', ''));
+    const kind = modelFolders.kindOf(filePath);
+    if (!path.isAbsolute(filePath) || !kind || path.basename(filePath).startsWith('.') || !modelFolders.isMediaFolder(path.dirname(filePath))) {
+      res.status(404).send('Not a model folder file');
+      return;
+    }
+    if (!libraryPathAllowed(filePath)) {
+      res.status(403).send('File is outside the library folders');
+      return;
+    }
+    const type = modelFolders.MIME_TYPES[path.extname(filePath).toLowerCase()];
+    // The browser's PDF viewer is a plugin that a sandbox (and object-src 'none') would block.
+    res.setHeader(
+      'Content-Security-Policy',
+      type === 'application/pdf'
+        ? "frame-ancestors 'self'"
+        : "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; font-src 'self' data:; frame-ancestors 'self'"
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (req.query.download) res.attachment(path.basename(filePath));
+    res.sendFile(filePath, { headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=0' }, dotfiles: 'allow' }, (error) => {
+      if (error && !res.headersSent) res.status(error.status === 404 || error.code === 'ENOENT' ? 404 : 500).send('File not found');
+    });
+  });
+
   // Download endpoint for server mode - handles both regular files and zip entries
   expressApp.get('/api/download/*', async (req, res) => {
     try {

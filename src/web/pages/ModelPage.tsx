@@ -21,6 +21,8 @@ import { showCategory } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
 import { ModelHistory } from './ModelHistory';
 import { NotesEnglish } from '../notes/NotesEnglish';
+import { ModelMediaSection } from '../media/ModelMediaSection';
+import { folderOf } from '../media/media';
 
 /** What the page shows of a model (get-model). */
 type PageModel = PanelModel &
@@ -429,6 +431,10 @@ export function ModelPage({ filePath }: { filePath: string }) {
             </div>
           )}
 
+          {!online && !model.filePath.includes('::') && (
+            <ModelMediaSection key={`media:${model.filePath}`} folder={folderOf(model.filePath)} alone={files.length <= 1} />
+          )}
+
           <section className="jp-model-page__files" aria-labelledby="jp-model-page-files">
             <h2 className="jp-panel-title" id="jp-model-page-files">
               Files{folder ? <span className="jp-meta"> in {folder}</span> : null}
@@ -451,7 +457,7 @@ export function ModelPage({ filePath }: { filePath: string }) {
             </ul>
           </section>
 
-          {!online && <MoreLikeThis key={model.filePath} filePath={model.filePath} />}
+          {!online && <MoreLikeThis key={`alike:${model.filePath}`} filePath={model.filePath} />}
         </div>
 
         <aside className="jp-model-page__side">

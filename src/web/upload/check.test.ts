@@ -23,4 +23,12 @@ describe('upload checks', () => {
     expect(check.ok).toBe(true);
     expect(check.ok && check.warning).toMatch(/scan limit/);
   });
+
+  it('takes pictures, videos and documents only into a model folder', () => {
+    const withMedia = { ...info, mediaExtensions: { image: ['.png'], video: ['.mp4'], document: ['.pdf'] } };
+    expect(checkFile({ name: 'cover.png', size: 1 }, withMedia, 'yes')).toEqual({ ok: true });
+    expect(checkFile({ name: 'cover.png', size: 101 }, withMedia, 'yes')).toEqual({ ok: false, reason: 'larger than the upload limit' });
+    expect(checkFile({ name: 'guide.pdf', size: 1 }, withMedia, 'no')).toEqual({ ok: false, reason: 'pictures, videos and documents need “One model”' });
+    expect(checkFile({ name: 'cover.png', size: 1 }, withMedia).ok).toBe(false);
+  });
 });

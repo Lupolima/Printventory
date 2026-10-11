@@ -193,7 +193,8 @@ async function startWatching() {
     const excluded = compileExcludeDirs(excludes, root);
     const watcher = new TreeWatcher({
       root,
-      isIgnoredDir: (dir) => shouldSkipDirectoryName(dir.split('/').pop(), names) || isExcludedDir(dir, excluded),
+      isIgnoredDir: (dir) =>
+        shouldSkipDirectoryName(dir.split('/').pop(), names) || isExcludedDir(dir, excluded) || require('./model-folders').isMediaFolder(dir),
       onChange: (folder, changedPath) => queue.add(watcher.root, folder, changedPath)
     });
     watchers.push(watcher);

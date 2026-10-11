@@ -15,6 +15,7 @@ import { useCan } from '../session';
 import { navigate } from '../shell/routes';
 import { loadSlicers, offerSlicerSettings, sendToSlicer, type Slicer } from '../slicer';
 import { showCategory } from './CategoriesPage';
+import { ModelMediaSection } from '../media/ModelMediaSection';
 import { FileCard, type FolderFile } from './ModelPage';
 
 /** A folder as a model (get-folder, src/core/folder-models.js). */
@@ -246,6 +247,8 @@ export function FolderPage({ path }: { path: string }) {
         <div className="jp-model-page__main">
           <Pictures files={folder.files} />
           <FolderNotes folder={folder} onSaved={load} />
+          {/* The folder is the model here: it may become a model folder whatever is in it. */}
+          <ModelMediaSection key={folder.path} folder={folder.path} alone />
           <section className="jp-model-page__files" aria-labelledby="jp-folder-files">
             <h2 className="jp-panel-title" id="jp-folder-files">
               Files

@@ -9,12 +9,22 @@ export function extensionOf(name: string): string {
   return dot > 0 ? name.slice(dot).toLowerCase() : '';
 }
 
+/**
+ * @param media Whether pictures, videos and documents may go along (into the model's folder):
+ *   'yes', 'no' (each file is its own model), or undefined (model files only).
+ */
 export function checkFile(
   file: Pick<File, 'name' | 'size'>,
-  info: Pick<UploadInfo, 'extensions' | 'maxBytes'> & Partial<Pick<UploadInfo, 'scanMaxBytes'>>
+  info: Pick<UploadInfo, 'extensions' | 'maxBytes'> & Partial<Pick<UploadInfo, 'scanMaxBytes' | 'mediaExtensions'>>,
+  media?: 'yes' | 'no'
 ): FileCheck {
   if (file.name.startsWith('.')) return { ok: false, reason: 'hidden files are not uploaded' };
   const ext = extensionOf(file.name);
+  const isMedia = !!ext && Object.values(info.mediaExtensions || {}).some((list) => list.includes(ext));
+  if (isMedia && media) {
+    if (media === 'no') return { ok: false, reason: 'pictures, videos and documents need “One model”' };
+    return file.size > info.maxBytes ? { ok: false, reason: 'larger than the upload limit' } : { ok: true };
+  }
   if (!info.extensions.includes(ext)) {
     return { ok: false, reason: ext ? `${ext} files are not scanned (Settings → File Types)` : 'no file extension' };
   }

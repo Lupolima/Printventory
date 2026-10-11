@@ -10,6 +10,7 @@ require('./context-menu-generate-tags');
 require('./context-menu-pull-metadata');
 require('./files');
 require('./folders');
+require('./model-folders');
 require('./versions');
 require('./hashes');
 require('./link-import');

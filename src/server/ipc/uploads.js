@@ -1,6 +1,7 @@
 'use strict';
 
 // Uploads from the browser (src/server/uploads.js has the upload route itself).
+const path = require('path');
 const database = require('../../core/database');
 const { ipcMain } = require('../runtime');
 const { readStlHomeDirectories } = require('../../core/library-paths');
@@ -13,7 +14,9 @@ ipcMain.handle('get-upload-info', async () => ({
   extensions: allowedUploadExtensions(),
   maxBytes: maxUploadBytes(),
   chunkBytes: uploadChunkBytes(),
-  scanMaxBytes: scanMaxBytes()
+  scanMaxBytes: scanMaxBytes(),
+  // Pictures, videos and documents a model folder takes (model-folders.js).
+  mediaExtensions: require('../model-folders').mediaExtensions()
 }));
 
 /** Scans skip files larger than this (Settings → General → Performance; 50 MB unless changed). */
@@ -29,11 +32,16 @@ function scanMaxBytes() {
  */
 ipcMain.handle('add-uploaded-files', async (event, folder, filePaths) => {
   const ctx = networkPathContext();
-  const dir = checkFolder(folder, ctx);
+  const modelFolders = require('../model-folders');
+  // Into a model folder's image, video or document folder: the model folder is scanned.
+  const dir = checkFolder(modelFolders.isMediaFolder(folder) ? path.dirname(modelFolders.folderKey(folder)) : folder, ctx);
   const { scanUploadedFolder } = require('../stl-home');
   const isStlHomeScan = readStlHomeDirectories().some((home) => isInsideOrSame(dir, home));
   const newModels = await scanUploadedFolder(dir, rootFor(dir, ctx.roots), { isStlHomeScan });
   const paths = (Array.isArray(filePaths) ? filePaths : []).filter((p) => typeof p === 'string' && isInsideOrSame(p, dir));
   const known = database.db.prepare('SELECT 1 FROM models WHERE filePath = ?');
-  return { newModels, inLibrary: paths.filter((p) => known.get(p)).length };
+  // A model folder's first picture becomes its cover; a cover goes on new files too.
+  if (modelFolders.isModelFolder(dir)) await modelFolders.coverIfNone(dir).catch((error) => console.warn(`[Upload] cover: ${error.message}`));
+  const media = paths.filter((p) => modelFolders.kindOf(p) && modelFolders.isMediaFolder(path.dirname(p))).length;
+  return { newModels, inLibrary: paths.filter((p) => known.get(p)).length + media, media };
 });

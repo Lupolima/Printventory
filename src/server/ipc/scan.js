@@ -313,6 +313,8 @@ async function scanDirectoryHandler(event, directoryPath, options = {}) {
     const excludeDirectories = stlHomeExcludeDirectoriesForScan(directoryPath, options).map((entry) =>
       path.isAbsolute(entry) ? entry : path.resolve(scanRoot, entry)
     );
+    // Model folders' pictures, videos and documents are not models (model-folders.js).
+    excludeDirectories.push(...require('../model-folders').mediaFolders(directoryPath));
 
     // Read enableZipArchives and scanAdditionalFileTypes from database
     const zipSetting = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enableZipArchives');

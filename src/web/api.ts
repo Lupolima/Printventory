@@ -104,7 +104,12 @@ export interface UploadInfo {
   chunkBytes: number;
   /** Scans skip larger files (Settings → General → Performance): they are uploaded but not added. */
   scanMaxBytes: number;
+  /** Pictures, videos and documents a model folder takes, by kind (src/server/model-folders.js). */
+  mediaExtensions?: Record<MediaKind, string[]>;
 }
+
+/** The kinds of media a model folder keeps, each in its own subfolder (image/, video/, document/). */
+export type MediaKind = 'image' | 'video' | 'document';
 
 export interface UploadResult {
   fileName: string;
@@ -270,7 +275,7 @@ export function cancelUpload(id: string): Promise<unknown> {
 export const uploads = {
   info: () => callAction<UploadInfo>('get-upload-info'),
   /** Scan the folder after a batch so the new models show up. */
-  finish: (folder: string, filePaths: string[]) => callAction<{ newModels: number; inLibrary: number }>('add-uploaded-files', folder, filePaths)
+  finish: (folder: string, filePaths: string[]) => callAction<{ newModels: number; inLibrary: number; media?: number }>('add-uploaded-files', folder, filePaths)
 };
 
 export interface PrintStatistics {
