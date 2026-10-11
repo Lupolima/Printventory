@@ -44,12 +44,36 @@
   outline: none;
   box-shadow: var(--jp-focus-ring);
 }
+.jp-settings-index__link {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* A group with several forms: tabs for them, under the group's name. */
+.jp-settings-subtabs {
+  margin-bottom: var(--jp-space-4);
+  overflow-x: auto;
+}
 @media (max-width: 1000px) {
   .jp-settings-layout {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--jp-space-3);
   }
+  /* The groups across the top, scrolling sideways. */
   .jp-settings-index {
-    display: none;
+    position: static;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .jp-settings-index ul {
+    flex-direction: row;
+    width: max-content;
+  }
+  .jp-settings-index__link {
+    white-space: nowrap;
   }
 }
 

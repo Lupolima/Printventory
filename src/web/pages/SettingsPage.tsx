@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cx } from '../components/Button';
-import { HELP, itemsFor, settingsFor, type SettingsItem } from '../shell/nav';
+import { HELP, itemsFor, settingsFor, type SettingsGroup, type SettingsItem } from '../shell/nav';
+import { navigate } from '../shell/routes';
+import { Tabs } from '../components/Tabs';
 import { useCurrentUser } from '../session';
 import { EmbeddedDialog } from '../settings/EmbeddedDialog';
 
@@ -47,52 +49,58 @@ function EmbeddedSetting({ item }: { item: SettingsItem }) {
 }
 
 /**
- * Settings (spec §47): one page with every setting and tool, grouped. The settings forms are on
- * the page (the dialogs, opened in place: settings/EmbeddedDialog.tsx); tools and actions are
- * rows that open their screens. The index on the left jumps to a group; #/settings/<group>
- * opens the page at it.
+ * Which tab an address opens (#/settings/<group>, or #/settings/<form or item> inside one) and,
+ * in a tab with several forms, which form: { group, form }.
+ */
+export function settingsView(groups: SettingsGroup[], section: string): { group: string; form: string | null } {
+  const byGroup = groups.find((group) => group.id === section);
+  const holder = byGroup || groups.find((group) => group.items.some((item) => item.id === section)) || groups[0];
+  if (!holder) return { group: '', form: null };
+  const forms = holder.items.filter((item) => item.embed);
+  const named = forms.find((item) => item.id === section);
+  return { group: holder.id, form: named ? named.id : forms[0]?.id || null };
+}
+
+/**
+ * Settings (spec §47) in tabs: one group at a time (General, Appearance, Library, …), chosen on
+ * the left (across the top on narrow screens). A group with several settings forms (Integrations:
+ * Thingiverse, MakerWorld, MCP Server) shows one form at a time, with tabs for the others; its
+ * tools and actions are rows under it. The forms are the dialogs, opened in place
+ * (settings/EmbeddedDialog.tsx). #/settings/<group> opens a tab, #/settings/<form> that form.
  */
 export function SettingsPage({ section }: { section: string }) {
   const user = useCurrentUser();
   // Viewers and editors see only what their role can use (settings change the whole server).
   const groups = useMemo(() => settingsFor(user?.role), [user?.role]);
-  const [active, setActive] = useState(section || groups[0]?.id || '');
+  const view = settingsView(groups, section);
+  const group = groups.find((g) => g.id === view.group);
+  const forms = group ? group.items.filter((item) => item.embed) : [];
+  const rows = group ? group.items.filter((item) => !item.embed) : [];
+  const form = forms.find((item) => item.id === view.form) || null;
 
-  // Opening the forms may focus their fields; keep the page at the top or the requested group.
+  // On narrow screens the tabs scroll sideways: keep the chosen one in view.
+  useEffect(() => {
+    const tab = document.getElementById(`settings-tab-${view.group}`);
+    const strip = tab?.closest('.jp-settings-index');
+    if (tab && strip && strip.scrollWidth > strip.clientWidth) {
+      strip.scrollTo({ left: tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
+    }
+  }, [view.group]);
+
+  // A new tab or form starts at the top; a form named in the address is shown for a moment.
   useEffect(() => {
     const timer = setTimeout(() => {
       const focused = document.activeElement as HTMLElement | null;
-      if (focused && focused.closest('.jp-settings-page')) focused.blur();
-      // A group (#/settings/integrations), or one form in it (#/settings/thingiverse), shown for a moment.
-      const form = section && document.getElementById(`setting-${section}`);
-      const target = section && (document.getElementById(`settings-${section}`) || form);
-      const page = document.querySelector('.jp-page');
-      if (target) target.scrollIntoView({ block: 'start' });
-      else page?.scrollTo({ top: 0 });
-      if (form) {
-        form.classList.add('is-highlighted');
-        setTimeout(() => form.classList.remove('is-highlighted'), 2500);
+      if (focused && focused.closest('.jp-settings-panel')) focused.blur();
+      document.querySelector('.jp-page')?.scrollTo({ top: 0 });
+      const named = section && document.getElementById(`setting-${section}`);
+      if (named) {
+        named.classList.add('is-highlighted');
+        setTimeout(() => named.classList.remove('is-highlighted'), 2500);
       }
     }, 120);
     return () => clearTimeout(timer);
   }, [section]);
-
-  // The index follows the group in view.
-  useEffect(() => {
-    const page = document.querySelector('.jp-page');
-    if (!page) return undefined;
-    const onScroll = () => {
-      const top = page.getBoundingClientRect().top + 80;
-      let current = groups[0]?.id || '';
-      for (const group of groups) {
-        const el = document.getElementById(`settings-${group.id}`);
-        if (el && el.getBoundingClientRect().top <= top) current = group.id;
-      }
-      setActive(current);
-    };
-    page.addEventListener('scroll', onScroll, { passive: true });
-    return () => page.removeEventListener('scroll', onScroll);
-  }, [groups]);
 
   return (
     <div className="jp-page__inner jp-settings-page">
@@ -105,50 +113,54 @@ export function SettingsPage({ section }: { section: string }) {
         </p>
       </header>
       <div className="jp-settings-layout">
-        <nav className="jp-settings-index" aria-label="Settings groups">
-          <ul>
-            {groups.map((group) => (
-              <li key={group.id}>
-                <a
-                  href={`#/settings/${group.id}`}
-                  className={cx('jp-settings-index__link', active === group.id && 'is-active')}
-                  aria-current={active === group.id ? 'true' : undefined}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setActive(group.id);
-                    document.getElementById(`settings-${group.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                  }}
+        <nav className="jp-settings-index" aria-label="Settings">
+          <ul role="tablist" aria-label="Settings groups" aria-orientation="vertical" id="jp-settings-tabs">
+            {groups.map((g) => (
+              <li key={g.id} role="presentation">
+                <button
+                  type="button"
+                  role="tab"
+                  id={`settings-tab-${g.id}`}
+                  aria-selected={g.id === view.group}
+                  aria-controls={`settings-${g.id}`}
+                  className={cx('jp-settings-index__link', g.id === view.group && 'is-active')}
+                  onClick={() => navigate('settings', g.id, { replace: true })}
                 >
-                  {group.label}
-                </a>
+                  {g.label}
+                </button>
               </li>
             ))}
           </ul>
         </nav>
-        <div className="jp-settings-groups">
-          {groups.map((group) => {
-            const rows = group.items.filter((item) => !item.embed);
-            return (
-              <section key={group.id} id={`settings-${group.id}`} className="jp-card jp-settings-group" aria-labelledby={`settings-${group.id}-title`}>
-                <h2 className="jp-settings-group__title" id={`settings-${group.id}-title`}>
-                  {group.label}
-                </h2>
-                {group.items
-                  .filter((item) => item.embed)
-                  .map((item) => (
-                    <EmbeddedSetting key={item.id} item={item} />
-                  ))}
-                {rows.length > 0 && (
-                  <ul className="jp-settings-list">
-                    {rows.map((item) => (
-                      <SettingsRow key={item.id} item={item} />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            );
-          })}
-        </div>
+        {group && (
+          <section
+            key={group.id}
+            id={`settings-${group.id}`}
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${group.id}`}
+            className="jp-card jp-settings-group jp-settings-panel"
+          >
+            <h2 className="jp-settings-group__title">{group.label}</h2>
+            {forms.length > 1 && (
+              <div className="jp-settings-subtabs">
+                <Tabs<string>
+                  label={`${group.label} settings`}
+                  items={forms.map((item) => ({ id: item.id, label: item.label, icon: item.icon }))}
+                  value={form?.id || ''}
+                  onChange={(id) => navigate('settings', id, { replace: true })}
+                />
+              </div>
+            )}
+            {form && <EmbeddedSetting key={form.id} item={form} />}
+            {rows.length > 0 && (
+              <ul className="jp-settings-list">
+                {rows.map((item) => (
+                  <SettingsRow key={item.id} item={item} />
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
