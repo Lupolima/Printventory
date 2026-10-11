@@ -453,6 +453,8 @@ function makeModelFolder(parent, details) {
     try {
       fs.mkdirSync(candidate);
       if (!isInsideOrSame(candidate, parent)) throw new Error('Could not make a folder for the model');
+      // A model folder: its pictures, videos and documents go into subfolders (model-folders.js).
+      require('./model-folders').register(candidate);
       return candidate;
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
@@ -521,8 +523,24 @@ async function finishManualFolder({ url, folder, files = null }) {
   const target = require('./uploads').checkWritableFolder(folder, ctx);
   const { details } = (await getDetails(link.url)) || {};
   if (!details) throw new Error('MakerWorld has no model with this number');
-  const mainName = nameMainFile(target, details, Array.isArray(files) ? files.map(String) : null);
-  return { folder: target, ...(await finishFolder(target, details, link, mainName, ctx)) };
+  // The files keep MakerWorld's names: the folder carries the model's.
+  const mainName = mainFileName(target, Array.isArray(files) ? files.map(String) : null);
+  const finished = await finishFolder(target, details, link, mainName, ctx);
+  const media = await require('./site-media').saveSiteMedia(target, link, details);
+  return { folder: target, ...finished, media: media.saved.length };
+}
+
+/**
+ * The main file of the files just added to a model's folder (`added`; every file in it when not
+ * given): the only file, else the only 3MF; null when that is not clear. Nothing is renamed.
+ * @param {string[] | null} [added]
+ */
+function mainFileName(target, added = null) {
+  const files = fs
+    .readdirSync(target)
+    .filter((name) => !name.startsWith('.') && fs.statSync(path.join(target, name)).isFile() && (!added || added.includes(name)));
+  const threeMfs = files.filter((name) => /\.3mf$/i.test(name));
+  return files.length === 1 ? files[0] : threeMfs.length === 1 ? threeMfs[0] : null;
 }
 
 /**
@@ -629,13 +647,9 @@ async function download(
   );
   const todo = chosen.filter((p) => !have.has(p.id));
   if (!todo.length && reused) {
-    return {
-      folder: reused,
-      saved: [],
-      ...(await finishFolder(reused, details, link, mainFileOf(key, details, mainProfileId || wantedId), ctx)),
-      missing: [],
-      warning: null
-    };
+    const finishedAgain = await finishFolder(reused, details, link, mainFileOf(key, details, mainProfileId || wantedId), ctx);
+    const media = await require('./site-media').saveSiteMedia(reused, link, details, { fetchImpl });
+    return { folder: reused, saved: [], ...finishedAgain, missing: [], warning: null, media: media.saved.length };
   }
   const target = reused || makeModelFolder(parent, details);
 
@@ -674,7 +688,10 @@ async function download(
   }
 
   const finished = await finishFolder(target, details, link, mainFileOf(key, details, mainProfileId || wantedId), ctx);
-  return { folder: target, saved, ...finished, missing, warning };
+  // The model's pictures, guides and videos with its files.
+  if (onProgress) onProgress({ label: 'Pictures and documents', received: 0, total: 0 });
+  const media = await require('./site-media').saveSiteMedia(target, link, details, { fetchImpl });
+  return { folder: target, saved, ...finished, missing, warning, media: media.saved.length };
 }
 
 /** The main file's name: the profile `mainProfileId` when downloaded, else the default profile, else any. */
@@ -844,6 +861,7 @@ module.exports = {
   siteFilesTable: table,
   checkFolder,
   finishManualFolder,
+  mainFileName,
   nameMainFile,
   prepareManualFolder,
   resetCaptchaPause,

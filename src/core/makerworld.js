@@ -133,6 +133,11 @@ function makerWorldDetails(body, url) {
   const pictures = (Array.isArray(extension.design_pictures) ? extension.design_pictures : [])
     .map((p) => clean(p && p.url, 2000))
     .filter((u) => u && /^https:\/\//i.test(u));
+  // Files the designer added, with their own names (pictures, and guides, parts lists and videos).
+  const named = (items) =>
+    (Array.isArray(items) ? items : [])
+      .map((p) => ({ url: clean(p && (p.url || p.fileUrl || p.link), 2000), name: clean(p && (p.name || p.fileName || p.title), 255) }))
+      .filter((f) => f.url && /^https:\/\//i.test(f.url));
   return {
     site: 'makerworld',
     url,
@@ -151,6 +156,8 @@ function makerWorldDetails(body, url) {
     profiles,
     files: filesOf(extension.model_files),
     pictures,
+    pictureFiles: named(extension.design_pictures),
+    attachments: [...named(extension.design_guide), ...named(extension.design_bom), ...named(extension.design_other), ...named(extension.design_video)],
     cover: clean(body.coverUrl, 2000),
     stats: {
       likes: number(body.likeCount),

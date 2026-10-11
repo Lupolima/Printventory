@@ -10,6 +10,7 @@
  * in the thingiverseToken setting, never readable through the settings API.
  */
 
+const modelFolders = require('./model-folders');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -296,11 +297,17 @@ async function downloadFiles({ url, folder, fileIds = null }, { fetchImpl = http
           ? (received, total) => onProgress({ label: todo.length > 1 ? `${file.name} (${i + 1} of ${todo.length})` : file.name, received, total })
           : null
       });
-      const name = path.basename(placeWithoutReplacing(tempPath, target, plainName(file.name, `file-${file.id}`)));
+      // A picture, video or document the site lists with the files goes into its subfolder.
+      const wantedName = plainName(file.name, `file-${file.id}`);
+      const kind = modelFolders.kindOf(wantedName);
+      const into = kind ? path.join(target, modelFolders.KINDS[kind].dir) : target;
+      if (kind) fs.mkdirSync(into, { recursive: true });
+      const placed = placeWithoutReplacing(tempPath, into, wantedName);
+      const name = path.relative(target, placed);
       siteDetails
         .siteFilesTable()
         .prepare('INSERT OR REPLACE INTO site_files (file_path, key, profile_id) VALUES (?, ?, ?)')
-        .run(path.join(target, name), key, `file:${file.id}`);
+        .run(placed, key, `file:${file.id}`);
       saved.push(name);
     } catch (error) {
       fs.rmSync(tempPath, { force: true });
@@ -314,26 +321,20 @@ async function downloadFiles({ url, folder, fileIds = null }, { fetchImpl = http
     }
   }
 
-  // A single main file (the only one, or the only 3MF) is named after the model.
+  // The files keep the site's names (the folder carries the model's); the main file is the only
+  // model file, or the only 3MF.
+  const modelNames = saved.filter((name) => !modelFolders.kindOf(name));
   /** @type {string | null} */
-  let mainName = null;
-  if (saved.length && !reused) {
-    mainName = siteDetails.nameMainFile(target, details, saved);
-    if (mainName && !saved.includes(mainName)) {
-      const before = saved.find((name) => !fs.existsSync(path.join(target, name)));
-      if (before)
-        siteDetails
-          .siteFilesTable()
-          .prepare('UPDATE site_files SET file_path = ? WHERE file_path = ?')
-          .run(path.join(target, mainName), path.join(target, before));
-    }
-  }
+  const mainName = modelNames.length && !reused ? siteDetails.mainFileName(target, modelNames) : null;
   const finished = await siteDetails.finishFolder(target, details, link, mainName, ctx);
-  const names = saved.map((name) => (fs.existsSync(path.join(target, name)) ? name : mainName));
+  // The model's pictures, PDFs and videos from its page.
+  const site = await siteDetails.getDetails(link.url, { fetchImpl }).catch(() => null);
+  const extraPictures = link.site === 'thingiverse' && token() ? await require('./site-media').thingiversePictures(link.id, fetchImpl) : [];
+  const media = await require('./site-media').saveSiteMedia(target, link, site && site.details, { fetchImpl, extraPictures });
   // Saved but not in the library: a type the library does not scan (Settings → Scanning → File Types).
   const known = database.db.prepare('SELECT 1 FROM models WHERE filePath = ?');
-  const notScanned = names.filter((name) => !known.get(path.join(target, name)));
-  return { folder: target, saved: names, ...finished, missing, warning, notScanned };
+  const notScanned = modelNames.filter((name) => !known.get(path.join(target, name)));
+  return { folder: target, saved, ...finished, missing, warning, notScanned, media: media.saved.length };
 }
 
 /** Whether a Thingiverse token is set (never the token itself). */

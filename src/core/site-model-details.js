@@ -52,6 +52,8 @@ const present = (value) => value !== null && value !== undefined;
  * @property {any[]} files
  * @property {boolean} filesNeedToken
  * @property {string[]} pictures
+ * @property {{ url: string, name: string | null }[]} [pictureFiles] The pictures with their own names (MakerWorld).
+ * @property {{ url: string, name: string | null }[]} [attachments] Guides, parts lists, PDFs and videos the site lists for the model.
  * @property {string | null} cover
  * @property {Record<string, number | null>} stats
  * @property {{ title: string | null, designer: string | null, url: string }[]} remixedFrom
@@ -83,6 +85,8 @@ function blank(site, url, id) {
     files: [],
     filesNeedToken: false,
     pictures: [],
+    pictureFiles: [],
+    attachments: [],
     cover: null,
     stats: {},
     /** Models this one is a remix of: [{ title, designer, url }] (Printables). */
@@ -187,6 +191,7 @@ function printablesDetails(print, files, url) {
   };
   details.remixedFrom = remixSources(print.remixParents);
   details.pdfUrl = print.pdfFilePath ? `https://media.printables.com/${String(print.pdfFilePath).replace(/^\/+/, '')}` : null;
+  details.attachments = details.pdfUrl ? [{ url: details.pdfUrl, name: null }] : [];
   return details;
 }
 

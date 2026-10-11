@@ -74,3 +74,6 @@ export function folderOf(filePath: string): string {
   const cut = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
   return cut > 0 ? filePath.slice(0, cut) : filePath;
 }
+
+/** "3 pictures and documents from the model's page" (after a site download). */
+export const mediaLine = (count: number) => `${count} ${count === 1 ? 'picture or document' : 'pictures and documents'} from the model's page`;

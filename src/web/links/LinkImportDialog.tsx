@@ -14,6 +14,7 @@ import { exposeGlobal, onServerEvent } from '../page';
 import { stlHomeDirectories } from '../scan/stlHome';
 import { formatBytes } from '../shell/AppShell';
 import { navigate } from '../shell/routes';
+import { mediaLine } from '../media/media';
 import { useCan } from '../session';
 
 declare global {
@@ -63,6 +64,7 @@ interface ImportResult {
   saved?: string[];
   /** Saved, but of a type the library does not scan. */
   notScanned?: string[];
+  media?: number;
 }
 
 // Same folder memory as Upload Models; whether MakerWorld files are downloaded too.
@@ -356,7 +358,9 @@ export function LinkImportDialog() {
             name: result.name || row.name,
             partial: !!result.warning,
             message:
-              `Downloaded ${saved.length === 1 ? saved[0] : `${saved.length} ${what}`} into ${result.folder}${result.warning ? `. ${result.warning}` : ''}` +
+              `Downloaded ${saved.length === 1 ? saved[0] : `${saved.length} ${what}`} into ${result.folder}` +
+              (result.media ? `, and ${mediaLine(result.media)}` : '') +
+              (result.warning ? `. ${result.warning}` : '') +
               (result.notScanned?.length
                 ? `. Not in the library: ${result.notScanned.join(', ')} (turn its file type on under Settings → Scanning → File Types)`
                 : '')

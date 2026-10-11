@@ -280,6 +280,7 @@ async function importLink(raw, deps, options = {}) {
         picture: true,
         warning: result.warning || null,
         folder: result.folder,
+        media: result.media || 0,
         saved: result.saved,
         notScanned: result.notScanned || []
       };
@@ -307,6 +308,7 @@ async function importLink(raw, deps, options = {}) {
         picture: true,
         warning: result.warning || null,
         folder: result.folder,
+        media: result.media || 0,
         saved: result.saved
       };
     } catch (error) {

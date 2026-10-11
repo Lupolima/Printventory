@@ -12,6 +12,7 @@ import { stlHomeDirectories } from '../scan/stlHome';
 import { formatBytes } from '../shell/AppShell';
 import { navigate } from '../shell/routes';
 import { accountStatus, type MakerWorldDetails, type ProfileDownload } from './makerworld';
+import { mediaLine } from '../media/media';
 import { ProfileChecklist } from './ProfileChecklist';
 
 declare global {
@@ -27,6 +28,8 @@ const FOLDER_KEY = 'justtprint.uploadFolder';
 interface DownloadResult {
   folder?: string;
   saved?: string[];
+  /** Pictures and documents saved from the model's page (src/server/site-media.js). */
+  media?: number;
   inLibrary?: number;
   mainFile?: string | null;
   missing?: string[];
@@ -161,7 +164,7 @@ export function MakerWorldDownloadDialog() {
       const what = saved.length
         ? `Downloaded ${saved.length === 1 ? saved[0] : `${saved.length} print profiles`} into ${result.folder}.`
         : `Every chosen profile was already in ${result.folder}.`;
-      setSummary(`${what}${result.warning ? ` ${result.warning}.` : ''}`);
+      setSummary(`${what}${result.media ? ` Also ${mediaLine(result.media)}.` : ''}${result.warning ? ` ${result.warning}.` : ''}`);
       if (result.missing?.length && /not a robot/i.test(result.warning || '')) setBlocked(true);
       setDone(true);
       // The online model became these files: show the main one (the 3MF when there is one).

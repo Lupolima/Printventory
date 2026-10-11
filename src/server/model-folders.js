@@ -304,7 +304,7 @@ function putFirst(filePath, image, previous) {
 /**
  * Make a picture the folder's cover: it becomes the first thumbnail of each of the folder's model
  * files (the earlier cover's thumbnail goes). `name` null takes the cover away. Answers getMedia.
- * @param {{ resize?: Function }} [deps]
+ * @param {{ resize?: Function | null }} [deps]
  */
 async function setCover(dir, name, deps = {}) {
   const folder = requireFolder(dir);
@@ -344,6 +344,8 @@ function reapplyCover(dir) {
 /**
  * The first picture becomes the cover when the folder has none (after uploads and downloads).
  * `preferred` is tried first (the site's cover).
+ * @param {string} dir
+ * @param {{ preferred?: string | null, resize?: Function | null }} [options]
  */
 async function coverIfNone(dir, { preferred = null, ...deps } = {}) {
   const folder = resolveFolder(dir);

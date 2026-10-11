@@ -142,6 +142,33 @@ async function main() {
   assert.ok(!fs.readdirSync(path.join(robot, 'image')).some((n) => n.endsWith('.part')), 'no temp files left');
   assert.strictEqual(mf.plainFileName('../../etc/passwd'), '_.._etc_passwd');
 
+  // --- What a site lists for a model ---
+  const siteMedia = require('../src/server/site-media');
+  assert.deepStrictEqual(
+    siteMedia.mediaOf({
+      pictureFiles: [
+        { url: 'https://makerworld.bblmw.com/m/a1b2.jpg', name: 'Foto 06.03.24 (1).jpg' },
+        { url: 'https://makerworld.bblmw.com/m/c3d4.png', name: 'no extension' }
+      ],
+      attachments: [{ url: 'https://makerworld.bblmw.com/m/guide-123.pdf', name: 'Assembly guide' }]
+    }),
+    [
+      { url: 'https://makerworld.bblmw.com/m/a1b2.jpg', name: 'Foto 06.03.24 (1).jpg', kind: 'image' },
+      { url: 'https://makerworld.bblmw.com/m/c3d4.png', name: 'c3d4.png', kind: 'image' },
+      { url: 'https://makerworld.bblmw.com/m/guide-123.pdf', name: 'guide-123.pdf', kind: null }
+    ],
+    "the designer's names when they are file names, else the URL's"
+  );
+  assert.deepStrictEqual(
+    siteMedia.mediaOf({ pictures: ['https://media.printables.com/p/front.webp'], pdfUrl: 'https://media.printables.com/p/model.pdf' }).map((m) => m.name),
+    ['front.webp', 'model.pdf'],
+    'details kept by an older version: the pictures and the Printables PDF'
+  );
+  const mwHost = siteMedia.allowedHost('makerworld');
+  assert.ok(mwHost('https://makerworld.bblmw.com/x.jpg') && mwHost('https://public-cdn.bblmw.com/x.jpg'));
+  assert.ok(!mwHost('http://makerworld.bblmw.com/x.jpg') && !mwHost('https://bblmw.com.evil.example/x.jpg') && !mwHost('https://ads.example.com/x.jpg'));
+  assert.ok(!siteMedia.allowedHost('printables')('https://makerworld.bblmw.com/x.jpg'), "only the model's own site");
+
   // --- Moving a folder ---
   const renamed = path.join(lib, 'Robot Renamed');
   fs.renameSync(robot, renamed);
