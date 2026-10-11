@@ -3017,7 +3017,20 @@ async function browserChecks(base, wsUrl, session) {
         () => false
       )) &&
         /Not signed in/.test(await page.textContent('#makerworld-account-status')) &&
-        (await page.inputValue('#makerworld-translation')) === 'free'
+        (await page.isChecked('#translator-list li:first-child input')) &&
+        /MyMemory/.test(await page.textContent('#translator-list li:first-child')) &&
+        (await page.isDisabled('#translator-list li:has-text("Google") input')) &&
+        (await page.isVisible('#google-translate-key'))
+    );
+    const googleStatus = (await invoke(base, session, 'google-translate-status')).result || {};
+    check(
+      "Google Cloud Translation's status counts this month against the free characters",
+      googleStatus.hasKey === false &&
+        googleStatus.free === 500000 &&
+        googleStatus.used === 0 &&
+        googleStatus.daysLeft >= 1 &&
+        /^\d{4}-\d{2}-01$/.test(googleStatus.resetsOn),
+      JSON.stringify(googleStatus)
     );
     const sizeBefore = (await invoke(base, session, 'get-setting', ['maxFileSizeMB'])).result;
     await page.fill('#max-file-size', '61');

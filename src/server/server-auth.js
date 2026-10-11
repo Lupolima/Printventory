@@ -33,7 +33,9 @@ const SETTING_KEYS = {
   /** The MakerWorld (Bambu Lab) sign-in for downloads: makerworld-account.js. */
   makerWorldAccount: 'makerWorldAccount',
   /** The Thingiverse API token for downloads: site-files.js. */
-  thingiverseToken: 'thingiverseToken'
+  thingiverseToken: 'thingiverseToken',
+  /** The Google Cloud Translation API key: google-translate.js. */
+  googleTranslateApiKey: 'googleTranslateApiKey'
 };
 
 /** Settings that must never be read or written through the generic settings API. */

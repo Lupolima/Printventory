@@ -31,7 +31,7 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **Collections**: group models from any folders into projects, gift lists or spare-part sets, and **smart collections** that keep a search and always show what it finds
 - **Search by meaning, with a photo, and More like this**: the AI service finds related words or tells what a photo shows; models with a similar shape at any size
 - **Typed search**: `tag:robot creator:"M Armory" -tag:broken (category:Toys OR category:Art) is:unprinted rating:4+` in the search box
-- **Notes in English**: notes in another language get an English translation, and new models' notes are saved in English with the original kept
+- **Notes in English**: notes in another language get an English translation, and new models' notes are saved in English with the original kept; translated by Google Cloud Translation (with a warning before its 500,000 free characters a month run out), the free MyMemory service or your AI service, in the order you choose
 - **Share links and QR codes**: a read-only page for a model or a collection that opens without an account, with a 3D view, optional downloads and an expiry date
 - **Statistics**: prints per month, success rate, top designers, most printed models and printers
 - **3D preview** of single models or every part in a folder or ZIP bundle

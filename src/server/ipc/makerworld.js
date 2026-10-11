@@ -45,3 +45,7 @@ ipcMain.handle('makerworld-download', async (event, request) => {
     throw error;
   }
 });
+
+// Google Cloud Translation (src/server/google-translate.js): its key and this month's use (Settings → MakerWorld).
+ipcMain.handle('google-translate-status', async () => require('../google-translate').status());
+ipcMain.handle('set-google-translate-key', async (event, key) => require('../google-translate').setKey(key));

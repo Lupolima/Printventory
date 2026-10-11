@@ -1754,3 +1754,77 @@
 .photo-search-error {
   color: var(--jp-danger);
 }
+
+/* Settings → MakerWorld: the translators in order, and Google's use this month. */
+.translator-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  margin: var(--jp-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: translator;
+}
+.translator-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jp-space-2);
+  padding: var(--jp-space-2) var(--jp-space-3);
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+}
+.translator-list li.is-on {
+  border-color: var(--jp-accent-border);
+}
+.translator-list label {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  min-width: 0;
+  font-weight: 500;
+}
+.translator-list__move {
+  display: inline-flex;
+  flex: none;
+  gap: var(--jp-space-1);
+}
+.translator-list__move button {
+  min-width: 32px;
+}
+.translator-key-buttons {
+  display: flex;
+  gap: var(--jp-space-2);
+  margin-top: var(--jp-space-2);
+}
+.google-usage {
+  margin: var(--jp-space-2) 0 var(--jp-space-3);
+}
+.google-usage__bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--jp-radius-pill);
+  background: var(--jp-surface-2);
+}
+.google-usage__bar span {
+  display: block;
+  height: 100%;
+  background: var(--jp-accent);
+}
+.google-usage.is-warning .google-usage__bar span {
+  background: var(--jp-warning);
+}
+.google-usage.is-danger .google-usage__bar span {
+  background: var(--jp-danger);
+}
+.google-usage__label {
+  display: block;
+  margin-bottom: var(--jp-space-1);
+  font-weight: 600;
+}
+.translator-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--jp-space-2);
+  font-weight: 400;
+}
