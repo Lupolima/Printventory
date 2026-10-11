@@ -267,7 +267,9 @@ async function generateTagsHandler(event, filePath) {
       detailLevel: settings.aiTagDetailLevel,
       folderLevels: settings.aiTagFolderLevels,
       notes: model.notes || '',
-      customPrompt: aiTagPromptValue != null && String(aiTagPromptValue).trim() !== '' ? String(aiTagPromptValue).trim() : null
+      customPrompt: aiTagPromptValue != null && String(aiTagPromptValue).trim() !== '' ? String(aiTagPromptValue).trim() : null,
+      // The model's Category and Subcategory in the same request, when its place may change (categories.js).
+      categoryChoices: require('../../core/categories').aiCategoryChoices(model.id, { again: !!settings.aiTagAllowRetagging }) || undefined
     };
 
     if (!model.thumbnail) {
@@ -306,6 +308,14 @@ async function generateTagsHandler(event, filePath) {
         5,
         filePath
       );
+      // The Category and Subcategory asked with the tags, saved straight away.
+      if (tags && tags.category) {
+        try {
+          if (require('../../core/categories').saveAiCategory(model.id, tags.category)) require('../events').broadcast('categories-changed');
+        } catch (error) {
+          console.warn(`[AI Tagging] Could not save the category: ${error.message}`);
+        }
+      }
       return tags;
     } catch (error) {
       console.error('Error generating tags:', error);

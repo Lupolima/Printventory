@@ -386,19 +386,8 @@ ipcMain.handle('import-library', async (event, /** @type {{ json?: string } | nu
     let importedCount = 0;
     let updatedCount = 0;
 
-    // Categories (files from 7.14 on): the ones missing here are made, with their words.
+    // Categories (files from 7.14 on): the list is fixed; a model's place is kept when it is on it.
     const categories = require('../../core/categories');
-    const knownCategories = new Set(categories.listCategories().map((c) => categories.normalize(c.name)));
-    for (const category of Array.isArray(importData.categories) ? importData.categories : []) {
-      if (!category || typeof category.name !== 'string' || knownCategories.has(categories.normalize(category.name))) continue;
-      try {
-        categories.createCategory(category.name, Array.isArray(category.keywords) ? category.keywords.join(', ') : '');
-        knownCategories.add(categories.normalize(category.name));
-      } catch (error) {
-        console.warn(`Could not import the category ${category.name}: ${error.message}`);
-      }
-    }
-    const categoryIds = new Map(categories.listCategories().map((c) => [categories.normalize(c.name), c.id]));
 
     for (let i = 0; i < importData.models.length; i++) {
       const modelData = importData.models[i];
@@ -418,8 +407,8 @@ ipcMain.handle('import-library', async (event, /** @type {{ json?: string } | nu
         });
         if (Array.isArray(modelData.categories) && modelData.categories.length) {
           const saved = database.db.prepare('SELECT id FROM models WHERE filePath = ?').get(modelData.filePath);
-          const ids = modelData.categories.map((name) => categoryIds.get(categories.normalize(name))).filter(Boolean);
-          if (saved && ids.length) categories.addModelCategories(saved.id, ids, 'manual');
+          if (saved && modelData.categories.some((name) => categories.findCategory(name)))
+            categories.setModelCategories(saved.id, modelData.categories, 'manual');
         }
 
         if (existingModel) {

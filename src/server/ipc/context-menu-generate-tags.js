@@ -9,6 +9,16 @@ const { getThumbnailImagePayload } = require('../../core/thumbnails');
 const { getModelByFilePath } = require('../../core/models');
 const { clientDialogs } = require('../dialogs');
 
+/** The AI's Category and Subcategory for a model (asked with its tags), saved straight away. */
+function saveCategory(modelId, tags) {
+  if (!tags || !tags.category) return;
+  try {
+    if (require('../../core/categories').saveAiCategory(modelId, tags.category)) events.broadcast('categories-changed');
+  } catch (error) {
+    console.warn(`[AI Tagging] Could not save the category: ${error.message}`);
+  }
+}
+
 /**
  * Context menu → Generate Tags: tags the selected models with the AI service in Settings.
  * `event` is the menu request, `clickEvent` the click (it routes Puter to the right browser),
@@ -179,7 +189,9 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
           detailLevel: settings.aiTagDetailLevel,
           folderLevels: settings.aiTagFolderLevels,
           notes: model.notes || '',
-          customPrompt: aiTagPromptValue != null && String(aiTagPromptValue).trim() !== '' ? String(aiTagPromptValue).trim() : null
+          customPrompt: aiTagPromptValue != null && String(aiTagPromptValue).trim() !== '' ? String(aiTagPromptValue).trim() : null,
+          // The model's Category and Subcategory in the same request, when its place may change (categories.js).
+          categoryChoices: require('../../core/categories').aiCategoryChoices(model.id, { again: !!settings.aiTagAllowRetagging }) || undefined
         };
 
         let tags = [];
@@ -218,6 +230,7 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
                 5,
                 filePath
               );
+              saveCategory(model.id, tags);
             } catch (error) {
               console.error(`Error generating tags for ${filePath}:`, error);
               // Check if it's a rate limit error

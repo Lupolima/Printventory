@@ -17,7 +17,7 @@ import { isPreviewablePath } from '../preview/studio';
 import { useCan } from '../session';
 import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
-import { showCategory } from './CategoriesPage';
+import { CategoryPlace } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
 import { ModelHistory } from './ModelHistory';
 import { NotesEnglish } from '../notes/NotesEnglish';
@@ -539,19 +539,7 @@ export function ModelPage({ filePath }: { filePath: string }) {
                   '—'
                 )}
               </Prop>
-              <Prop label="Categories">
-                {model.categories?.length ? (
-                  <span className="jp-details__categories" id="jp-model-page-categories">
-                    {model.categories.map((name) => (
-                      <button key={name} type="button" className="jp-chip" title={`Show the models in ${name}`} onClick={() => showCategory(name)}>
-                        {name}
-                      </button>
-                    ))}
-                  </span>
-                ) : (
-                  '—'
-                )}
-              </Prop>
+              <Prop label="Category">{model.categories?.length ? <CategoryPlace names={model.categories} id="jp-model-page-categories" /> : '—'}</Prop>
               <Prop label="Location" title={online ? undefined : model.filePath}>
                 {online ? 'Online model' : folderPath || '—'}
               </Prop>

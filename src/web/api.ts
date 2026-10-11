@@ -312,9 +312,11 @@ export const tags = {
   restore: (request: TagRestore) => callAction<{ id: number; name: string; linked: number }>('restore-tag', request)
 };
 
+/** A Category, or a Subcategory (parent_id is its Category's id) (src/core/categories.js). */
 export interface Category {
   id: number;
   name: string;
+  parent_id: number | null;
   /** Words that point to it in folder names, tags and model names (Categorize Library). */
   keywords: string[];
   model_count: number;
@@ -329,26 +331,26 @@ export interface CategoryScan {
   useAi: boolean;
   total: number;
   processed: number;
-  /** Models placed by the free step, by where the category came from (site, folder, tag, name). */
+  /** Models placed, by where their place came from (site, folder, tag, name, ai). */
   placed: Record<string, number>;
+  /** Every model looked at again (not the ones a person placed). */
+  again: boolean;
   left: number;
   aiTotal: number;
   aiDone: number;
   noPicture: number;
   error: string | null;
-  suggestions: { filePath: string; fileName: string; categories: string[] }[];
+  /** What the AI placed (to check them; the first 500). */
+  aiPlaced: { filePath: string; fileName: string; category: string; subcategory: string }[];
 }
 
 export const categories = {
   list: () => callAction<{ categories: Category[]; uncategorized: number }>('get-categories'),
-  create: (name: string, keywords = '') => callAction<{ id: number; name: string }>('create-category', name, keywords),
-  update: (id: number, changes: { name?: string; keywords?: string }) => callAction<{ id: number; name: string }>('update-category', id, changes),
-  remove: (id: number) => callAction<{ success: boolean }>('delete-category', id),
+  update: (id: number, changes: { keywords?: string }) => callAction<{ id: number; name: string }>('update-category', id, changes),
   setForModel: (filePath: string, names: string[]) => callAction<string[]>('set-model-categories', filePath, names),
   scan: () => callAction<{ job: CategoryScan | null; aiReady: boolean }>('get-category-scan'),
-  startScan: (useAi: boolean) => callAction<CategoryScan | { busy: true }>('start-category-scan', { useAi }),
+  startScan: (useAi: boolean, again = false) => callAction<CategoryScan | { busy: true }>('start-category-scan', { useAi, again }),
   stopScan: () => callAction<{ success: boolean }>('stop-category-scan'),
-  applySuggestions: (picks: { filePath: string; categories: string[] }[]) => callAction<{ placed: number }>('apply-category-suggestions', picks),
   dismissScan: () => callAction<{ success: boolean }>('dismiss-category-scan')
 };
 

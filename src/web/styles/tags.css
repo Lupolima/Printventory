@@ -168,35 +168,65 @@
   padding-left: var(--jp-space-5);
   color: var(--jp-text-2);
 }
-.jp-category-review {
-  margin-top: var(--jp-space-4);
+.jp-category-placed {
+  margin-top: var(--jp-space-3);
 }
-.jp-category-review__list {
-  max-height: 420px;
-  margin: var(--jp-space-3) 0 0;
+.jp-category-placed summary {
+  cursor: pointer;
+  color: var(--jp-text);
+}
+.jp-category-placed__list {
+  max-height: 360px;
+  margin: var(--jp-space-2) 0 0;
   padding: 0;
   overflow-y: auto;
   list-style: none;
 }
-.jp-category-review__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--jp-space-3);
-  padding: var(--jp-space-2) 0;
-}
-.jp-category-review__row + .jp-category-review__row {
-  border-top: 1px solid var(--jp-border);
-}
-.jp-category-review__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.jp-category-review__chips {
+.jp-category-placed__list li {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--jp-space-1) var(--jp-space-3);
+  padding: var(--jp-space-1) 0;
+  border-top: 1px solid var(--jp-border);
+}
+/* A Category, folded open to show its Subcategories. */
+.jp-category-group {
+  list-style: none;
+}
+.jp-category-group + .jp-category-group {
+  border-top: 1px solid var(--jp-border);
+}
+.jp-category-group > details > summary {
+  display: flex;
+  align-items: center;
   gap: var(--jp-space-1);
+  padding-left: var(--jp-space-2);
+  cursor: pointer;
+  list-style: none;
+}
+.jp-category-group > details > summary::-webkit-details-marker {
+  display: none;
+}
+.jp-category-group > details > summary > .jp-category-row {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+}
+.jp-category-group__chevron {
+  flex: none;
+  color: var(--jp-text-3);
+  transition: transform var(--jp-transition);
+}
+.jp-category-group > details[open] .jp-category-group__chevron {
+  transform: rotate(90deg);
+}
+.jp-category-group__subs {
+  padding: 0 0 var(--jp-space-2) calc(var(--jp-space-2) + 20px);
+}
+.jp-category-row.is-sub .jp-category-row__title {
+  font-weight: 500;
 }
 .jp-link-button {
   all: unset;
@@ -206,4 +236,9 @@
 }
 .jp-link-button:focus-visible {
   box-shadow: var(--jp-focus-ring);
+}
+.jp-category-place__part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jp-space-1);
 }

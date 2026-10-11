@@ -29,7 +29,7 @@ function apiKeyForClient(apiKey) {
 }
 
 // Default configuration options
-/** @type {{ maxTags: number, useCategories: boolean, useJsonResponse: boolean, tagCategories: string[], mimeType?: string, customPrompt?: string, detailLevel?: string }} */
+/** @type {{ maxTags: number, useCategories: boolean, useJsonResponse: boolean, tagCategories: string[], mimeType?: string, customPrompt?: string, detailLevel?: string, categoryChoices?: string[] }} */
 const DEFAULT_OPTIONS = {
   maxTags: 10,
   useCategories: false,
@@ -408,6 +408,40 @@ function buildPrompt(options = {}, filename = null) {
 // Always appended to the prompt when calling the API (not included in editable/default prompt)
 const JSON_RESPONSE_INSTRUCTIONS = `You MUST respond with ONLY a valid JSON object. The JSON must be complete and valid. Use this exact format: {"tags": ["tag1", "tag2", "tag3"]}. Do not include any explanatory text, markdown formatting, or code blocks - only the raw JSON object. If you cannot identify the model, return {"tags": []}. Ensure the JSON is properly closed with all brackets and quotes. `;
 
+/**
+ * Asked along with the tags when `categoryChoices` are given (Categories): the model's Category and
+ * Subcategory, one of the choices ("Toys & Games > Puzzles").
+ */
+function categoryInstructions(choices) {
+  return (
+    `Also sort the model into exactly one category from this list, written exactly as it is: ${choices.map((c) => `"${c}"`).join(', ')}. ` +
+    `Choose the one that fits it best (an "Other" one when no other fits). `
+  );
+}
+const JSON_WITH_CATEGORY_INSTRUCTIONS = `You MUST respond with ONLY a valid JSON object. The JSON must be complete and valid. Use this exact format: {"tags": ["tag1", "tag2", "tag3"], "category": "Category > Subcategory"}. Do not include any explanatory text, markdown formatting, or code blocks - only the raw JSON object. If you cannot identify the model, return {"tags": [], "category": ""}. Ensure the JSON is properly closed with all brackets and quotes. `;
+
+/** The "category" of an answer, or ''. */
+function parseCategoryFromResponse(content) {
+  const text = String(content || '');
+  const object = text.match(/\{[\s\S]*\}/);
+  if (object) {
+    try {
+      const parsed = JSON.parse(object[0]);
+      if (parsed && typeof parsed.category === 'string') return parsed.category.trim();
+    } catch (_) {
+      /* below */
+    }
+  }
+  const found = text.match(/"category"\s*:\s*"([^"]*)"/);
+  return found ? found[1].trim() : '';
+}
+
+/** The tags, carrying the answer's category (`tags.category`) when one was asked for. */
+function withCategory(tags, content, choices) {
+  if (choices) Object.defineProperty(tags, 'category', { value: parseCategoryFromResponse(content), enumerable: false });
+  return tags;
+}
+
 // Return default prompt for current options (no filename). Used for Edit Prompt dialog and Reset.
 function getDefaultPrompt(options = {}) {
   return buildPrompt({ ...DEFAULT_OPTIONS, ...options }, null);
@@ -433,7 +467,8 @@ async function generateTagsForImage(base64Image, model, options = {}, delayMs = 
   } else {
     basePrompt = buildPrompt(mergedOptions, filename);
   }
-  const prompt = basePrompt + JSON_RESPONSE_INSTRUCTIONS;
+  const choices = Array.isArray(mergedOptions.categoryChoices) && mergedOptions.categoryChoices.length ? mergedOptions.categoryChoices : null;
+  const prompt = choices ? basePrompt + categoryInstructions(choices) + JSON_WITH_CATEGORY_INSTRUCTIONS : basePrompt + JSON_RESPONSE_INSTRUCTIONS;
   console.debug('[AITagging] Prompt (first 800 chars):', prompt.length > 800 ? prompt.substring(0, 800) + '...' : prompt);
 
   // Handle puter service differently
@@ -479,7 +514,7 @@ async function generateTagsForImage(base64Image, model, options = {}, delayMs = 
         const limitedTags = tags.slice(0, maxTags);
 
         console.debug(`Successfully generated ${limitedTags.length} tags using Puter (from ${tags.length} parsed)`);
-        return limitedTags;
+        return withCategory(limitedTags, responseContent, choices);
       } catch (error) {
         console.error('Error generating tags with Puter:', error);
         if (attempt < maxRetries - 1) {
@@ -560,7 +595,7 @@ async function generateTagsForImage(base64Image, model, options = {}, delayMs = 
       const limitedTags = tags.slice(0, maxTags);
 
       console.debug(`Successfully generated ${limitedTags.length} tags (from ${tags.length} parsed)`);
-      return limitedTags;
+      return withCategory(limitedTags, responseContent, choices);
     } catch (error) {
       if (isRateLimitError(error)) {
         attempt++;
@@ -780,6 +815,7 @@ module.exports = {
   initializeOpenAI,
   generateTagsForImage,
   testAIConfig,
+  parseCategoryFromResponse,
   parseTagsFromResponse,
   normalizeTag,
   deduplicateTags,

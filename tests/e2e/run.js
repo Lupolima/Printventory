@@ -1342,26 +1342,29 @@ async function browserChecks(base, wsUrl, session) {
         check('renaming back in the Edit dialog restores the file', restored === true && fs.existsSync(cardPath) && !fs.existsSync(renamedPath));
         await page.waitForSelector(card, { timeout: 10000 }).catch(() => {});
       }
-      // Categories (src/web/pages/CategoriesPage.tsx): a category of our own, Categorize Library without the AI, and its models in the library.
+      // Categories (src/web/pages/CategoriesPage.tsx): the fixed list, Categorize Library without the AI (a Subcategory's words), and its models in the library.
       {
         const cubePath = path.join(LIBRARY, 'Designer A', 'cube.stl');
         await page.evaluate(() => {
           window.location.hash = '#/categories';
         });
         await page.waitForSelector('#jp-categories-list', { timeout: 10000 }).catch(() => {});
-        check("the Categories page starts with MakerWorld's categories", (await page.locator('#jp-categories-list .jp-category-row').count()) >= 10);
-        await page.fill('#jp-new-category', 'E2E Shapes');
-        await page.click('.jp-tags__create button[type=submit]');
-        const shapes = '.jp-category-row[data-category-name="E2E Shapes"]';
-        await page.waitForSelector(shapes, { timeout: 10000 }).catch(() => {});
-        await invoke(base, session, 'update-category', [
-          ((await invoke(base, session, 'get-categories')).result.categories.find((c) => c.name === 'E2E Shapes') || {}).id || 0,
-          { keywords: 'cube' }
-        ]);
+        check('the Categories page lists the eleven Categories', (await page.locator('#jp-categories-list .jp-category-group').count()) === 11);
+        const puzzles = ((await invoke(base, session, 'get-categories')).result.categories || []).find((c) => c.name === 'Puzzles') || {};
+        check('Puzzles is a Subcategory of Toys & Games', !!puzzles.parent_id);
+        await invoke(base, session, 'update-category', [puzzles.id || 0, { keywords: 'cube' }]);
+        // The sort after an update may be running, or done and showing its summary: closed first.
+        await page.waitForSelector('#jp-category-scan-start, #jp-category-scan-close', { timeout: 60000 }).catch(() => {});
+        if (await page.isVisible('#jp-category-scan-close')) await page.click('#jp-category-scan-close');
+        await page.waitForSelector('#jp-category-scan-start', { timeout: 10000 }).catch(() => {});
         await page.uncheck('.jp-category-scan__ai input').catch(() => {});
+        await page.check('#jp-category-scan-again').catch(() => {});
         await page.click('#jp-category-scan-start');
         const placed = await waitFor(
-          async () => (((await invoke(base, session, 'get-model', [cubePath])).result || {}).categories || []).includes('E2E Shapes') || null,
+          async () => {
+            const names = ((await invoke(base, session, 'get-model', [cubePath])).result || {}).categories || [];
+            return names.join(' > ') === 'Toys & Games > Puzzles' || null;
+          },
           30000,
           'categorized'
         ).catch(() => false);
@@ -1369,8 +1372,13 @@ async function browserChecks(base, wsUrl, session) {
           () => true,
           () => false
         );
-        check("Categorize Library places a model by a category's words", placed === true && summaryShown);
+        check("Categorize Library gives a model its Category and Subcategory by a Subcategory's words", placed === true && summaryShown);
         await page.click('#jp-category-scan-close').catch(() => {});
+        const shapes = '.jp-category-row[data-category-name="Puzzles"]';
+        await page.evaluate((selector) => {
+          const details = document.querySelector(selector)?.closest('details');
+          if (details) details.open = true;
+        }, shapes);
         await page.click(`${shapes} .jp-category-row__name`);
         const onlyCube = await page
           .waitForFunction(
@@ -1385,11 +1393,9 @@ async function browserChecks(base, wsUrl, session) {
             () => true,
             () => false
           );
-        check('a category shows its models in the library', onlyCube);
+        check('a Subcategory shows its models in the library', onlyCube);
         await page.click('#jp-filter-strip .jp-filter-clear, button:has-text("Clear All Filters")').catch(() => {});
-        await invoke(base, session, 'delete-category', [
-          ((await invoke(base, session, 'get-categories')).result.categories.find((c) => c.name === 'E2E Shapes') || {}).id || 0
-        ]);
+        await invoke(base, session, 'update-category', [puzzles.id || 0, { keywords: (puzzles.keywords || []).join(', ') }]);
         await page.evaluate(() => {
           window.location.hash = '#/library';
         });

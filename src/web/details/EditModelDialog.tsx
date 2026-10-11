@@ -84,9 +84,11 @@ export function EditModelDialog() {
   const [siteStart, setSiteStart] = useState<SiteForm | null>(null);
   const [site, setSite] = useState<SiteForm | null>(null);
   const [siteNote, setSiteNote] = useState('');
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [categoryStart, setCategoryStart] = useState<string[]>([]);
-  const [chosen, setChosen] = useState<string[]>([]);
+  /** The list: each Category with its Subcategories' names. */
+  const [allCategories, setAllCategories] = useState<{ name: string; subcategories: string[] }[]>([]);
+  /** The model's place: its Subcategory's name (or its Category's when it has only that), '' for none. */
+  const [categoryStart, setCategoryStart] = useState('');
+  const [chosen, setChosen] = useState('');
   const [options, setOptions] = useState<{ designers: string[]; parents: string[]; licenses: string[] }>({ designers: [], parents: [], licenses: [] });
   const [saving, setSaving] = useState(false);
 
@@ -113,12 +115,19 @@ export function EditModelDialog() {
     setSite(null);
     const found = siteModelUrl(loaded);
     setSiteNote(found ? `Getting the details from ${SITE_LABELS[found.site]}…` : '');
+    // [Category, Subcategory]: the last one is the place.
     const inCategories = Array.isArray(loaded.categories) ? (loaded.categories as string[]) : [];
-    setCategoryStart(inCategories);
-    setChosen(inCategories);
+    const place = inCategories[inCategories.length - 1] || '';
+    setCategoryStart(place);
+    setChosen(place);
     if (!dialogRef.current?.open) dialogRef.current?.showModal();
     categoryApi.list().then(
-      (result) => setAllCategories(result.categories.map((category) => category.name)),
+      (result) =>
+        setAllCategories(
+          result.categories
+            .filter((category) => !category.parent_id)
+            .map((main) => ({ name: main.name, subcategories: result.categories.filter((c) => c.parent_id === main.id).map((c) => c.name) }))
+        ),
       () => {}
     );
     Promise.all([libraryValues.designers(), libraryValues.parentModels(), libraryValues.licenses()]).then(
@@ -195,8 +204,7 @@ export function EditModelDialog() {
         filePath,
         fields.filter((field) => field !== 'name')
       );
-      const categoriesChanged = changedFields({ list: [...categoryStart].sort() }, { list: [...chosen].sort() }).length > 0;
-      if (categoriesChanged) await categoryApi.setForModel(filePath, chosen);
+      if (chosen !== categoryStart) await categoryApi.setForModel(filePath, chosen ? [chosen] : []);
       if (details && site && siteFields.length) {
         const changes: Record<string, unknown> = {};
         const profiles: Record<string, string> = {};
@@ -300,21 +308,24 @@ export function EditModelDialog() {
             <p className="setting-description">Separated by commas.</p>
           </div>
           {allCategories.length > 0 && (
-            <fieldset className="form-group edit-model-categories" id="edit-model-categories">
-              <legend>Categories</legend>
-              <div className="edit-model-categories__list">
-                {allCategories.map((name) => (
-                  <label key={name} className="edit-model-categories__item">
-                    <input
-                      type="checkbox"
-                      checked={chosen.includes(name)}
-                      onChange={(event) => setChosen((now) => (event.target.checked ? [...now, name] : now.filter((n) => n !== name)))}
-                    />
-                    <span>{name}</span>
-                  </label>
+            <div className="form-group" id="edit-model-categories">
+              <label htmlFor="edit-model-category">Category › Subcategory</label>
+              <select id="edit-model-category" value={chosen} onChange={(event) => setChosen(event.target.value)}>
+                <option value="">None yet (Categorize Library or AI Tagging places it)</option>
+                {allCategories.map((main) => (
+                  <optgroup key={main.name} label={main.name}>
+                    {/* A Category alone, as it was (it gets a Subcategory at the next sort). */}
+                    {chosen === main.name && <option value={main.name}>{main.name} › (no Subcategory yet)</option>}
+                    {main.subcategories.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {main.name} › {sub}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
-              </div>
-            </fieldset>
+              </select>
+              <p className="setting-description">Chosen here, it stays: Categorize Library and the AI do not change it.</p>
+            </div>
           )}
           <div className="form-group">
             <label htmlFor="edit-model-rating">Rating</label>
