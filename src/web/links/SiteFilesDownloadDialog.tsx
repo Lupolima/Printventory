@@ -12,6 +12,7 @@ import { exposeGlobal, onServerEvent } from '../page';
 import { stlHomeDirectories } from '../scan/stlHome';
 import { formatBytes } from '../shell/AppShell';
 import { navigate } from '../shell/routes';
+import { mediaLine } from '../media/media';
 import { FileChecklist, type SiteFile } from './FileChecklist';
 
 declare global {
@@ -44,6 +45,8 @@ interface Result {
   mainFile: string | null;
   warning?: string | null;
   notScanned?: string[];
+  /** Pictures and documents saved from the model's page (src/server/site-media.js). */
+  media?: number;
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -130,6 +133,7 @@ export function SiteFilesDownloadDialog() {
           saved.length
             ? `Downloaded ${saved.length === 1 ? saved[0] : `${saved.length} files`} into ${result.folder}.`
             : `Every chosen file was already in ${result.folder}.`,
+          result.media ? `Also ${mediaLine(result.media)}.` : '',
           result.warning ? `${result.warning}.` : '',
           result.notScanned?.length ? `Not in the library: ${result.notScanned.join(', ')} (turn its file type on under Settings → Scanning → File Types).` : ''
         ]

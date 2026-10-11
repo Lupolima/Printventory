@@ -3,6 +3,7 @@ import { organize, settings, type OrganizeJob, type OrganizePreview, type Organi
 import { pickFolder } from '../components/FolderPicker';
 import { exposeGlobal, showMessage } from '../page';
 import { navigate } from '../shell/routes';
+import { TidyModelFolders } from '../media/TidyModelFolders';
 
 declare global {
   interface Window {
@@ -523,6 +524,16 @@ export function OrganizePage() {
       </header>
       <div className="jp-card jp-organize__card">
         <OrganizeLibrary actions={(buttons) => <div className="jp-organize__actions">{buttons}</div>} />
+      </div>
+      <div className="jp-card jp-organize__card" aria-labelledby="tidy-title">
+        <h2 className="jp-panel-title" id="tidy-title">
+          Tidy Into Model Folders
+        </h2>
+        <p className="jp-meta">
+          Give each model a folder of its own, named after it, as uploads and downloads get: its pictures, videos and documents then go into its image, video
+          and document folders. Pictures and documents named like a model go along. A folder that holds one model already stays where it is.
+        </p>
+        <TidyModelFolders />
       </div>
     </div>
   );

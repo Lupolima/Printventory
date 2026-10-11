@@ -71,7 +71,18 @@ async function main() {
       }
       if (/print\(id/.test(query)) {
         return json({
-          data: { print: { id: '1839122', name: 'Parametric Laptop Stand', user: { publicUsername: 'Shapr3D' }, image: null, license: { name: 'CC BY' } } }
+          data: {
+            print: {
+              id: '1839122',
+              name: 'Parametric Laptop Stand',
+              user: { publicUsername: 'Shapr3D' },
+              image: null,
+              license: { name: 'CC BY' },
+              // The model's pictures and its PDF (saved into the model's folder).
+              images: [{ filePath: 'media/prints/1839122/images/front_view.jpg' }],
+              pdfFilePath: 'media/prints/1839122/pdfs/stand.pdf'
+            }
+          }
         });
       }
       if (/getDownloadLink/.test(query)) {
@@ -80,6 +91,11 @@ async function main() {
       }
     }
     if (u.hostname === 'files.printables.com') return new Response(`solid file ${u.pathname}\nendsolid`);
+    if (u.hostname === 'media.printables.com') {
+      if (u.pathname.endsWith('.pdf')) return new Response('%PDF-1.4', { headers: { 'content-type': 'application/pdf' } });
+      return new Response('jpeg', { headers: { 'content-type': 'image/jpeg' } });
+    }
+    if (u.hostname === 'cdn.thingiverse.com' && u.pathname.endsWith('.jpg')) return new Response('jpeg', { headers: { 'content-type': 'image/jpeg' } });
     const challenge = () =>
       new Response('<!DOCTYPE html><html><head><title>Just a moment...</title></head></html>', { status: 403, headers: { 'cf-mitigated': 'challenge' } });
     if (cloudflare && u.hostname.endsWith('thingiverse.com')) return challenge();
@@ -93,6 +109,8 @@ async function main() {
       if (u.pathname === '/users/me') return json({ name: 'me' });
       if (u.pathname === '/things/7418273') return json({ name: 'Prowling Bear', creator: { name: 'LennyFace' }, like_count: 16, remix_count: 0 });
       if (u.pathname === '/things/7418273/tags') return json([{ name: 'bear' }]);
+      if (u.pathname === '/things/7418273/images')
+        return json([{ name: 'bear photo.jpg', sizes: [{ type: 'display', size: 'large', url: 'https://cdn.thingiverse.com/assets/bear-photo.jpg' }] }]);
       if (u.pathname === '/things/7418273/ancestors') return json([{ id: 6000000, name: 'Bear', creator: { name: 'Original' } }]);
       if (u.pathname === '/things/7418273/files')
         return json([
@@ -132,7 +150,12 @@ async function main() {
   const folder = path.join(library, 'Parametric Laptop Stand');
   assert.strictEqual(result.folder, folder);
   assert.deepStrictEqual(result.saved.sort(), ['Main Parts.stl', 'Pins.step'].sort(), 'the model files when none were chosen');
-  assert.deepStrictEqual(fs.readdirSync(folder).sort(), ['Main Parts.stl', 'Pins.step'].sort());
+  assert.deepStrictEqual(fs.readdirSync(folder).sort(), ['Main Parts.stl', 'Pins.step', 'document', 'image'].sort());
+  // A model folder: the model's pictures and PDF from its page, in their subfolders.
+  assert.deepStrictEqual(fs.readdirSync(path.join(folder, 'image')), ['front_view.jpg']);
+  assert.deepStrictEqual(fs.readdirSync(path.join(folder, 'document')), ['stand.pdf']);
+  assert.strictEqual(result.media, 2);
+  assert.ok(require('../src/server/model-folders').isModelFolder(folder));
   assert.ok(!database.db.prepare('SELECT 1 FROM models WHERE id = ?').get(online), 'the online model became the files');
   const part = database.db.prepare('SELECT designer, license, source, notes FROM models WHERE filePath = ?').get(path.join(folder, 'Main Parts.stl'));
   assert.deepStrictEqual({ ...part }, { designer: 'Shapr3D', license: 'CC BY', source: 'https://www.printables.com/model/1839122', notes: 'my notes' });
@@ -141,11 +164,11 @@ async function main() {
   assert.deepStrictEqual([more.folder, more.saved], [folder, ['MK4 0.2mm.gcode']], 'the same folder; files already there are skipped');
   await assert.rejects(siteFiles.downloadFiles({ url: PRINTABLES, folder: library, fileIds: [] }, { fetchImpl: web }), /Choose the files/);
 
-  // One file: named after the model.
+  // One file: it keeps the site's name (the folder has the model's).
   database.db.prepare('DELETE FROM site_files').run();
   const single = await siteFiles.downloadFiles({ url: PRINTABLES, folder: library, fileIds: ['1'] }, { fetchImpl: web });
-  assert.deepStrictEqual(single.saved, ['Parametric Laptop Stand.stl'], 'a single file is named after the model');
-  assert.strictEqual(path.basename(single.mainFile), 'Parametric Laptop Stand.stl');
+  assert.deepStrictEqual(single.saved, ['Main Parts.stl'], 'a single file keeps its name');
+  assert.strictEqual(path.basename(single.mainFile), 'Main Parts.stl');
 
   database.db.prepare('DELETE FROM site_files').run();
   fileHost = 'evil.example';
@@ -173,12 +196,15 @@ async function main() {
     ]
   );
   const bear = await siteFiles.downloadFiles({ url: THINGIVERSE, folder: library }, { fetchImpl: web });
-  assert.deepStrictEqual(bear.saved, ['Prowling Bear.stl'], 'downloaded through the redirect to its file server');
+  assert.deepStrictEqual(bear.saved, ['bear.stl'], 'downloaded through the redirect to its file server');
+  assert.deepStrictEqual(fs.readdirSync(path.join(bear.folder, 'image')), ['bear photo.jpg'], "with a token: the thing's pictures");
 
   // --- Thingiverse behind Cloudflare's browser check: said so, not blamed on the token ---
   cloudflare = true;
   await assert.rejects(siteFiles.listFiles(THINGIVERSE, web), (error) => error.code === 'BLOCKED' && /Cloudflare/.test(error.message));
   const siteDetails = require('../src/server/site-details');
+  // The download above kept the thing's details; without them a blocked fetch is an error.
+  database.db.prepare('DELETE FROM site_details').run();
   await assert.rejects(siteDetails.getDetails(THINGIVERSE, { refresh: true, fetchImpl: web }), (error) => error.code === 'BLOCKED');
   cloudflare = false;
   cloudflarePage = true;
@@ -191,7 +217,7 @@ async function main() {
     ['Prowling Bear', ['bear'], [{ title: 'Bear', designer: 'Original', url: 'https://www.thingiverse.com/thing:6000000' }]],
     'with a token: tags and what it is a remix of'
   );
-  assert.strictEqual(fs.readFileSync(path.join(bear.folder, 'Prowling Bear.stl'), 'utf8'), 'solid bear\nendsolid');
+  assert.strictEqual(fs.readFileSync(path.join(bear.folder, 'bear.stl'), 'utf8'), 'solid bear\nendsolid');
 
   // --- Add Links: online models get their files; failures keep the online model ---
   database.db.prepare('DELETE FROM models').run();
@@ -224,7 +250,9 @@ async function main() {
 
   assert.ok(
     calls.every((c) =>
-      /^(api\.printables\.com|files\.printables\.com|www\.thingiverse\.com|api\.thingiverse\.com|cdn\.thingiverse\.com|evil\.example)\//.test(c)
+      /^(api\.printables\.com|files\.printables\.com|media\.printables\.com|www\.thingiverse\.com|api\.thingiverse\.com|cdn\.thingiverse\.com|evil\.example)\//.test(
+        c
+      )
     ),
     calls.join('\n')
   );

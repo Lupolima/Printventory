@@ -1,0 +1,324 @@
+/* A model folder's pictures, videos and documents (media/ModelMediaSection.tsx) and their viewer. */
+.jp-media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-4);
+  min-width: 0;
+}
+.jp-media .jp-panel-title {
+  margin: 0;
+}
+.jp-media p {
+  margin: 0;
+}
+.jp-media__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+  min-width: 0;
+}
+.jp-media__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jp-space-2);
+}
+.jp-media__title {
+  margin: 0;
+  font-size: var(--jp-text-ui);
+  font-weight: 600;
+}
+.jp-media__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jp-space-2);
+}
+.jp-media__add .jp-btn {
+  width: auto;
+  margin: 0;
+}
+.jp-media__images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--jp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-media__image {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+  background: var(--jp-preview-bg);
+}
+.jp-media__image.is-cover {
+  border-color: var(--jp-accent);
+  box-shadow: 0 0 0 1px var(--jp-accent);
+}
+.jp-media__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.jp-media__open img,
+.jp-media__open .jp-media__loading,
+.jp-media__open .jp-media__broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  color: var(--jp-text-3);
+  font-size: var(--jp-text-small);
+  text-align: center;
+}
+.jp-media__badge {
+  position: absolute;
+  top: var(--jp-space-1);
+  left: var(--jp-space-1);
+  padding: 1px var(--jp-space-2);
+  border-radius: var(--jp-radius-pill);
+  background: var(--jp-accent);
+  color: var(--jp-on-accent);
+  font-size: var(--jp-text-badge);
+  font-weight: 600;
+  pointer-events: none;
+}
+.jp-media__tools {
+  position: absolute;
+  top: var(--jp-space-1);
+  right: var(--jp-space-1);
+  display: flex;
+  gap: 2px;
+  border-radius: var(--jp-radius-sm);
+  background: rgba(var(--jp-surface-1-rgb), 0.9);
+  opacity: 0;
+  transition: opacity var(--jp-transition);
+}
+.jp-media__image:hover .jp-media__tools,
+.jp-media__image:focus-within .jp-media__tools {
+  opacity: 1;
+}
+@media (hover: none) {
+  .jp-media__tools {
+    opacity: 1;
+  }
+}
+.jp-media__videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--jp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-media__video {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  min-width: 0;
+}
+.jp-media__video video,
+.jp-media__video iframe,
+.jp-media__youtube,
+.jp-media__unplayable {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--jp-radius-md);
+  background: #000;
+}
+.jp-media__youtube {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  color: #fff;
+  cursor: pointer;
+}
+.jp-media__youtube img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+.jp-media__youtube svg {
+  position: relative;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6));
+}
+.jp-media__unplayable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--jp-space-2);
+  padding: var(--jp-space-3);
+  background: var(--jp-surface-2);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-small);
+  text-align: center;
+}
+.jp-media__caption,
+.jp-media__document {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  min-width: 0;
+}
+.jp-media__caption a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.jp-media__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jp-media__documents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-media__document {
+  padding: var(--jp-space-2);
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+  color: var(--jp-text-2);
+}
+.jp-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--jp-radius-sm);
+  color: var(--jp-text-2);
+}
+.jp-icon-link:hover {
+  background: var(--jp-surface-hover);
+  color: var(--jp-text);
+}
+
+/* The viewer */
+.jp-media-viewer {
+  width: min(1100px, calc(100vw - 32px));
+}
+.jp-media-viewer .jp-overlay__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.jp-media-viewer__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--jp-space-2);
+  min-height: 0;
+}
+.jp-media-viewer__image {
+  max-width: 100%;
+  max-height: min(72vh, 900px);
+  min-width: 0;
+  object-fit: contain;
+}
+.jp-media-viewer__stage > .jp-media-viewer__image {
+  flex: 0 1 auto;
+}
+.jp-media-viewer .jp-overlay__footer a.jp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  width: auto;
+  text-decoration: none;
+}
+.jp-doc-view__frame {
+  width: 100%;
+  height: min(75vh, 1000px);
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+  background: #fff;
+}
+.jp-doc-view__text {
+  max-height: min(75vh, 1000px);
+  overflow: auto;
+  padding: var(--jp-space-4);
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+  background: var(--jp-surface-1);
+}
+.jp-doc-view__pre {
+  margin: 0;
+  font-family: var(--jp-font-mono);
+  font-size: var(--jp-text-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.jp-doc-view__none,
+.jp-doc-view__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--jp-space-3);
+  padding: var(--jp-space-4);
+  color: var(--jp-text-2);
+}
+.jp-doc-view__none .jp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  width: auto;
+}
+
+/* Tidy Into Model Folders (Organize) */
+.jp-tidy__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  max-height: 320px;
+  overflow: auto;
+  margin: var(--jp-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-tidy__list label,
+.jp-tidy__covers {
+  display: flex;
+  align-items: baseline;
+  gap: var(--jp-space-2);
+  cursor: pointer;
+}
+.jp-tidy__list input,
+.jp-tidy__covers input {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
+.jp-tidy__to {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.jp-tidy__files {
+  overflow-wrap: anywhere;
+}
+.jp-organize__card + .jp-organize__card {
+  margin-top: var(--jp-space-4);
+}

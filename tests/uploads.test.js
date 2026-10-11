@@ -28,7 +28,9 @@ test('folders, hidden files, control characters and other types are refused', ()
   assert.throws(() => checkUploadName('..', EXTENSIONS), /plain file name/);
   assert.throws(() => checkUploadName('.hidden.stl', EXTENSIONS), /Hidden/);
   assert.throws(() => checkUploadName('bad\u0007.stl', EXTENSIONS), /control characters/);
-  assert.throws(() => checkUploadName('page.html', EXTENSIONS), /does not scan \.html files/);
+  assert.throws(() => checkUploadName('setup.exe', EXTENSIONS), /does not scan \.exe files/);
+  // Pictures, videos and documents go into a model's folder, not a library folder.
+  assert.throws(() => checkUploadName('page.html', EXTENSIONS), /go into a model's folder/);
   assert.throws(() => checkUploadName('README', EXTENSIONS), /without an extension/);
   assert.throws(() => checkUploadName('', EXTENSIONS), /no name/);
   assert.throws(() => checkUploadName(`${'a'.repeat(250)}.stl`, EXTENSIONS), /too long/);

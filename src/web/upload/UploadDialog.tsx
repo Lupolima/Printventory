@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CircleAlert, FolderOpen, Plus, Upload, X } from 'lucide-react';
-import { cancelUpload, uploadFile, uploads, type UploadInfo } from '../api';
+import { callAction, cancelUpload, uploadFile, uploads, type UploadInfo } from '../api';
 import { Button, IconButton } from '../components/Button';
 import { pickFolder } from '../components/FolderPicker';
 import { Modal } from '../components/Overlay';
@@ -13,6 +13,7 @@ import { useCan } from '../session';
 import { exposeGlobal } from '../page';
 import { checkFile, type FileCheck } from './check';
 import { forgetSession, saveSession, savedSession } from './resume';
+import { defaultModelName, lastSegment, mediaKindOf, stem, targetFolder, type UploadMode } from './plan';
 
 declare global {
   interface Window {
@@ -34,6 +35,8 @@ interface Entry {
   savedAs?: string;
   /** The server's session while it uploads (cancelled with it). */
   sessionId?: string;
+  /** The model folder made for this file (each file its own model), kept for a retry. */
+  modelFolder?: string;
 }
 
 function rememberedFolder(): string {
@@ -72,8 +75,8 @@ function scanWarning(file: File, info: UploadInfo | null): string {
   return check && check.ok ? check.warning || '' : '';
 }
 
-function entryFor(file: File, info: UploadInfo | null): Entry {
-  const check: FileCheck = info ? checkFile(file, info) : { ok: true };
+function entryFor(file: File, info: UploadInfo | null, mode: UploadMode = 'one'): Entry {
+  const check: FileCheck = info ? checkFile(file, info, mode === 'each' ? 'no' : 'yes') : { ok: true };
   return {
     key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
     file,
@@ -85,8 +88,12 @@ function entryFor(file: File, info: UploadInfo | null): Entry {
 
 /**
  * Upload Models (Library → Upload, or drop files on the page): pick a library folder, add files,
- * and upload them one by one (POST /api/upload). Afterwards the folder is scanned, so the models
- * appear with thumbnails. Editors and admins only.
+ * and upload them one by one (POST /api/upload). Every model gets a folder of its own named after
+ * it (src/server/model-folders.js): the files as one model, or each model file as its own. In
+ * the model's folder, pictures go into image/, videos into video/ and documents into document/;
+ * a folder that is a model's folder already takes them as they are. Afterwards the folder is
+ * scanned, so the models appear with thumbnails (the first picture is the cover). Editors and
+ * admins only.
  */
 export function UploadDialog() {
   const [open, setOpen] = useState(false);
@@ -98,12 +105,46 @@ export function UploadDialog() {
   const input = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
   const infoRef = useRef<UploadInfo | null>(null);
+  const [mode, setModeState] = useState<UploadMode>('one');
+  const modeRef = useRef<UploadMode>('one');
+  /** The model's name (one model); empty means the first model file's name. */
+  const [modelName, setModelName] = useState('');
+  /** The model folder made for this batch (one model), so a retry uploads into it again. */
+  const madeFolder = useRef<string | null>(null);
 
   function addFiles(files: File[]) {
     if (!files.length) return;
     setSummary('');
-    setEntries((list) => [...list.filter((entry) => entry.status !== 'done'), ...files.map((file) => entryFor(file, infoRef.current))]);
+    setEntries((list) => [...list.filter((entry) => entry.status !== 'done'), ...files.map((file) => entryFor(file, infoRef.current, modeRef.current))]);
   }
+
+  /** Check the files again for a new mode (pictures need a model folder). */
+  function setMode(next: UploadMode) {
+    modeRef.current = next;
+    setModeState(next);
+    madeFolder.current = null;
+    setEntries((list) =>
+      list.map((entry) =>
+        entry.status === 'waiting' || entry.status === 'skipped' ? { ...entryFor(entry.file, infoRef.current, next), key: entry.key } : entry
+      )
+    );
+  }
+
+  // A folder that is a model's folder already takes the files as they are.
+  useEffect(() => {
+    if (!folder) return;
+    let current = true;
+    callAction<{ isModelFolder: boolean }>('get-model-media', folder)
+      .catch(() => ({ isModelFolder: false }))
+      .then((found) => {
+        if (!current) return;
+        if (found.isModelFolder) setMode('add');
+        else if (modeRef.current === 'add') setMode('one');
+      });
+    return () => {
+      current = false;
+    };
+  }, [folder]);
 
   useEffect(
     () =>
@@ -116,7 +157,9 @@ export function UploadDialog() {
             infoRef.current = result;
             setInfo(result);
             // Files added before the limits arrived are checked now.
-            setEntries((list) => list.map((entry) => (entry.status === 'waiting' ? { ...entryFor(entry.file, result), key: entry.key } : entry)));
+            setEntries((list) =>
+              list.map((entry) => (entry.status === 'waiting' ? { ...entryFor(entry.file, result, modeRef.current), key: entry.key } : entry))
+            );
           })
           .catch(() => {});
         void defaultFolder().then((dir) => setFolder((current) => current || dir));
@@ -126,7 +169,10 @@ export function UploadDialog() {
 
   async function chooseFolder() {
     const picked = await pickFolder({ title: 'Upload Into', initial: folder || undefined, confirmLabel: 'Upload Here' });
-    if (picked) setFolder(picked);
+    if (picked) {
+      madeFolder.current = null;
+      setFolder(picked);
+    }
   }
 
   function patch(key: string, changes: Partial<Entry>) {
@@ -141,19 +187,31 @@ export function UploadDialog() {
     setSummary('');
     let uploaded = 0;
     let failed = 0;
-    const paths: string[] = [];
+    let cancelled = false;
+    /** The files uploaded into each model folder. */
+    const byFolder = new Map<string, string[]>();
+    const info = infoRef.current;
     for (const entry of queue) {
+      let modelFolder: string;
+      try {
+        modelFolder = await folderFor(entry);
+      } catch (error) {
+        failed++;
+        patch(entry.key, { status: 'error', message: errorText(error) });
+        continue;
+      }
+      const target = targetFolder(modelFolder, entry.file.name, info);
       const controller = new AbortController();
       abort.current = controller;
       patch(entry.key, { status: 'uploading', progress: entry.progress });
-      const resumeId = savedSession(folder, entry.file);
+      const resumeId = savedSession(target, entry.file);
       try {
-        const result = await uploadFile(entry.file, folder, {
-          chunkBytes: infoRef.current?.chunkBytes || 16 * 1024 * 1024,
+        const result = await uploadFile(entry.file, target, {
+          chunkBytes: info?.chunkBytes || 16 * 1024 * 1024,
           signal: controller.signal,
           resumeId,
           onSession: (id, received) => {
-            saveSession(folder, entry.file, id);
+            saveSession(target, entry.file, id);
             patch(entry.key, {
               sessionId: id,
               progress: received / Math.max(1, entry.file.size),
@@ -163,14 +221,17 @@ export function UploadDialog() {
           onProgress: (fraction) => patch(entry.key, { progress: fraction }),
           onRetry: (attempt, delay) => patch(entry.key, { message: `Connection problem, trying again in ${Math.round(delay / 1000)} s (attempt ${attempt})` })
         });
-        forgetSession(folder, entry.file);
-        paths.push(result.filePath);
+        forgetSession(target, entry.file);
+        byFolder.set(modelFolder, [...(byFolder.get(modelFolder) || []), result.filePath]);
         uploaded++;
         patch(entry.key, {
           status: 'done',
           progress: 1,
           savedAs: result.fileName,
-          message: [result.fileName !== entry.file.name ? `Saved as ${result.fileName} (the name was taken).` : '', scanWarning(entry.file, infoRef.current)]
+          message: [
+            result.fileName !== entry.file.name ? `Saved as ${result.fileName} (the name was taken).` : '',
+            mediaKindOf(entry.file.name, info) ? '' : scanWarning(entry.file, info)
+          ]
             .filter(Boolean)
             .join(' ')
         });
@@ -178,30 +239,39 @@ export function UploadDialog() {
         failed++;
         if (controller.signal.aborted) {
           // Cancelled: the server deletes what it has.
-          const id = savedSession(folder, entry.file);
+          const id = savedSession(target, entry.file);
           if (id) void cancelUpload(id);
-          forgetSession(folder, entry.file);
+          forgetSession(target, entry.file);
           patch(entry.key, { status: 'error', progress: 0, message: 'Cancelled' });
+          cancelled = true;
           break;
         }
         // A lost connection keeps the session: Upload again continues it. Other errors start over.
-        if (!(error instanceof Error && /connection was lost/.test(error.message))) forgetSession(folder, entry.file);
+        if (!(error instanceof Error && /connection was lost/.test(error.message))) forgetSession(target, entry.file);
         patch(entry.key, { status: 'error', message: errorText(error) });
       }
     }
     abort.current = null;
     if (uploaded) {
       setSummary(`Uploaded ${uploaded} ${uploaded === 1 ? 'file' : 'files'}. Adding to the library…`);
-      try {
-        const { inLibrary } = await uploads.finish(folder, paths);
-        const files = `${uploaded} ${uploaded === 1 ? 'file' : 'files'}`;
+      let inLibrary = 0;
+      let scanError = '';
+      for (const [modelFolder, paths] of byFolder) {
+        try {
+          inLibrary += (await uploads.finish(modelFolder, paths)).inLibrary;
+        } catch (error) {
+          scanError = errorText(error);
+        }
+      }
+      const files = `${uploaded} ${uploaded === 1 ? 'file' : 'files'}`;
+      const where = byFolder.size === 1 ? ` into “${lastSegment([...byFolder.keys()][0])}”` : ` into ${byFolder.size} model folders`;
+      if (scanError) setSummary(`Uploaded ${files}${where}, but the scan failed: ${scanError}`);
+      else {
         const added =
           inLibrary === uploaded
             ? `${uploaded === 1 ? 'it is' : 'all are'} in the library.`
             : `${inLibrary} of them in the library. The others are larger than the scan limit (Settings → General → Performance): raise it and scan again to add them.`;
-        setSummary(`Uploaded ${files}; ${added}${failed ? ` ${failed} failed.` : ''}`);
-      } catch (error) {
-        setSummary(`Uploaded ${uploaded} ${uploaded === 1 ? 'file' : 'files'}, but the scan failed: ${errorText(error)}`);
+        setSummary(`Uploaded ${files}${where}; ${added}${failed && !cancelled ? ` ${failed} failed.` : ''}`);
       }
     } else if (failed) {
       setSummary('Nothing was uploaded.');
@@ -209,15 +279,39 @@ export function UploadDialog() {
     setBusy(false);
   }
 
+  /** The model folder a file goes into: made on first use (one per batch, or one per file). */
+  async function folderFor(entry: Entry): Promise<string> {
+    if (modeRef.current === 'add') return folder;
+    if (modeRef.current === 'one') {
+      if (!madeFolder.current) {
+        const name =
+          modelName.trim() ||
+          defaultModelName(
+            entries.map((e) => e.file.name),
+            infoRef.current
+          ) ||
+          'Model';
+        madeFolder.current = (await callAction<{ folder: string }>('make-model-folder', folder, name)).folder;
+      }
+      return madeFolder.current;
+    }
+    if (entry.modelFolder) return entry.modelFolder;
+    const made = (await callAction<{ folder: string }>('make-model-folder', folder, stem(entry.file.name) || 'Model')).folder;
+    patch(entry.key, { modelFolder: made });
+    return made;
+  }
+
   function close() {
     if (busy) abort.current?.abort();
     setOpen(false);
     setEntries([]);
     setSummary('');
+    setModelName('');
+    madeFolder.current = null;
   }
 
   const waiting = entries.filter((entry) => entry.status === 'waiting' || entry.status === 'error').length;
-  const accept = info?.extensions.join(',');
+  const accept = [...(info?.extensions || []), ...(mode === 'each' ? [] : Object.values(info?.mediaExtensions || {}).flat())].join(',');
 
   return (
     <Modal
@@ -256,6 +350,52 @@ export function UploadDialog() {
         </Button>
       </div>
 
+      <fieldset className="jp-upload__mode" id="jp-upload-mode" disabled={busy}>
+        {mode === 'add' ? (
+          <p className="jp-meta">
+            This is the folder of the model “{lastSegment(folder)}”: model files go into it, pictures into image/, videos into video/ and documents into
+            document/.
+          </p>
+        ) : (
+          <>
+            <legend className="jp-label">Each model gets a folder named after it</legend>
+            <label className="jp-upload__choice">
+              <input type="radio" name="jp-upload-mode" value="one" checked={mode === 'one'} onChange={() => setMode('one')} />
+              <span>
+                One model
+                <span className="jp-meta"> · all these files in one folder, pictures, videos and documents with them</span>
+              </span>
+            </label>
+            {mode === 'one' && (
+              <input
+                type="text"
+                className="jp-input jp-upload__name-input"
+                id="jp-upload-model-name"
+                aria-label="Model name"
+                placeholder={
+                  defaultModelName(
+                    entries.map((entry) => entry.file.name),
+                    info
+                  ) || 'Model name'
+                }
+                value={modelName}
+                onChange={(event) => {
+                  madeFolder.current = null;
+                  setModelName(event.target.value);
+                }}
+              />
+            )}
+            <label className="jp-upload__choice">
+              <input type="radio" name="jp-upload-mode" value="each" checked={mode === 'each'} onChange={() => setMode('each')} />
+              <span>
+                Each file its own model
+                <span className="jp-meta"> · a folder for every model file</span>
+              </span>
+            </label>
+          </>
+        )}
+      </fieldset>
+
       <div
         className="jp-upload__drop"
         onDragOver={(event) => {
@@ -269,7 +409,7 @@ export function UploadDialog() {
         }}
       >
         <Upload size={22} aria-hidden="true" />
-        <span>Drop model files here, or</span>
+        <span>Drop model files, pictures, videos or documents here, or</span>
         <Button size="sm" icon={Plus} onClick={() => input.current?.click()} disabled={busy}>
           Add Files
         </Button>
@@ -287,7 +427,9 @@ export function UploadDialog() {
         />
         {info && (
           <span className="jp-meta jp-upload__limits">
-            {info.extensions.join(' ')} · up to {formatBytes(info.maxBytes)} each. More types under Settings → File Types.
+            {info.extensions.join(' ')}
+            {mode !== 'each' && info.mediaExtensions ? ', pictures, videos and documents' : ''} · up to {formatBytes(info.maxBytes)} each. More model types
+            under Settings → File Types.
           </span>
         )}
       </div>

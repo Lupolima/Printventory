@@ -37,7 +37,10 @@ function networkPathContext() {
       const folder = String(dir || '').replace(/[\\/]+$/, '');
       if (!database.db || !folder) return false;
       const like = `${folder.replace(/[\\%_]/g, (c) => `\\${c}`)}${path.sep}%`;
-      return !!database.db.prepare("SELECT 1 FROM models WHERE filePath LIKE ? ESCAPE '\\' LIMIT 1").get(like);
+      // A model folder (model-folders.js) counts too: one may hold only pictures for a while.
+      return (
+        !!database.db.prepare("SELECT 1 FROM models WHERE filePath LIKE ? ESCAPE '\\' LIMIT 1").get(like) || require('./model-folders').isModelFolder(folder)
+      );
     }
   };
 }

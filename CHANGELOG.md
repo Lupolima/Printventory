@@ -2,6 +2,17 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.17.0] - 2026-10-11
+
+**Changes:**
+- **A folder for every model:** uploads and downloads from MakerWorld, Printables and Thingiverse go into a folder named after the model, holding its model files (the main file and print profiles, with their own names) and `image/`, `video/` and `document/` folders for its pictures (.avif .bmp .gif .jpg .jpeg .jpe .pjpeg .png .svg .tif .tiff .webp), videos (.mp4 .m4v .mpeg .mpg .mpe .webm) and documents (.html .md .doc .docx .pdf .txt .text). They are part of the model, not models of their own: scans skip those three folders inside a model folder.
+- **Upload:** a choice between **One model** (all the files in one model folder, named as you type or after the first model file) and **Each file its own model**; pictures, videos and documents go along into their folders, and the first picture is the cover. Uploading into a model's folder adds to that model.
+- **Pictures, videos and documents on a model's page** (and a folder's page): add and remove them (removed files go to the Trash), choose the cover (the picture the library shows), play videos in the page (YouTube videos are kept as links and play with YouTube's player), and read documents in the page: PDFs in the browser's viewer, Word .docx, Markdown and text, and HTML pages with their scripts off. TIFF pictures show in every browser. Old Word .doc files and MPEG videos download only (browsers cannot show them).
+- **Site downloads bring the model's pictures and documents:** MakerWorld's gallery pictures (with the designer's file names), Printables' pictures and its PDF of the model, Thingiverse's pictures (with an API token), and the guides, parts lists and files a site lists for the model; YouTube videos as links. Only the site's own servers are downloaded from; its logos and other graphics are not saved. Downloaded files keep the site's names (the main file is no longer renamed after the model; the folder has its name).
+- **Tidy Into Model Folders** (Organize): a preview of each model that moves into a folder of its own next to where it is (a site model's profiles and files with one parent model together, with pictures and documents named like it), and folders that hold one model already and become its folder; untick any, and optionally save each model's library picture as its cover. Details, tags and history go with the files.
+
+**Upgrading:** no changes needed. Reload open browser tabs after the update. Models already in the library stay where they are until you use Tidy Into Model Folders. Pictures, documents and .html files can no longer be uploaded into a plain library folder: upload them with a model (One model) or into a model's folder.
+
 ## [7.16.0] - 2026-10-11
 
 **Changes:**

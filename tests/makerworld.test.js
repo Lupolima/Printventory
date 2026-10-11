@@ -432,11 +432,7 @@ async function main() {
     fs.existsSync(path.join(prepared.folder, defaultFile)) && fs.existsSync(path.join(prepared.folder, otherFile)),
     'downloaded profiles keep their names'
   );
-  assert.strictEqual(
-    manual.mainFile,
-    path.join(prepared.folder, 'Ultimate Assembly PG Freedom Gundam.3mf'),
-    'the 3MF is the main file, named after the English title'
-  );
+  assert.strictEqual(manual.mainFile, path.join(prepared.folder, 'p1s可打版本1.3mf'), "the 3MF is the main file and keeps MakerWorld's name");
   assert.ok(fs.existsSync(path.join(prepared.folder, 'legs.stl')), 'parts keep their names');
   assert.ok(!database.db.prepare('SELECT 1 FROM models WHERE id = ?').get(manualOnline), 'the online model became the files');
   assert.strictEqual(database.db.prepare('SELECT notes FROM models WHERE filePath = ?').get(path.join(prepared.folder, 'legs.stl')).notes, 'from the browser');

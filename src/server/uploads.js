@@ -97,6 +97,9 @@ function checkUploadName(name, extensions) {
   if (text.length > MAX_NAME_LENGTH) throw new Error('The file name is too long');
   const ext = path.extname(text).toLowerCase();
   if (!extensions.includes(ext)) {
+    const kind = require('./model-folders').kindOf(text);
+    if (kind && extensions.includes('.stl')) throw new Error(`${text}: pictures, videos and documents go into a model's folder (Upload as one model)`);
+    if (!extensions.includes('.stl')) throw new Error(`${text}: not a type this folder takes (${extensions.join(' ')})`);
     throw new Error(
       `${text}: the library does not scan ${ext ? `${ext} files` : 'files without an extension'}. Settings → File Types lists the types it can scan.`
     );
@@ -208,6 +211,23 @@ function checkWritableFolder(folder, ctx) {
   return dir;
 }
 
+/**
+ * Where an upload goes and the file types it may have: a model folder's image, video or document
+ * subfolder (model-folders.js, made when missing) takes that kind's types; any other library
+ * folder the types the library scans.
+ * @returns {{ folder: string, extensions: string[] }}
+ */
+function uploadTarget(folder, ctx) {
+  const modelFolders = require('./model-folders');
+  const text = String(folder || '');
+  if (text && modelFolders.isMediaFolder(text)) {
+    checkWritableFolder(path.dirname(text), ctx);
+    const media = /** @type {{ folder: string, extensions: string[] }} */ (modelFolders.mediaTarget(text));
+    return { folder: checkWritableFolder(media.folder, ctx), extensions: media.extensions };
+  }
+  return { folder: checkWritableFolder(text, ctx), extensions: allowedUploadExtensions() };
+}
+
 async function handleUpload(req, res) {
   const send = (status, body) => {
     if (!res.headersSent) res.status(status).json(body);
@@ -216,8 +236,9 @@ async function handleUpload(req, res) {
   let folder;
   let name;
   try {
-    folder = checkWritableFolder(req.query.folder, networkPathContext());
-    name = checkUploadName(req.query.name, allowedUploadExtensions());
+    const target = uploadTarget(req.query.folder, networkPathContext());
+    folder = target.folder;
+    name = checkUploadName(req.query.name, target.extensions);
   } catch (error) {
     req.resume();
     send(/outside the library/.test(error.message) ? 403 : 400, { error: error.message });
@@ -281,8 +302,9 @@ function registerUploadRoutes(expressApp, { requireRole }) {
       let folder;
       let name;
       try {
-        folder = checkWritableFolder(body.folder, ctx);
-        name = checkUploadName(body.name, allowedUploadExtensions());
+        const target = uploadTarget(body.folder, ctx);
+        folder = target.folder;
+        name = checkUploadName(body.name, target.extensions);
       } catch (error) {
         error.status = /outside the library/.test(error.message) ? 403 : 400;
         throw error;
