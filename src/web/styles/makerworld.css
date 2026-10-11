@@ -475,3 +475,9 @@
   border-radius: var(--jp-radius-md);
   transition: outline-color 0.6s;
 }
+
+/* "Other models" by the designer (opens Add Links with the designer's page). */
+.jp-mw__designer-more {
+  margin-left: var(--jp-space-2);
+  font-size: var(--jp-text-meta);
+}

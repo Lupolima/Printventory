@@ -68,6 +68,100 @@ function parseModelLink(raw) {
   return null;
 }
 
+/** Thingiverse pages that are not a person's (thingiverse.com/<name>). */
+const THINGIVERSE_PAGES = new Set([
+  'about',
+  'apps',
+  'categories',
+  'collections',
+  'customizer',
+  'designs',
+  'developers',
+  'education',
+  'explore',
+  'featured',
+  'groups',
+  'help',
+  'login',
+  'newest',
+  'popular',
+  'search',
+  'settings',
+  'tag',
+  'things'
+]);
+
+/**
+ * A designer's page or a collection on a model site, or null: { site, kind: 'designer' |
+ * 'collection', url, handle?, userId?, id?, user? }. Its models can be listed (src/server/link-lists.js).
+ *
+ * - MakerWorld: makerworld.com/en/@handle, makerworld.com/en/collections/123-name
+ * - Printables: printables.com/@Name_123 (the number is the person's id), printables.com/@Name_123/collections/456
+ * - Thingiverse: thingiverse.com/name (or /name/designs), thingiverse.com/name/collections/123 (or its name)
+ */
+function parseListLink(raw) {
+  let text = String(raw || '')
+    .trim()
+    .replace(/[)\]>.,;'"]+$/, '');
+  if (!text) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = `https://${text}`;
+  let url;
+  try {
+    url = new URL(text);
+  } catch (_) {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.replace(/\/+$/, '');
+  const lang = '(?:/[a-z]{2}(?:-[a-z]{2})?)?';
+  let m;
+  if (SITES.makerworld.pattern.test(host)) {
+    if ((m = new RegExp(`^${lang}/collections/(\\d+)`, 'i').exec(path))) {
+      return { site: 'makerworld', kind: 'collection', id: String(Number(m[1])), url: `https://makerworld.com/en/collections/${Number(m[1])}` };
+    }
+    if ((m = new RegExp(`^${lang}/@([A-Za-z0-9_.-]{1,64})(?:/[^/]*)?$`, 'i').exec(path))) {
+      return { site: 'makerworld', kind: 'designer', handle: m[1], url: `https://makerworld.com/en/@${m[1]}` };
+    }
+    return null;
+  }
+  if (SITES.printables.pattern.test(host)) {
+    if ((m = new RegExp(`^${lang}/@([^/]*?)_(\\d+)/collections/(\\d+)`, 'i').exec(path))) {
+      return {
+        site: 'printables',
+        kind: 'collection',
+        id: String(Number(m[3])),
+        url: `https://www.printables.com/@${m[1]}_${m[2]}/collections/${Number(m[3])}`
+      };
+    }
+    if ((m = new RegExp(`^${lang}/@([^/]*?)_(\\d+)(?:/(?:models|about))?$`, 'i').exec(path))) {
+      return {
+        site: 'printables',
+        kind: 'designer',
+        handle: `${m[1]}_${m[2]}`,
+        userId: String(Number(m[2])),
+        url: `https://www.printables.com/@${m[1]}_${m[2]}`
+      };
+    }
+    return null;
+  }
+  if (SITES.thingiverse.pattern.test(host)) {
+    if ((m = /^\/([A-Za-z0-9_-]{1,64})\/collections\/([^/?#]+)(?:\/things)?$/i.exec(path)) && !THINGIVERSE_PAGES.has(m[1].toLowerCase())) {
+      return {
+        site: 'thingiverse',
+        kind: 'collection',
+        user: m[1],
+        id: decodeURIComponent(m[2]),
+        url: `https://www.thingiverse.com/${m[1]}/collections/${m[2]}`
+      };
+    }
+    if ((m = /^\/([A-Za-z0-9_-]{1,64})(?:\/(?:designs|things|about))?$/i.exec(path)) && !THINGIVERSE_PAGES.has(m[1].toLowerCase())) {
+      return { site: 'thingiverse', kind: 'designer', user: m[1], url: `https://www.thingiverse.com/${m[1]}/designs` };
+    }
+  }
+  return null;
+}
+
 /** Same model, same key: "printables:3161". */
 const linkKey = (link) => (link ? `${link.site}:${link.id}` : '');
 
@@ -78,6 +172,8 @@ const linkKey = (link) => (link ? `${link.site}:${link.id}` : '');
 function findModelLinks(text) {
   const links = [];
   const unsupported = [];
+  /** Designer pages and collections: their models can be listed. */
+  const lists = [];
   const seen = new Set();
   let skipped = 0;
   for (const line of String(text || '').split(/\r?\n/)) {
@@ -85,7 +181,9 @@ function findModelLinks(text) {
     for (const candidate of candidates) {
       const link = parseModelLink(candidate);
       if (!link) {
-        unsupported.push(candidate);
+        const list = parseListLink(candidate);
+        if (list && !lists.some((l) => l.url === list.url)) lists.push({ ...list, raw: candidate });
+        else if (!list) unsupported.push(candidate);
         continue;
       }
       const key = linkKey(link);
@@ -96,7 +194,7 @@ function findModelLinks(text) {
       else links.push({ ...link, profileId: (/#profileId-(\d+)/.exec(candidate) || [])[1] || null });
     }
   }
-  return { links, unsupported: [...new Set(unsupported)], skipped };
+  return { links, lists, unsupported: [...new Set(unsupported)], skipped };
 }
 
 /** "3d-benchy" → "3d Benchy": a name from the link when the site tells us nothing. */
@@ -265,6 +363,7 @@ module.exports = {
   SITES,
   IMAGE_HOSTS,
   parseModelLink,
+  parseListLink,
   linkKey,
   findModelLinks,
   fallbackName,

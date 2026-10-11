@@ -1719,3 +1719,38 @@
   gap: var(--jp-space-2);
   font-weight: 400;
 }
+
+/* Search with a Photo: the drop area, then the photo. */
+.photo-search-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  margin-top: var(--jp-space-3);
+  border: 2px dashed var(--jp-border-strong);
+  border-radius: var(--jp-radius-lg);
+  background: var(--jp-bg-2);
+  cursor: pointer;
+}
+.photo-search-drop.is-over,
+.photo-search-drop:focus-visible {
+  border-color: var(--jp-accent);
+  outline: none;
+}
+.photo-search-drop img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: var(--jp-radius-md);
+}
+.photo-search-drop__hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--jp-space-2);
+  max-width: 260px;
+  color: var(--jp-text-2);
+  text-align: center;
+}
+.photo-search-error {
+  color: var(--jp-danger);
+}

@@ -116,6 +116,7 @@ function PrintSettingsPart({ settings }: { settings: PrintSettings }) {
 }
 
 function ModelPart({ details }: { details: MakerWorldDetails }) {
+  const canAdd = useCan('editor');
   return (
     <>
       <h4 className="jp-mw__heading">The model</h4>
@@ -133,6 +134,16 @@ function ModelPart({ details }: { details: MakerWorldDetails }) {
             details.designer.name || '—'
           )}
           {details.designer.handle && <span className="jp-meta"> @{details.designer.handle}</span>}
+          {canAdd && details.designer.url && (
+            <button
+              type="button"
+              className="jp-link-button jp-mw__designer-more"
+              title="Add the designer's other models (Add Links)"
+              onClick={() => window.openLinkImport?.(details.designer.url || '')}
+            >
+              Other models
+            </button>
+          )}
         </Prop>
         <Prop label="License">{details.license || '—'}</Prop>
         <Prop label="Categories">{details.categories.length ? details.categories.join(' › ') : '—'}</Prop>

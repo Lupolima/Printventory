@@ -363,4 +363,4 @@ const setFileGap = (ms) => {
   fileGapMs = ms;
 };
 
-module.exports = { FILE_HOSTS, blockedError, downloadFiles, listFiles, plainName, setFileGap, setToken, thingiverseJson, tokenStatus };
+module.exports = { FILE_HOSTS, blockedError, downloadFiles, listFiles, plainName, printablesGraphql, setFileGap, setToken, thingiverseJson, tokenStatus };

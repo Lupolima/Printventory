@@ -181,4 +181,22 @@ function getAISettings() {
   };
 }
 
+// The library's AI searches (src/server/ai-search.js): search words for a search by meaning or a photo.
+// Guests share one account: they do not spend the AI service's credits.
+const noGuests = (event) => {
+  if (event && event.user && event.user.guest) throw new Error('Log in to search with the AI service');
+};
+const searchDeps = (event) => ({ aiSettings: getAISettings(), puterHandler: getAISettings().aiService === 'puter' ? createPuterIPCHandler(event) : null });
+ipcMain.handle('search-by-meaning', async (event, query) => {
+  noGuests(event);
+  return { words: await require('../ai-search').searchWordsForMeaning(query, searchDeps(event)) };
+});
+ipcMain.handle('search-by-photo', async (event, dataUrl) => {
+  noGuests(event);
+  return { words: await require('../ai-search').searchWordsForPhoto(dataUrl, searchDeps(event)) };
+});
+
+/** English for a model's notes, to show under them (notes-translation.js): { english, by, error }. */
+ipcMain.handle('translate-notes', async (event, filePath) => require('../notes-translation').englishForModel(filePath, searchDeps(event)));
+
 module.exports = { createPuterIPCHandler, getAISettings, puterPendingRequests };

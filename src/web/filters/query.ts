@@ -15,6 +15,9 @@ export type SearchToken =
   | { t: 'clause'; field: string; value: string }
   | { t: 'op'; op: Combine }
   | { t: 'not' }
+  /** Brackets, from a typed search ("(tag:a OR tag:b) AND …"). */
+  | { t: 'open' }
+  | { t: 'close' }
   | { t: 'filter'; kind: AtomKind; value: string }
   | { t: 'filterMulti'; kind: AtomKind; values: string[]; combine: Combine };
 
@@ -101,6 +104,8 @@ const SINGLE_KINDS: AtomKind[] = ['designer', 'license', 'parentModel', 'tag', '
 const MULTI_TOKEN_KINDS: AtomKind[] = ['designer', 'license', 'parentModel', 'tag'];
 
 const isOperand = (tok: SearchToken | undefined) => !!tok && (tok.t === 'clause' || tok.t === 'filter' || tok.t === 'filterMulti');
+/** The last token closes a term (a term, or a closing bracket): the next term needs an operator first. */
+const endsOperand = (tok: SearchToken | undefined) => isOperand(tok) || tok?.t === 'close';
 
 /** AND AND / OR OR mean one operator. */
 function collapseAdjacentOps(tokens: SearchToken[]) {
@@ -120,7 +125,7 @@ export function normalizeTokens(tokens: SearchToken[]): SearchToken[] {
     .filter((tok) => {
       if (tok.t === 'clause') return !!tok.value.trim();
       if (tok.t === 'op') return tok.op === 'AND' || tok.op === 'OR';
-      if (tok.t === 'not') return true;
+      if (tok.t === 'not' || tok.t === 'open' || tok.t === 'close') return true;
       if (tok.t === 'filter') {
         if (!SINGLE_KINDS.includes(tok.kind)) return false;
         const v = tok.value.trim();
@@ -138,8 +143,46 @@ export function normalizeTokens(tokens: SearchToken[]): SearchToken[] {
     })
     .map((tok) => ({ ...tok }) as SearchToken);
   collapseAdjacentOps(out);
+  while (out.length && (out[out.length - 1].t === 'op' || out[out.length - 1].t === 'not' || out[out.length - 1].t === 'open')) out.pop();
+  balanceBrackets(out);
+  // Dropping an empty pair can leave an operator at the end again.
   while (out.length && (out[out.length - 1].t === 'op' || out[out.length - 1].t === 'not')) out.pop();
   return out;
+}
+
+/** Brackets pair up: a close without an open is dropped, an empty pair too, opens left over are closed. */
+function balanceBrackets(tokens: SearchToken[]) {
+  for (let i = 1; i < tokens.length; i++) {
+    if (tokens[i - 1].t === 'open' && tokens[i].t === 'close') {
+      tokens.splice(i - 1, 2);
+      i = Math.max(0, i - 2);
+    }
+  }
+  let depth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].t === 'open') depth++;
+    else if (tokens[i].t === 'close') {
+      if (depth === 0) {
+        tokens.splice(i, 1);
+        i--;
+      } else depth--;
+    }
+  }
+  while (depth-- > 0) tokens.push({ t: 'close' });
+}
+
+/** The bracket that pairs with the one at `index` (-1 when none). */
+export function matchingBracket(tokens: SearchToken[], index: number): number {
+  const tok = tokens[index];
+  if (!tok || (tok.t !== 'open' && tok.t !== 'close')) return -1;
+  const step = tok.t === 'open' ? 1 : -1;
+  let depth = 0;
+  for (let i = index; i >= 0 && i < tokens.length; i += step) {
+    if (tokens[i].t === tok.t) depth++;
+    else if (tokens[i].t === (tok.t === 'open' ? 'close' : 'open')) depth--;
+    if (depth === 0) return i;
+  }
+  return -1;
 }
 
 export const hasSearchQuery = (state: FilterState) => normalizeTokens(state.tokens).length > 0;
@@ -377,6 +420,7 @@ export function filterStrip(state: FilterState, labels: Labels): FilterStrip {
     const remove: ChipRemove = { type: 'token', index };
     if (tok.t === 'op') chain.push({ kind: 'op', text: tok.op === 'OR' ? 'OR' : 'AND', remove });
     else if (tok.t === 'not') chain.push({ kind: 'op', text: 'NOT', remove });
+    else if (tok.t === 'open' || tok.t === 'close') chain.push({ kind: 'op', text: tok.t === 'open' ? '(' : ')', remove });
     else if (tok.t === 'clause' && tok.value.trim()) {
       const all = !tok.field || tok.field === 'all';
       chain.push({
@@ -500,7 +544,7 @@ export function appendClause(state: FilterState, field: string, raw: string): Fi
   const value = raw.trim();
   if (!value) return state;
   const tokens = [...state.tokens];
-  if (isOperand(tokens[tokens.length - 1])) tokens.push({ t: 'op', op: 'AND' });
+  if (endsOperand(tokens[tokens.length - 1])) tokens.push({ t: 'op', op: 'AND' });
   tokens.push({ t: 'clause', field: field || 'all', value });
   collapseAdjacentOps(tokens);
   return { ...state, tokens, awaiting: false };
@@ -522,14 +566,16 @@ export function appendOp(state: FilterState, op: Combine): FilterState {
 export function appendNot(state: FilterState): FilterState {
   const next = state.tokens.length ? state : materialize(state);
   const tokens = [...next.tokens];
-  if (isOperand(tokens[tokens.length - 1])) tokens.push({ t: 'op', op: 'AND' });
+  if (endsOperand(tokens[tokens.length - 1])) tokens.push({ t: 'op', op: 'AND' });
   tokens.push({ t: 'not' });
   return { ...next, tokens, awaiting: true };
 }
 
 export function removeToken(state: FilterState, index: number): FilterState {
   if (index < 0 || index >= state.tokens.length) return state;
-  return { ...state, tokens: state.tokens.filter((_, i) => i !== index), awaiting: false };
+  // A bracket goes with its pair.
+  const pair = matchingBracket(state.tokens, index);
+  return { ...state, tokens: state.tokens.filter((_, i) => i !== index && i !== pair), awaiting: false };
 }
 
 /** After AND/OR/NOT: the last token waits for an operand. */
@@ -562,4 +608,76 @@ export function invertNext(state: FilterState, searchDraft = ''): FilterState | 
 export function clearedState(state: FilterState): FilterState {
   const empty = emptyFilterState();
   return { ...empty, combine: state.combine, includeNotes: state.includeNotes, sort: state.sort, viewingEntireLibrary: true };
+}
+
+// ------------------------------------------------------------------ saved searches
+
+/** What a saved search (a smart collection) keeps of the filters: no view, sort or "new models" moment. */
+export type SavedSearch = Pick<
+  FilterState,
+  | 'designer'
+  | 'license'
+  | 'parentModel'
+  | 'tags'
+  | 'combine'
+  | 'printed'
+  | 'isNew'
+  | 'favorite'
+  | 'rating'
+  | 'ratingMin'
+  | 'fileType'
+  | 'tokens'
+  | 'inverted'
+  | 'directory'
+  | 'includeNotes'
+>;
+
+export function savedSearch(state: FilterState): SavedSearch {
+  return {
+    designer: [...state.designer],
+    license: [...state.license],
+    parentModel: [...state.parentModel],
+    tags: [...state.tags],
+    combine: { ...state.combine },
+    printed: state.printed,
+    isNew: state.isNew,
+    favorite: state.favorite,
+    rating: state.rating,
+    ratingMin: state.ratingMin,
+    fileType: state.fileType,
+    tokens: normalizeTokens(state.tokens),
+    inverted: { ...state.inverted },
+    directory: state.directory,
+    includeNotes: state.includeNotes
+  };
+}
+
+const strings = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+const text = (value: unknown, fallback: string) => (typeof value === 'string' ? value : fallback);
+
+/** The library filters for a saved search (anything missing or malformed is left off); view and sort stay. */
+export function restoredState(state: FilterState, saved: unknown): FilterState {
+  const base = { ...clearedState(state), viewingEntireLibrary: false };
+  if (!saved || typeof saved !== 'object') return base;
+  const s = saved as Partial<Record<keyof SavedSearch, unknown>>;
+  const combine = s.combine && typeof s.combine === 'object' ? (s.combine as Partial<Record<MultiKind, Combine>>) : {};
+  const inverted = s.inverted && typeof s.inverted === 'object' ? (s.inverted as Partial<Record<InvertKind, boolean>>) : {};
+  return {
+    ...base,
+    designer: strings(s.designer),
+    license: strings(s.license),
+    parentModel: strings(s.parentModel),
+    tags: strings(s.tags),
+    combine: { ...base.combine, ...combine },
+    printed: text(s.printed, base.printed),
+    isNew: text(s.isNew, base.isNew),
+    favorite: text(s.favorite, base.favorite),
+    rating: text(s.rating, base.rating),
+    ratingMin: text(s.ratingMin, base.ratingMin),
+    fileType: text(s.fileType, base.fileType),
+    tokens: Array.isArray(s.tokens) ? normalizeTokens(s.tokens as SearchToken[]) : [],
+    inverted: { ...base.inverted, ...inverted },
+    directory: text(s.directory, ''),
+    includeNotes: typeof s.includeNotes === 'boolean' ? s.includeNotes : base.includeNotes
+  };
 }

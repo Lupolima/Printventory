@@ -84,8 +84,10 @@
   right: var(--jp-space-3);
   bottom: var(--jp-space-3);
 }
-.jp-model-page__gallery .jp-details__strip {
+/* Below the picture (the details panel tucks its strip under the preview; strong enough to beat that rule). */
+:is(#model-details, .jp-model-page) .jp-model-page__gallery .jp-details__strip {
   margin-top: var(--jp-space-2);
+  padding-top: 2px;
 }
 
 .jp-model-page__markdown {
@@ -240,4 +242,199 @@
   .jp-model-page__stage {
     height: min(50vh, 420px);
   }
+}
+
+/* Kit progress (kits/KitChecklist.tsx) */
+.jp-kit__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--jp-space-3);
+  margin-bottom: var(--jp-space-2);
+}
+.jp-kit__count {
+  color: var(--jp-text-2);
+  font-weight: 600;
+}
+.jp-kit__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-1);
+  max-height: 420px;
+  margin: var(--jp-space-3) 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.jp-kit__parts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jp-space-1) var(--jp-space-3);
+}
+.jp-kit__parts label {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  min-width: 0;
+  cursor: pointer;
+}
+.jp-kit__parts li.is-done .jp-kit__label {
+  color: var(--jp-text-2);
+  text-decoration: line-through;
+}
+.jp-kit__label {
+  overflow-wrap: anywhere;
+}
+
+/* Folder page notes */
+.jp-folder-page__notes-input {
+  width: 100%;
+  min-height: 160px;
+  padding: var(--jp-space-3);
+  box-sizing: border-box;
+  font: inherit;
+  resize: vertical;
+}
+
+/* Assembly view (kits/AssemblyDialog.tsx): the scene, and the parts beside it. */
+dialog.assembly-dialog {
+  width: min(1280px, 96vw);
+  max-width: 96vw;
+}
+.assembly {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--jp-space-3);
+  height: min(70vh, 760px);
+}
+.assembly__stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--jp-radius-md);
+  background: var(--jp-preview-bg);
+}
+.assembly__stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.assembly__status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--jp-text-2);
+  text-align: center;
+  white-space: pre-line;
+}
+.assembly__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+  min-height: 0;
+}
+.assembly__parts {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.assembly__parts li {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  padding: 2px var(--jp-space-1);
+  border-radius: var(--jp-radius-sm);
+}
+.assembly__parts li.is-selected {
+  background: var(--jp-accent-soft);
+}
+.assembly__part-name {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.assembly__part-name:focus-visible {
+  box-shadow: var(--jp-focus-ring);
+}
+@media (max-width: 800px) {
+  .assembly {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 80vh;
+  }
+  .assembly__parts {
+    max-height: 160px;
+  }
+}
+
+/* Version history (pages/ModelHistory.tsx) */
+.jp-history__label {
+  margin: var(--jp-space-3) 0 var(--jp-space-1);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.jp-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-history__list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--jp-space-2);
+}
+.jp-history__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.jp-history__actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+
+/* English under notes in another language (notes/NotesEnglish.tsx) */
+.jp-notes-english {
+  margin-top: var(--jp-space-3);
+  padding-top: var(--jp-space-3);
+  border-top: 1px solid var(--jp-border);
+}
+.jp-notes-english__label {
+  margin: 0 0 var(--jp-space-1);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+}
+.jp-notes-english.is-compact {
+  font-size: var(--jp-text-meta);
+}
+.jp-notes-english__error {
+  margin-top: var(--jp-space-2);
+}
+.jp-notes-original {
+  margin-top: var(--jp-space-3);
+  color: var(--jp-text-2);
+}
+.jp-notes-original summary {
+  cursor: pointer;
 }

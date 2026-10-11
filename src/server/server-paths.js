@@ -43,7 +43,7 @@ const STATIC_FOLDERS = [
 
 const APP_DIR = path.join(__dirname, '..', '..');
 
-const SERVER_GENERATED_FILE = /^justtprint-(backup|library)-[\w.-]+\.(db|json|zip)$/i;
+const SERVER_GENERATED_FILE = /^justtprint-(?:(backup|library)-[\w.-]+\.(db|json|zip)|version-[\w.-]+\.[a-z0-9]{2,8})$/i;
 /** Automatic backups (src/server/auto-backup.js), in their own folder. */
 const AUTO_BACKUP_FILE = /^justtprint-auto-\d{8}-\d{6}(-\d+)?\.db$/;
 
@@ -134,6 +134,7 @@ function isInsideRoots(filePath, roots, realpath) {
  * @typedef {object} LibraryPathContext
  * @property {string[]} [roots] Library folders (scanned directories, STL Home, last scan).
  * @property {(filePath: string) => boolean} [isKnownModel] Exact match against stored models.
+ * @property {(dir: string) => boolean} [hasModelsIn] Whether library models are in this folder (folder pages).
  * @property {string} [generatedDir] Folder where backups and exports are written.
  * @property {string} [autoBackupDir] Folder of the automatic backups (justtprint-auto-*.db only).
  * @property {string} [downloadsDir] Folder of backups and exports made for a browser download.
@@ -199,6 +200,7 @@ const SYSTEM_DIRECTORIES = [
  * Path arguments of IPC channels that browsers and MCP clients may call, by argument index.
  * - file / files: existing library files (zip entries are checked by their archive)
  * - dir: an existing library folder (move or extract destination)
+ * - modelDir: a folder holding library models (a folder's page)
  * - scanDir: a folder that becomes part of the library; anything but system and app folders
  * - blocked: acts on the server's own desktop; never allowed over the network
  */
@@ -210,6 +212,20 @@ const NETWORK_IPC_PATH_RULES = {
   'rename-model': [[0, 'file']],
   'set-model-categories': [[0, 'file']],
   'get-folder-models': [[0, 'file']],
+  'look-alike-models': [[0, 'file']],
+  'translate-notes': [[0, 'file']],
+  'get-folder': [[0, 'modelDir']],
+  'save-folder-notes': [[0, 'modelDir']],
+  'get-assembly': [[0, 'modelDir']],
+  'get-model-history': [[0, 'file']],
+  'replace-model-file': [
+    [0, 'file'],
+    [1, 'file']
+  ],
+  'save-assembly': [[0, 'modelDir']],
+  'get-kit': [[0, 'file']],
+  'set-kit-part': [[0, 'file']],
+  'get-kit-summaries': [[0, 'files']],
   'delete-file': [[0, 'file']],
   'show-context-menu': [[0, 'contextFiles']],
   get3MFImages: [[0, 'file']],
@@ -313,6 +329,12 @@ function assertNetworkPathAllowed(kind, value, ctx) {
       return;
     case 'files':
       (Array.isArray(value) ? value : [value]).forEach(libraryFile);
+      return;
+    case 'modelDir':
+      // A folder's page: a library folder, or one that holds library models (it only reads the library's records).
+      if (!isInsideRoots(String(value), ctx.roots || [], ctx.realpath) && !(ctx.hasModelsIn && ctx.hasModelsIn(String(value)))) {
+        throw new Error(`Folder is outside the library folders: ${value}`);
+      }
       return;
     case 'contextFiles': {
       const list = value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.filePaths) ? value.filePaths : value;

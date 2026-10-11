@@ -5,7 +5,7 @@
 import { callAction } from '../api';
 import { setViewCount } from '../filters/counts';
 import { getFilterState } from '../filters/store';
-import { bundleKey, dedupeModels, normalizePath, parentModelKey, parentModelLabel, type GridModel } from '../grid/layout';
+import { bundleKey, dedupeModels, folderKey, normalizePath, parentModelKey, parentModelLabel, type GridModel } from '../grid/layout';
 import { getGridView } from '../grid/view';
 import { selection } from '../selection';
 import { modelMatchesFilters, type MatchModel } from './match';
@@ -18,7 +18,7 @@ const gridElement = () => document.querySelector<GridElement>('.file-grid');
 export const shownModels = (): GridModel[] => gridElement()?.currentModels || [];
 
 /** Expanded bundle and parent-model groups, by group key ("bundle:…", "parent:…"). */
-export const expandedGroups = { bundles: new Set<string>(), parentModels: new Set<string>() };
+export const expandedGroups = { bundles: new Set<string>(), parentModels: new Set<string>(), folders: new Set<string>() };
 
 /** Forget expanded groups that no longer have two or more files. */
 function pruneExpanded(models: GridModel[]) {
@@ -36,6 +36,7 @@ function pruneExpanded(models: GridModel[]) {
   };
   prune(expandedGroups.bundles, (m) => (bundleKey(m) ? `bundle:${bundleKey(m)}` : ''));
   prune(expandedGroups.parentModels, (m) => (parentModelLabel(m) ? `parent:${parentModelKey(parentModelLabel(m))}` : ''));
+  prune(expandedGroups.folders, (m) => (folderKey(m) ? `folder:${folderKey(m)}` : ''));
 }
 
 const idOf = (m: GridModel) => (m.id != null && m.id !== '' ? m.id : m.filePath);

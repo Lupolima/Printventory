@@ -47,6 +47,9 @@ function directoryScanPrefixSqlParam(scanDirectoryPath) {
   return normalizePath(scanDirectoryPath).replace(/\/$/, '').toLowerCase() + '/%';
 }
 
+/** Who made a change (the logged-in account), for the version history. */
+const who = (event) => (event && event.user ? event.user.username : null);
+
 ipcMain.handle('get-model', async (event, filePath) => {
   try {
     const model = getModelByFilePath(filePath, { includeThumbnail: true });
@@ -133,7 +136,9 @@ ipcMain.handle('save-model', async (event, modelData) => {
     if (conflicts.length) return { success: false, conflicts };
     if (Array.isArray(base.tags) && Array.isArray(data.tags)) data.tags = mergeTagLists(storedTagNames(stored.id), base.tags, data.tags);
   }
-  const result = await saveModel(data);
+  // Version history: what this save changed is written down (model-versions.js).
+  const history = require('../model-versions');
+  const result = await history.tracking(history.idsFor([data.filePath]), who(event), () => saveModel(data));
   announceChanged(event, [data.filePath]);
   return result;
 });
@@ -148,7 +153,9 @@ ipcMain.handle('save-model-batch', async (event, modelDataBatch) => {
 });
 
 ipcMain.handle('update-models-batch', async (event, modelDataBatch) => {
-  const result = await updateModelsBatch(modelDataBatch);
+  const history = require('../model-versions');
+  const paths = (Array.isArray(modelDataBatch) ? modelDataBatch : []).map((m) => m && m.filePath);
+  const result = await history.tracking(history.idsFor(paths), who(event), () => updateModelsBatch(modelDataBatch));
   announceChanged(
     event,
     (Array.isArray(modelDataBatch) ? modelDataBatch : []).map((m) => m && m.filePath)

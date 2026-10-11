@@ -200,7 +200,10 @@ ipcMain.handle('move-files', async (event, filePaths, destinationFolder) => {
 /** Rename a model and its file (the Edit dialog): answers { filePath, fileName }. */
 ipcMain.handle('rename-model', async (event, filePath, name) => {
   assertContainerPath(filePath, 'rename-model');
-  const result = require('../model-rename').renameModel(filePath, name);
+  const history = require('../model-versions');
+  const result = await history.tracking(history.idsFor([filePath]), event && event.user ? event.user.username : null, async () =>
+    require('../model-rename').renameModel(filePath, name)
+  );
   events.broadcast('refresh-grid');
   return result;
 });

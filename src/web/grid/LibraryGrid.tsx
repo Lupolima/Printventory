@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useFoldersAsModels } from '../library/folderMode';
 import { createPortal, flushSync } from 'react-dom';
 import { selection } from '../selection';
 import { GroupCard, type GroupCardHost } from './GroupCard';
@@ -141,15 +142,16 @@ export function LibraryGrid() {
   const metrics: ViewMetrics = useMemo(() => viewMetrics({ view, width, previewSize }), [view, width, previewSize]);
 
   // Recomputed on every show/refresh: the library edits the model array in place.
+  const folders = useFoldersAsModels();
   const { records, layout, indexByKey } = useMemo(() => {
     const models = host?.models() ?? [];
-    const built = buildDisplayRecords(models, host?.expanded() ?? { bundles: new Set(), parentModels: new Set() });
+    const built = buildDisplayRecords(models, host?.expanded() ?? { bundles: new Set(), parentModels: new Set() }, { folders });
     return {
       records: built,
       indexByKey: new Map(built.map((record, index) => [record.key, index])),
       layout: buildLayoutRows(built, metrics.columns, view, metrics.cellHeight, metrics.groupHeight, metrics.paddingVertical, metrics.verticalGap)
     };
-  }, [host, metrics, view, tick, generation]);
+  }, [host, metrics, view, tick, generation, folders]);
 
   // Grid box: fills the window below its top edge; preview wall styles.
   useLayoutEffect(() => {

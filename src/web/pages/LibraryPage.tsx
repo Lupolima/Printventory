@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { FilterX, Library, Link2, PanelRight, ScanSearch, SlidersHorizontal, Upload, X } from 'lucide-react';
+import { FilterX, FolderOpen, Library, Link2, PanelRight, ScanSearch, SlidersHorizontal, Upload, X } from 'lucide-react';
 import { Button, IconButton } from '../components/Button';
 import { EmptyState } from '../components/Panel';
 import { Tabs } from '../components/Tabs';
@@ -12,6 +12,7 @@ import { useAdopt } from '../shell/adopt';
 import { NAV } from '../shell/nav';
 import { useCan } from '../session';
 import { setSidebarOn, useSidebarOn } from '../details/sidebarPref';
+import { setFoldersAsModels, useFoldersAsModels } from '../library/folderMode';
 
 const scanLibrary = () =>
   NAV.flatMap((section) => section.items)
@@ -136,6 +137,7 @@ export function LibraryHeader() {
   const [chips, setChips] = useState<HTMLDivElement | null>(null);
   const canUpload = useCan('editor');
   const sidebar = useSidebarOn();
+  const folders = useFoldersAsModels();
   useAdopt('#grid-toolbar-slot', tools);
   useAdopt('#folder-rail-toggle-slot', rail);
   useAdopt('#current-filter', chips);
@@ -165,6 +167,14 @@ export function LibraryHeader() {
             </span>
             <div className="jp-library-header__rail" ref={setRail} />
             <div className="jp-library-header__view" ref={setTools} />
+            <IconButton
+              icon={FolderOpen}
+              id="jp-folders-toggle"
+              className="jp-library-header__sidebar"
+              pressed={folders}
+              label={folders ? 'Show every file (folders as models is on)' : 'Folders as models: each folder of model files as one card'}
+              onClick={() => setFoldersAsModels(!folders)}
+            />
             <IconButton
               icon={PanelRight}
               id="jp-sidebar-toggle"

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Box, ClipboardPen, Download, FileBox, Heart, MoreHorizontal, Pencil } from 'lucide-react';
-import { callAction, downloadUrl, LIBRARY_CHANGED, models as modelApi, prints, type PrintEvent } from '../api';
+import { callAction, dedup, downloadUrl, LIBRARY_CHANGED, models as modelApi, prints, type PrintEvent } from '../api';
 import { Button, IconButton, cx } from '../components/Button';
 import { EmptyState, Panel, Skeleton } from '../components/Panel';
 import { formatAdded, panelImages, Prop, Rating, saveCardField, SlicerButton, type PanelModel } from '../details/ModelDetailsPanel';
@@ -18,6 +18,9 @@ import { useCan } from '../session';
 import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
 import { showCategory } from './CategoriesPage';
+import { KitChecklist } from '../kits/KitChecklist';
+import { ModelHistory } from './ModelHistory';
+import { NotesEnglish } from '../notes/NotesEnglish';
 
 /** What the page shows of a model (get-model). */
 type PageModel = PanelModel &
@@ -30,7 +33,7 @@ type PageModel = PanelModel &
   };
 
 /** A library file next to the model (get-folder-models). */
-interface FolderFile {
+export interface FolderFile {
   filePath: string;
   fileName: string | null;
   size: number | null;
@@ -136,7 +139,7 @@ function InlineViewer({ filePath }: { filePath: string }) {
 }
 
 /** One file of the folder: its picture (or 3D), its names, and Open, Load 3D and Download. */
-function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
+export function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
   const [live, setLive] = useState(false);
   const online = file.filePath.startsWith('url::');
   const name = file.fileName || file.filePath.split(/[\\/]/).pop() || '';
@@ -149,7 +152,15 @@ function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
           <InlineViewer filePath={file.filePath} />
         ) : (
           <>
-            <img src={file.image || 'assets/3d.png'} alt="" draggable={false} />
+            <img
+              src={file.image || 'assets/3d.png'}
+              alt=""
+              draggable={false}
+              onError={(event) => {
+                // A picture that cannot be shown: the placeholder.
+                if (!event.currentTarget.src.endsWith('assets/3d.png')) event.currentTarget.src = 'assets/3d.png';
+              }}
+            />
             {canLoad && (
               <button type="button" className="jp-model-file__load" onClick={() => setLive(true)}>
                 <Box size={14} aria-hidden="true" />
@@ -187,6 +198,92 @@ function FileCard({ file, current }: { file: FolderFile; current: boolean }) {
         </div>
       </div>
     </li>
+  );
+}
+
+interface LookAlike {
+  filePath: string;
+  fileName: string | null;
+  distance: number;
+  image: string | null;
+}
+
+/** More like this: models shaped like this one at any size (geometry-job.js lookAlikes), found when asked. */
+function MoreLikeThis({ filePath }: { filePath: string }) {
+  const [result, setResult] = useState<{ models: LookAlike[]; unmeasured: number; reason: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [measuring, setMeasuring] = useState(false);
+  const canEdit = useCan('editor');
+
+  // Measuring the library (the geometry scan Duplicates uses): compare again when it is done.
+  useEffect(() => {
+    if (!measuring) return undefined;
+    return onServerEvent('geometry-complete', () => {
+      setMeasuring(false);
+      void find();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measuring]);
+
+  async function measure() {
+    setMeasuring(true);
+    try {
+      await dedup.startGeometry(null);
+    } catch (failure) {
+      setMeasuring(false);
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  }
+
+  async function find() {
+    setBusy(true);
+    setError('');
+    try {
+      setResult(await callAction('look-alike-models', filePath));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="jp-model-page__alike" aria-labelledby="jp-model-page-alike">
+      <h2 className="jp-panel-title" id="jp-model-page-alike">
+        More like this
+      </h2>
+      {!result && (
+        <p className="jp-meta">
+          Models with a similar shape, at any size; sharing tags or categories brings them closer.{' '}
+          <Button size="sm" id="jp-more-like-this" disabled={busy} onClick={() => void find()}>
+            {busy ? 'Comparing…' : 'Find Models Shaped Like This'}
+          </Button>
+        </p>
+      )}
+      {error && <p className="jp-meta jp-mw__note">{error}</p>}
+      {result?.reason && <p className="jp-meta">{result.reason}.</p>}
+      {result && !result.reason && !result.models.length && <p className="jp-meta">No other model in the library has a similar shape.</p>}
+      {result && result.models.length > 0 && (
+        <ul className="jp-model-page__file-grid jp-model-page__alike-grid" id="jp-more-like-this-list">
+          {result.models.map((m) => (
+            <FileCard key={m.filePath} file={{ filePath: m.filePath, fileName: m.fileName, size: null, image: m.image }} current={false} />
+          ))}
+        </ul>
+      )}
+      {result && result.unmeasured > 0 && (
+        <p className="jp-meta">
+          {measuring
+            ? 'Measuring the library… the list fills in when it is done.'
+            : `${result.unmeasured.toLocaleString()} ${result.unmeasured === 1 ? 'model has' : 'models have'} not been measured yet, so ${result.unmeasured === 1 ? 'it is' : 'they are'} not compared.`}{' '}
+          {canEdit && !measuring && (
+            <Button size="sm" id="jp-measure-library" onClick={() => void measure()}>
+              Measure Them Now
+            </Button>
+          )}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -307,7 +404,22 @@ export function ModelPage({ filePath }: { filePath: string }) {
           {model.notes && String(model.notes).trim() && (
             <section className="jp-card jp-model-page__notes">
               <h2 className="jp-panel-title">Notes</h2>
-              <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(String(model.notes)) }} />
+              {(() => {
+                // Notes saved in English keep the original under "Original:": folded away.
+                const [english, original] = String(model.notes).split('\n\n---\n\nOriginal:\n\n');
+                return (
+                  <>
+                    <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(english) }} />
+                    {original !== undefined && (
+                      <details className="jp-notes-original">
+                        <summary>Original</summary>
+                        <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(original) }} />
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
+              <NotesEnglish filePath={model.filePath} notes={model.notes} />
             </section>
           )}
 
@@ -321,12 +433,25 @@ export function ModelPage({ filePath }: { filePath: string }) {
             <h2 className="jp-panel-title" id="jp-model-page-files">
               Files{folder ? <span className="jp-meta"> in {folder}</span> : null}
             </h2>
+            {!online && !model.filePath.includes('::') && files.length > 1 && (
+              <p className="jp-meta">
+                <button type="button" className="jp-link-button" id="jp-model-page-folder" onClick={() => navigate('folder', folderPath)}>
+                  The folder as one model
+                </button>{' '}
+                (all its files, notes and kit progress) ·{' '}
+                <button type="button" className="jp-link-button" id="jp-model-page-assembly" onClick={() => window.openAssembly?.(folderPath)}>
+                  Assembly view
+                </button>
+              </p>
+            )}
             <ul className="jp-model-page__file-grid" id="jp-model-page-file-grid">
               {(files.length ? files : [{ filePath: model.filePath, fileName: model.fileName || null, size: model.size || null, image: null }]).map((file) => (
                 <FileCard key={file.filePath} file={file} current={file.filePath === model.filePath} />
               ))}
             </ul>
           </section>
+
+          {!online && <MoreLikeThis key={model.filePath} filePath={model.filePath} />}
         </div>
 
         <aside className="jp-model-page__side">
@@ -447,6 +572,15 @@ export function ModelPage({ filePath }: { filePath: string }) {
                 ))}
               </ul>
             </section>
+          )}
+
+          {!online && <KitChecklist target={model.filePath} />}
+
+          {!online && !model.filePath.includes('::') && (
+            <ModelHistory
+              filePath={model.filePath}
+              folder={model.filePath.slice(0, Math.max(model.filePath.lastIndexOf('/'), model.filePath.lastIndexOf('\\')))}
+            />
           )}
 
           <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">

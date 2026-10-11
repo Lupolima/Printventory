@@ -146,6 +146,9 @@ function sanitizeSearchTokensForCompile(raw) {
       out.push({ t: 'op', op: x.op });
     } else if (x.t === 'not') {
       out.push({ t: 'not' });
+    } else if (x.t === 'open' || x.t === 'close') {
+      // Brackets (typed searches): kept when they pair up, see below.
+      out.push({ t: x.t });
     } else if (x.t === 'filter') {
       const kind = String(x.kind || '').trim();
       if (!kind || !['designer', 'license', 'parentModel', 'tag', 'fileType', 'printed', 'isNew', 'favorite', 'rating', 'ratingMin'].includes(kind)) continue;
@@ -189,9 +192,21 @@ function sanitizeSearchTokensForCompile(raw) {
       i--;
     }
   }
-  while (out.length && (out[out.length - 1].t === 'op' || out[out.length - 1].t === 'not')) {
+  while (out.length && (out[out.length - 1].t === 'op' || out[out.length - 1].t === 'not' || out[out.length - 1].t === 'open')) {
     out.pop();
   }
+  // Brackets must pair up: a close without an open is dropped, opens left over are closed at the end.
+  let depth = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i].t === 'open') depth++;
+    else if (out[i].t === 'close') {
+      if (depth === 0) {
+        out.splice(i, 1);
+        i--;
+      } else depth--;
+    }
+  }
+  while (depth-- > 0) out.push({ t: 'close' });
   return out;
 }
 
@@ -301,6 +316,11 @@ function parseSearchPrimary(tokens, i, params, filters) {
     throw new Error('search expression incomplete');
   }
   const tok = tokens[i];
+  if (tok.t === 'open') {
+    const [inner, j] = parseSearchOr(tokens, i + 1, params, filters);
+    if (j >= tokens.length || tokens[j].t !== 'close') throw new Error('search expression: missing )');
+    return [`(${inner})`, j + 1];
+  }
   if (tok.t === 'clause') {
     const frag = pushSearchClauseFragment(tok.field || 'all', tok.value, params, filters);
     return [`(${frag})`, i + 1];

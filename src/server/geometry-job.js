@@ -257,10 +257,84 @@ function similar(filters = null, { includeZip = true } = {}) {
   return { groups: result, missing: missing(filters).length, ...snapshot() };
 }
 
+/** Read one model's measurements now and keep them (More like this on a model the scan has not reached). */
+async function measureOne(row) {
+  const now = fileKey(row.filePath);
+  if (!now || now.size > MAX_BYTES) return null;
+  const outcome = await fingerprint(row.filePath);
+  const result = outcome.result || null;
+  const measures = result ? { volume: result.volume, spreads: result.spreads, hand: result.hand, shape: result.shape } : null;
+  table()
+    .prepare('INSERT OR REPLACE INTO model_geometry (model_id, file_key, signature, triangles, error, computed_at, measures) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(
+      row.id,
+      now.key,
+      result ? result.signature : null,
+      result ? result.triangles : null,
+      outcome.error || (result ? null : 'No surface'),
+      new Date().toISOString(),
+      measures ? JSON.stringify(measures) : null
+    );
+  return measures;
+}
+
+/** Shape distance under which a model counts as looking alike. */
+const LOOK_ALIKE = 0.45;
+
+/**
+ * More like this: models shaped like this one, at any size, closest first; sharing tags or
+ * categories brings a model a little closer. Answers { models: [{ filePath, fileName, distance }],
+ * unmeasured, reason } (`unmeasured`: models the geometry scan has not read yet, so not compared).
+ */
+async function lookAlikes(filePath, { limit = 24 } = {}) {
+  const { shapeDistance } = require('../core/geometry-signature');
+  const model = database.db.prepare('SELECT id, filePath FROM models WHERE filePath = ?').get(filePath);
+  if (!model) throw new Error('This model is not in the library');
+  if (String(filePath).startsWith('url::')) return { models: [], unmeasured: 0, reason: 'An online model has no file to compare its shape with' };
+  if (!/\.(stl|3mf)$/i.test(String(filePath))) return { models: [], unmeasured: 0, reason: 'Only STL and 3MF models can be compared by shape' };
+  const now = fileKey(model.filePath);
+  const kept = table().prepare('SELECT file_key, measures FROM model_geometry WHERE model_id = ?').get(model.id);
+  const mine = kept && kept.measures && now && kept.file_key === now.key ? JSON.parse(kept.measures) : await measureOne(model);
+  if (!mine) return { models: [], unmeasured: 0, reason: "This model's shape could not be read" };
+  const shared = new Map();
+  const count = (sql) => {
+    for (const row of database.db.prepare(sql).all(model.id, model.id)) shared.set(row.other, (shared.get(row.other) || 0) + row.n);
+  };
+  count(
+    'SELECT b.model_id AS other, COUNT(*) AS n FROM model_tags a JOIN model_tags b ON b.tag_id = a.tag_id WHERE a.model_id = ? AND b.model_id != ? GROUP BY b.model_id'
+  );
+  try {
+    count(
+      'SELECT b.model_id AS other, COUNT(*) AS n FROM model_categories a JOIN model_categories b ON b.category_id = a.category_id WHERE a.model_id = ? AND b.model_id != ? GROUP BY b.model_id'
+    );
+  } catch (_) {
+    /* no categories yet */
+  }
+  const found = database.db
+    .prepare(
+      'SELECT g.measures, m.id, m.filePath, m.fileName FROM model_geometry g JOIN models m ON m.id = g.model_id WHERE g.measures IS NOT NULL AND m.id != ?'
+    )
+    .all(model.id)
+    .map((row) => {
+      const distance = shapeDistance(mine, JSON.parse(row.measures));
+      return { filePath: row.filePath, fileName: row.fileName, distance, score: distance - 0.05 * Math.min(shared.get(row.id) || 0, 4) };
+    })
+    .filter((row) => row.distance <= LOOK_ALIKE)
+    .sort((a, b) => a.score - b.score || a.distance - b.distance)
+    .slice(0, limit)
+    .map(({ filePath: p, fileName, distance }) => ({
+      filePath: p,
+      fileName,
+      distance: Math.round(distance * 1000) / 1000,
+      image: require('./grid-thumbnails').gridImage(p, () => require('../core/thumbnails').loadThumbnailForModel(p))
+    }));
+  return { models: found, unmeasured: missing(null).length, reason: null };
+}
+
 const status = () => snapshot();
 const stop = () => {
   state.cancel = true;
   return snapshot();
 };
 
-module.exports = { duplicates, fileKey, missing, similar, start, status, stop };
+module.exports = { LOOK_ALIKE, duplicates, fileKey, lookAlikes, missing, similar, start, status, stop };

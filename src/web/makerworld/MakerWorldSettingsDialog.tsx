@@ -101,17 +101,19 @@ export function MakerWorldSettingsDialog() {
         )}
       </div>
       <div className="settings-group">
-        <h4>English file names</h4>
+        <h4>English file names and notes</h4>
         <div className="form-group">
-          <label htmlFor="makerworld-translation">Translate file names with:</label>
+          <label htmlFor="makerworld-translation">Translate file names and notes with:</label>
           <select id="makerworld-translation" value={translation} onChange={(event) => setTranslation(event.target.value)}>
             <option value="free">Free translation service (MyMemory)</option>
             <option value="ai">AI service (Settings → AI Tagging)</option>
             <option value="off">Off: original names only</option>
           </select>
           <p className="setting-description">
-            MakerWorld does not translate file names. Names already in English are left alone. The free service needs no account (about 5,000 characters a day);
-            the AI service uses the one set up for AI Tagging and its costs. Either way, only the file names are sent.
+            MakerWorld does not translate file names, and designers often write their descriptions in their own language. Names and notes already in English are
+            left alone. A model's page shows English under notes in another language, and a new model's notes are saved in English with the original under them.
+            The free service needs no account (about 5,000 characters a day); the AI service uses the one set up for AI Tagging and its costs. Only the names
+            and notes are sent.
           </p>
         </div>
       </div>

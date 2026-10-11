@@ -22,10 +22,24 @@ function touchedPaths(payload, result) {
   return [...new Set(paths)];
 }
 
+/** A print logged as Printed ticks every part of its models' kits (src/server/kits.js). */
+async function tickKits(event, payload) {
+  if (String((payload && payload.outcome) || 'printed').toLowerCase() !== 'printed') return;
+  const find = database.db.prepare('SELECT id FROM models WHERE filePath = ?');
+  const ids = touchedPaths(payload, null)
+    .map((filePath) => find.get(filePath))
+    .filter(Boolean)
+    .map((row) => row.id);
+  if (!ids.length) return;
+  await require('../kits').markPrinted(ids, event && event.user ? event.user.username : null);
+  events.broadcast('kit-changed', {});
+}
+
 /** Run a print action, then tell the other browsers which models changed. */
-function announcing(handler) {
+function announcing(handler, { logs = false } = {}) {
   return async (event, payload) => {
     const result = await handler(event, payload);
+    if (logs) await tickKits(event, payload).catch((error) => console.warn('[Kits] Could not tick the printed parts:', error.message));
     try {
       const paths = touchedPaths(payload, result);
       if (paths.length) events.broadcastToOthers(event, 'models-changed', { filePaths: paths, by: event && event.user ? event.user.username : null });
@@ -56,7 +70,7 @@ async function logPrintEventHandler(event, payload) {
   }
 }
 
-ipcMain.handle('log-print-event', announcing(logPrintEventHandler));
+ipcMain.handle('log-print-event', announcing(logPrintEventHandler, { logs: true }));
 
 async function logPrintEventsBatchHandler(event, payload) {
   try {
@@ -67,7 +81,7 @@ async function logPrintEventsBatchHandler(event, payload) {
   }
 }
 
-ipcMain.handle('log-print-events-batch', announcing(logPrintEventsBatchHandler));
+ipcMain.handle('log-print-events-batch', announcing(logPrintEventsBatchHandler, { logs: true }));
 
 async function deletePrintEventHandler(event, eventId) {
   try {

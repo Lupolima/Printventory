@@ -167,3 +167,45 @@ test('the public page escapes library text, keeps unsafe links out and shows no 
   assert.strictEqual(safeLink('javascript:alert(1)'), null);
   assert.strictEqual(displayName('pack.zip::inner/part.stl'), 'part');
 });
+
+test('a smart collection shows what its saved search finds now, and is shared that way', () => {
+  const db = createDb();
+  db.exec(
+    'ALTER TABLE models ADD COLUMN dateAdded TEXT; ALTER TABLE models ADD COLUMN isNew INTEGER; ALTER TABLE models ADD COLUMN parentModel TEXT; ALTER TABLE models ADD COLUMN modifiedDate TEXT'
+  );
+  const query = { designer: ['CreativeTools'] };
+  const smart = c.createCollection(
+    db,
+    { name: 'By CreativeTools', smart: { query, filters: { designers: ['CreativeTools'], limit: 5, sortOption: 'name-asc' } } },
+    T0
+  );
+  assert.strictEqual(smart.smart, true);
+  assert.deepStrictEqual(smart.query, query);
+  const saved = JSON.parse(db.prepare('SELECT smart_filters FROM collections WHERE id = ?').get(smart.id).smart_filters);
+  assert.ok(!('limit' in saved) && !('sortOption' in saved), 'paging and order are not saved');
+  assert.deepStrictEqual(
+    c.getCollection(db, smart.id).models.map((m) => m.fileName),
+    ['benchy.stl']
+  );
+  db.prepare("INSERT INTO models (filePath, fileName, designer) VALUES ('/lib/c/hull.stl', 'hull.stl', 'CreativeTools')").run();
+  assert.strictEqual(c.listCollections(db).find((x) => x.id === smart.id).modelCount, 2, 'a new model that matches shows up by itself');
+  assert.throws(() => c.addToCollection(db, smart.id, ['/lib/b/gear.stl']), /smart collection/);
+  assert.throws(() => c.removeFromCollection(db, smart.id, ['/lib/a/benchy.stl']), /smart collection/);
+  assert.ok(!c.membership(db, ['/lib/a/benchy.stl']).collections.some((x) => x.id === smart.id), 'Add to Collection does not offer it');
+
+  c.updateCollection(db, smart.id, { smart: { query: { designer: ['Nobody'] }, filters: { designers: ['Nobody'] } } });
+  assert.strictEqual(c.getCollection(db, smart.id).models.length, 0);
+  c.updateCollection(db, smart.id, { smart: { query, filters: { designers: ['CreativeTools'] } } });
+  const link = shares.createShareLink(db, { kind: 'collection', targetId: smart.id, allowDownload: true });
+  assert.deepStrictEqual(
+    shares
+      .resolveShareLink(db, link.token)
+      .models.map((m) => m.fileName)
+      .sort(),
+    ['benchy.stl', 'hull.stl']
+  );
+
+  const plain = c.createCollection(db, { name: 'Plain' });
+  assert.throws(() => c.updateCollection(db, plain.id, { smart: { filters: {} } }), /not a smart collection/);
+  assert.throws(() => c.createCollection(db, { name: 'Broken', smart: { query: {} } }), /needs a search/);
+});

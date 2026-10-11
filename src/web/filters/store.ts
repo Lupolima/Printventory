@@ -5,6 +5,7 @@
  * backed by this store, so they stay in step.
  */
 import { settings } from '../api';
+import { looksTyped, parseTyped } from './typed';
 import {
   DEFAULT_SORT,
   SORT_OPTIONS,
@@ -16,12 +17,15 @@ import {
   consumeIntoQuery,
   emptyFilterState,
   invertNext,
+  normalizeTokens,
   removeToken,
+  restoredState,
   type AtomKind,
   type ChipRemove,
   type Combine,
   type FilterState,
-  type MultiKind
+  type MultiKind,
+  type SearchToken
 } from './query';
 
 type Listener = (state: FilterState) => void;
@@ -116,6 +120,38 @@ export const filterActions = {
     set({ ...state, combine: { ...state.combine, [kind]: combine } });
   },
 
+  /** Search for any of these words (the AI searches); the filters stay. */
+  searchAny(words: string[]) {
+    const clean = words.map((word) => word.trim()).filter(Boolean);
+    if (!clean.length) return;
+    const tokens = clean.flatMap((value, i): SearchToken[] =>
+      i
+        ? [
+            { t: 'op', op: 'OR' },
+            { t: 'clause', field: 'all', value }
+          ]
+        : [{ t: 'clause', field: 'all', value }]
+    );
+    userChange({ ...state, tokens, awaiting: false, inverted: { ...state.inverted, search: false } });
+  },
+
+  /**
+   * The search box's text: a typed search (filters/typed.ts) becomes its terms (in brackets after
+   * a query already there), plain words search every field as before. Answers what could not be read.
+   */
+  searchTyped(text: string): string | null {
+    if (!looksTyped(text)) {
+      userChange(appendClause(state, 'all', text));
+      return null;
+    }
+    const { tokens, error } = parseTyped(text);
+    if (!tokens.length) return error;
+    const before = normalizeTokens(state.tokens);
+    const joined: SearchToken[] = before.length ? [...before, { t: 'op', op: 'AND' }, { t: 'open' }, ...tokens, { t: 'close' }] : tokens;
+    userChange({ ...state, tokens: normalizeTokens(joined), awaiting: false, inverted: { ...state.inverted, search: false } });
+    return error;
+  },
+
   /** Add the search box text to the query. */
   search(field: string, text: string) {
     userChange(appendClause(state, field, text));
@@ -156,6 +192,11 @@ export const filterActions = {
       case 'directory':
         return set({ ...state, directory: '' });
     }
+  },
+
+  /** Show a saved search (a smart collection) in the library. */
+  restore(saved: unknown) {
+    set(restoredState(state, saved));
   },
 
   /** Clear All Filters / View Entire Library. */

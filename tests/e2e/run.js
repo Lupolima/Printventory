@@ -1431,6 +1431,183 @@ async function browserChecks(base, wsUrl, session) {
         }
         check('turning the sidebar on shows the details again', shownAgain && !(await page.evaluate(() => document.body.classList.contains('jp-no-details'))));
       }
+      // 7.15: smart collections, folder pages and kits, More like this, the AI search buttons, designer links in Add Links.
+      {
+        const stem = path.basename(cardPath, path.extname(cardPath));
+        const folder = path.dirname(cardPath);
+        // Save Search: the current search becomes a smart collection that shows what it finds.
+        await page.evaluate(() => {
+          window.location.hash = '#/library';
+        });
+        await page.fill('.jp-topbar__search input', stem);
+        await page.press('.jp-topbar__search input', 'Enter');
+        await page.waitForSelector('#save-search-button:not([hidden])', { timeout: 10000 }).catch(() => {});
+        await page.click('#save-search-button').catch(() => {});
+        const nameBox = await page.waitForSelector('dialog.browser-input-dialog[open] input', { timeout: 5000 }).catch(() => null);
+        if (nameBox) {
+          await nameBox.fill('E2E Smart');
+          await page.click('dialog.browser-input-dialog[open] button[type=submit]');
+        }
+        const openIt = await page.waitForSelector('dialog[open] button:text-is("Open It")', { timeout: 10000 }).catch(() => null);
+        if (openIt) await openIt.click();
+        const smartShows = await page
+          .waitForFunction(
+            (want) =>
+              document.getElementById('jp-collection-title')?.textContent === 'E2E Smart' &&
+              !!document.querySelector(`#jp-collection-models [data-filepath="${CSS.escape(want)}"]`),
+            cardPath,
+            {
+              timeout: 10000
+            }
+          )
+          .then(
+            () => true,
+            () => false
+          );
+        check('Save Search makes a smart collection showing what the search finds', smartShows && (await page.isVisible('#jp-collection-show-search')));
+        // Off its page first: a page showing a deleted collection would ask for it again.
+        await page.evaluate(() => {
+          window.location.hash = '#/library';
+        });
+        await page.waitForTimeout(300);
+        const smart = ((await invoke(base, session, 'get-collections')).result || []).find((c) => c.name === 'E2E Smart');
+        if (smart) await invoke(base, session, 'delete-collection', [smart.id]);
+
+        // A folder's page, its notes, and kit progress (ticked by hand and by a logged print).
+        await page.evaluate((dir) => {
+          window.location.hash = `#/folder/${encodeURIComponent(dir)}`;
+        }, folder);
+        const folderShown = await page
+          .waitForFunction((want) => document.getElementById('jp-folder-title')?.textContent === want, path.basename(folder), { timeout: 10000 })
+          .then(
+            () => true,
+            () => false
+          );
+        await page.click('#jp-folder-notes-edit').catch(() => {});
+        await page.fill('#jp-folder-notes-input', 'e2e folder notes').catch(() => {});
+        await page.click('#jp-folder-notes-save').catch(() => {});
+        const notesSaved = await waitFor(
+          async () => (((await invoke(base, session, 'get-folder', [folder])).result || {}).notes === 'e2e folder notes' ? true : null),
+          10000,
+          'notes'
+        ).catch(() => false);
+        check(
+          'a folder has a page with its files and notes of its own',
+          folderShown && notesSaved === true && (await page.isVisible(`#jp-folder-file-grid [data-filepath="${cardPath.replace(/"/g, '\\"')}"]`))
+        );
+        await invoke(base, session, 'save-folder-notes', [folder, '']);
+        // The print logged above (Log Print, Printed) ticked this model's part.
+        const kitBefore = (await invoke(base, session, 'get-kit', [folder])).result || {};
+        const mine = (kitBefore.parts || []).filter((p) => p.filePath === cardPath);
+        await invoke(base, session, 'set-kit-part', [cardPath, 0, false]);
+        const unticked = ((await invoke(base, session, 'get-kit', [folder])).result || {}).parts?.find((p) => p.filePath === cardPath)?.done;
+        await invoke(base, session, 'set-kit-part', [cardPath, 0, true]);
+        const ticked = ((await invoke(base, session, 'get-kit', [folder])).result || {}).parts?.find((p) => p.filePath === cardPath)?.done;
+        check(
+          'kit parts are ticked by a logged print and by hand',
+          mine.length === 1 && mine[0].done === true && unticked === false && ticked === true,
+          JSON.stringify({ mine, unticked, ticked })
+        );
+
+        // More like this on the model's page.
+        await page.evaluate((file) => {
+          window.location.hash = `#/model/${encodeURIComponent(file)}`;
+        }, cardPath);
+        await page.click('#jp-more-like-this', { timeout: 10000 }).catch(() => {});
+        const compared = await page
+          .waitForFunction(
+            () =>
+              /not been measured|No other model|Only STL|could not be read|#/.test(document.querySelector('.jp-model-page__alike')?.textContent || '') &&
+              !document.querySelector('#jp-more-like-this:disabled'),
+            null,
+            {
+              timeout: 30000
+            }
+          )
+          .then(
+            () => true,
+            () => false
+          );
+        check('More like this compares the model with the library', compared);
+
+        // Version history on the model's page: the Edit dialog's changes above are listed; Upload New Version keeps the old file.
+        const historyShown = await page
+          .waitForFunction(() => /License/.test(document.getElementById('jp-history-changes')?.textContent || ''), null, { timeout: 15000 })
+          .then(
+            () => true,
+            () => false
+          );
+        const original = fs.readFileSync(cardPath);
+        const canUpload = await page.isVisible('#jp-upload-version');
+        // The test library is inside the app's folder, where uploads are refused: the new file is put next to the model as an upload would.
+        const uploadedCopy = path.join(folder, `e2e-new-version${path.extname(cardPath)}`);
+        fs.writeFileSync(uploadedCopy, original);
+        await invoke(base, session, 'replace-model-file', [cardPath, uploadedCopy]);
+        const versioned = await page.waitForSelector('#jp-history-versions li', { timeout: 15000 }).then(
+          () => true,
+          () => false
+        );
+        const kept = ((await invoke(base, session, 'get-model-history', [cardPath])).result || {}).versions || [];
+        check(
+          'version history lists the changes and keeps the replaced file',
+          historyShown && canUpload && versioned && kept.length === 1 && fs.readFileSync(cardPath).equals(original) && !fs.existsSync(uploadedCopy),
+          JSON.stringify({ historyShown, canUpload, versioned, kept: kept.length })
+        );
+        for (const version of kept) await invoke(base, session, 'delete-model-version', [version.id]);
+
+        // Assembly view: a folder's layout is kept.
+        const savedLayout = (await invoke(base, session, 'save-assembly', [folder, { layout: 'laid-out', poses: {} }])).result;
+        const readLayout = (await invoke(base, session, 'get-assembly', [folder])).result;
+        await invoke(base, session, 'save-assembly', [folder, null]);
+        check('an assembly layout is saved for its folder', savedLayout?.layout === 'laid-out' && readLayout?.layout === 'laid-out');
+
+        // Typed search: fields and NOT in the search box.
+        await page.evaluate(() => {
+          window.location.hash = '#/library';
+        });
+        await page.fill('.jp-topbar__search input', `name:"${stem}" -name:zzzz`);
+        await page.press('.jp-topbar__search input', 'Enter');
+        const typed = await page
+          .waitForFunction(
+            (want) => {
+              const shown = [...document.querySelectorAll('.file-grid [data-filepath]')].map((el) => el.getAttribute('data-filepath'));
+              const chips = document.querySelector('.filter-pills-search-chain')?.textContent || '';
+              return shown.includes(want) && /NOT/.test(chips) && /File name/.test(chips);
+            },
+            cardPath,
+            { timeout: 10000 }
+          )
+          .then(
+            () => true,
+            () => false
+          );
+        check('a typed search reads fields and NOT', typed);
+        await page.click('#clear-all-filters-button').catch(() => {});
+
+        // The AI searches: the buttons, and the photo dialog (no AI service in this run).
+        await page.click('#jp-search-photo');
+        const photoDialog = await page.waitForSelector('#photo-search-dialog[open]', { timeout: 5000 }).catch(() => null);
+        check(
+          'the top bar searches by meaning and with a photo',
+          (await page.isVisible('#jp-search-meaning')) && !!photoDialog && (await page.isDisabled('#photo-search-go'))
+        );
+        await page.keyboard.press('Escape');
+
+        // Add Links offers to list a designer's models.
+        await page.click('#jp-topbar-links-button');
+        await page.fill('dialog[open] textarea', 'https://www.printables.com/@Someone_123');
+        const listed = await page
+          .waitForSelector('#jp-links-lists li:has-text("@Someone_123") button:has-text("Get Their Models")', { timeout: 10000 })
+          .catch(() => null);
+        check("Add Links offers a designer's models", !!listed);
+        await page.fill('dialog[open] textarea', '');
+        await page.keyboard.press('Escape');
+        await page.evaluate(() => {
+          window.location.hash = '#/library';
+        });
+        await page.waitForSelector(card, { timeout: 10000 }).catch(() => {});
+        await page.click(`${card} .file-name`).catch(() => {});
+      }
       await page.click(`${card} .print-status`, { modifiers: ['Shift'] });
       const wantItem = await page.waitForSelector('.print-status-menu .print-status-menu-item:text-is("Want")', { timeout: 10000 }).catch(() => null);
       if (wantItem) await wantItem.click();

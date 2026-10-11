@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, FolderHeart, Pencil, Plus, Share2, Trash2, X } from 'lucide-react';
+import { ArrowLeft, FolderHeart, Library, Pencil, Plus, Search, Share2, Trash2, X } from 'lucide-react';
 import { collections, type CollectionDetail, type CollectionModel, type CollectionSummary } from '../api';
 import { StatusBadge, printStatusInfo } from '../components/Badge';
 import { Button, IconButton } from '../components/Button';
@@ -14,6 +14,7 @@ import { effectiveStatus, type PrintModel } from '../print/printStatus';
 import { selection } from '../selection';
 import { navigate } from '../shell/routes';
 import { fetchPrimaryThumbnail } from '../thumbnails/cache';
+import { currentSearch, showSavedSearch } from '../filters/savedSearches';
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -73,7 +74,10 @@ function CollectionList() {
       <header className="jp-page__header jp-collections__header">
         <div>
           <h1 className="jp-page-title">Collections</h1>
-          <p className="jp-meta">Groups of models from any folders: a project, a gift list, spare parts for a printer.</p>
+          <p className="jp-meta">
+            Groups of models from any folders: a project, a gift list, spare parts for a printer. A smart collection is a saved search (Save Search in the
+            library) and always shows what it finds.
+          </p>
         </div>
         <EditOnly>
           <Button variant="primary" icon={Plus} id="jp-new-collection" onClick={newCollection}>
@@ -124,6 +128,11 @@ function CollectionList() {
                 <span className="jp-recent-card__body">
                   <span className="jp-recent-card__title">{c.name}</span>
                   <span className="jp-recent-card__byline">
+                    {c.smart && (
+                      <span className="jp-badge jp-collection-card__smart" title="A saved search: shows the models it finds now">
+                        <Search size={12} aria-hidden="true" /> Smart
+                      </span>
+                    )}
                     {c.modelCount} {c.modelCount === 1 ? 'model' : 'models'} · changed {timeAgo(c.updatedAt)}
                   </span>
                   {c.description && <span className="jp-collection-card__description">{c.description}</span>}
@@ -137,7 +146,7 @@ function CollectionList() {
   );
 }
 
-function ModelTile({ model, onRemove }: { model: CollectionModel; onRemove: () => void }) {
+function ModelTile({ model, onRemove }: { model: CollectionModel; onRemove: (() => void) | null }) {
   const grid = model as unknown as GridModel;
   const status = printStatusInfo(effectiveStatus(model as unknown as PrintModel));
   const format = formatOf(grid);
@@ -158,9 +167,11 @@ function ModelTile({ model, onRemove }: { model: CollectionModel; onRemove: () =
           </span>
         </span>
       </button>
-      <EditOnly>
-        <IconButton className="jp-collection-model__remove" icon={X} size="sm" label={`Remove ${cardTitle(grid)} from the collection`} onClick={onRemove} />
-      </EditOnly>
+      {onRemove && (
+        <EditOnly>
+          <IconButton className="jp-collection-model__remove" icon={X} size="sm" label={`Remove ${cardTitle(grid)} from the collection`} onClick={onRemove} />
+        </EditOnly>
+      )}
     </li>
   );
 }
@@ -213,6 +224,19 @@ function CollectionView({ id }: { id: number }) {
     }
   }
 
+  /** A smart collection takes the library's current search instead of its own. */
+  async function useCurrentSearch() {
+    if (!detail) return;
+    const answer = await showMessage('Use Current Search', `Replace the search of ${detail.name} with the library's current search?`, ['Replace', 'Cancel']);
+    if (answer !== 'Replace') return;
+    try {
+      await collections.update(id, { smart: currentSearch() });
+      load();
+    } catch (err) {
+      await showMessage('Use Current Search', errorText(err));
+    }
+  }
+
   async function take(model: CollectionModel) {
     try {
       await collections.take(id, [model.filePath]);
@@ -253,11 +277,22 @@ function CollectionView({ id }: { id: number }) {
           <p className="jp-meta">
             {detail ? `${detail.models.length} ${detail.models.length === 1 ? 'model' : 'models'}` : ''}
             {detail?.createdBy ? ` · made by ${detail.createdBy}` : ''}
+            {detail?.smart ? ' · a smart collection: the models its search finds' : ''}
           </p>
           {detail?.description && <p className="jp-collections__description">{detail.description}</p>}
         </div>
+        {detail?.smart && (
+          <Button icon={Library} id="jp-collection-show-search" onClick={() => showSavedSearch(detail.query)}>
+            Show in Library
+          </Button>
+        )}
         <EditOnly>
           <div className="jp-collections__tools">
+            {detail?.smart && (
+              <Button icon={Search} onClick={useCurrentSearch} title="Replace this collection's search with the library's current one">
+                Use Current Search
+              </Button>
+            )}
             <Button
               icon={Share2}
               id="jp-share-collection"
@@ -283,7 +318,12 @@ function CollectionView({ id }: { id: number }) {
           ))}
         </div>
       )}
-      {detail && detail.models.length === 0 && (
+      {detail && detail.models.length === 0 && detail.smart && (
+        <EmptyState icon={FolderHeart} title="The search finds no models now">
+          Models show up here as soon as they match the search. Show it in the library to change it, then choose Use Current Search.
+        </EmptyState>
+      )}
+      {detail && detail.models.length === 0 && !detail.smart && (
         <EmptyState icon={FolderHeart} title="Nothing in this collection yet">
           In the library, open a model&apos;s menu (right-click, or …) and choose Add to Collection. Select several models first to add them at once.
         </EmptyState>
@@ -291,7 +331,7 @@ function CollectionView({ id }: { id: number }) {
       {detail && detail.models.length > 0 && (
         <ul className="jp-collections__grid" id="jp-collection-models">
           {detail.models.map((model) => (
-            <ModelTile key={model.id} model={model} onRemove={() => take(model)} />
+            <ModelTile key={model.id} model={model} onRemove={detail.smart ? null : () => take(model)} />
           ))}
         </ul>
       )}

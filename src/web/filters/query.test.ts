@@ -13,6 +13,8 @@ import {
   normalizeTokens,
   payloadIsFiltered,
   removeToken,
+  restoredState,
+  savedSearch,
   serverFilters,
   type FilterState,
   type Labels
@@ -219,5 +221,36 @@ describe('filterStrip', () => {
       { kind: 'op', text: 'AND' },
       { kind: 'chip', text: 'License: MIT', inverted: false }
     ]);
+  });
+});
+
+describe('saved searches', () => {
+  it('keep the filters, not the view, and come back the same', () => {
+    const state = {
+      ...emptyFilterState(),
+      designer: ['Bob'],
+      tags: ['boat', 'toy'],
+      printed: 'unprinted',
+      tokens: [{ t: 'clause' as const, field: 'category', value: 'Toys & Games' }],
+      sort: 'name-asc',
+      dateAdded: '2026-10-01'
+    };
+    const saved = savedSearch(state);
+    expect(saved).not.toHaveProperty('sort');
+    expect(saved).not.toHaveProperty('dateAdded');
+    const elsewhere = { ...emptyFilterState(), sort: 'rating-desc', license: ['CC0'] };
+    const back = restoredState(elsewhere, JSON.parse(JSON.stringify(saved)));
+    expect(serverFilters(back)).toEqual(serverFilters({ ...state, sort: 'rating-desc', dateAdded: null }));
+    expect(back.sort).toBe('rating-desc');
+    expect(back.license).toEqual([]);
+  });
+
+  it('leave out what is malformed', () => {
+    const back = restoredState(emptyFilterState(), { designer: 'Bob', tags: ['ok', 3], printed: 7, tokens: 'x' });
+    expect(back.designer).toEqual([]);
+    expect(back.tags).toEqual(['ok']);
+    expect(back.printed).toBe(emptyFilterState().printed);
+    expect(back.tokens).toEqual([]);
+    expect(restoredState(emptyFilterState(), null).designer).toEqual([]);
   });
 });

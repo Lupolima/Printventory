@@ -196,3 +196,12 @@ test('symlinks that leave the library are refused', () => {
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+test("a folder's page opens for library folders and folders holding library models", () => {
+  const ctx = { ...guardCtx, hasModelsIn: (dir) => dir === '/old/scan' };
+  assertNetworkIpcArgs('get-folder', ['/mnt/library/Voltron'], ctx);
+  assertNetworkIpcArgs('get-folder', ['/old/scan'], ctx);
+  assertNetworkIpcArgs('save-folder-notes', ['/mnt/library/Voltron', 'notes'], ctx);
+  refused(() => assertNetworkIpcArgs('get-folder', ['/etc'], ctx));
+  refused(() => assertNetworkIpcArgs('save-folder-notes', ['/home/someone', 'x'], ctx));
+});

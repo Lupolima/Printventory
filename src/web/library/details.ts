@@ -4,7 +4,7 @@
  * between them. The panels' contents are React (src/web/details/); this shows, hides and fills them.
  */
 import { models as modelApi } from '../api';
-import { normalizePath, type GridModel, type GridView, type GroupRecord } from '../grid/layout';
+import { folderOf, normalizePath, type GridModel, type GridView, type GroupRecord } from '../grid/layout';
 import { selection } from '../selection';
 import { sidebarOn } from '../details/sidebarPref';
 import { navigate } from '../shell/routes';
@@ -357,7 +357,8 @@ export function openCardPreview(card: HTMLElement | null, filePath: string, sele
 
 // ---- Groups ----
 
-const expandedSet = (record: GroupRecord) => (record.groupKind === 'bundle' ? expandedGroups.bundles : expandedGroups.parentModels);
+const expandedSet = (record: GroupRecord) =>
+  record.groupKind === 'bundle' ? expandedGroups.bundles : record.groupKind === 'folder' ? expandedGroups.folders : expandedGroups.parentModels;
 
 /** Expand or collapse a group; collapsing the bundle whose panel is open closes it. */
 export function toggleGroup(record: GroupRecord) {
@@ -383,6 +384,12 @@ function expandGroup(record: GroupRecord) {
 /** Click on a group card: collapse it, or expand it (and show a bundle's panel). */
 export function groupClick(record: GroupRecord, view: GridView, card: TapCard) {
   if (tapSuppressed(card)) return;
+  // Folders as models: the folder's page (its arrow still expands it in the grid).
+  if (record.groupKind === 'folder') {
+    const folder = folderOf(record.children[0] || { filePath: '' });
+    if (folder) navigate('folder', folder);
+    return;
+  }
   if (!expandedSet(record).has(record.groupKey)) expandGroup(record);
   else toggleGroup(record);
 }

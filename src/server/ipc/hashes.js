@@ -508,3 +508,5 @@ ipcMain.handle('get-geometry-duplicates', async (event, options) =>
 ipcMain.handle('start-geometry-scan', async (event, options) => geometryJob.start(options && options.filters ? options.filters : null));
 ipcMain.handle('get-geometry-scan', async () => geometryJob.status());
 ipcMain.handle('stop-geometry-scan', async () => geometryJob.stop());
+// More like this on a model's page: models shaped like it, at any size.
+ipcMain.handle('look-alike-models', async (event, filePath) => geometryJob.lookAlikes(filePath));

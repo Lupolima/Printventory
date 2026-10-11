@@ -6,6 +6,7 @@
  * three.js 0.181, set up to look like the old r128 preview (../three/setup.ts).
  */
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import {
   FINISHES,
@@ -35,6 +36,35 @@ export interface EngineEvents {
   parts(parts: PreviewPart[], focus: string): void;
   /** Sit-on-face mode turned on or off (a pick ends it). */
   sitOnFace(enabled: boolean): void;
+  /** Assembly view: a part was clicked. */
+  partPicked?(id: string): void;
+  /** Assembly view: the selected part was moved or turned with the handle. */
+  partMoved?(): void;
+}
+
+/** Where an assembly part sits: its position and turn (a quaternion) in the assembly. */
+export interface PartPose {
+  position: [number, number, number];
+  quaternion: [number, number, number, number];
+}
+
+/**
+ * Assembly view: a kit's files in one scene, each a part. "designed" keeps every file where its
+ * file puts it (parts exported from one design line up); "laid-out" spreads them on a grid.
+ */
+export function assembleParts(objects: { object: THREE.Object3D; name: string; id: string }[], layout: 'designed' | 'laid-out'): THREE.Group {
+  const root = new THREE.Group();
+  objects.forEach(({ object, name, id }, index) => {
+    applyPartTint(object, index, objects.length);
+    object.name = name || object.name || `Part ${index + 1}`;
+    object.userData.previewPart = true;
+    object.userData.previewPartId = id;
+    // Where the file puts it, to go back to from the grid.
+    object.userData.designedPose = { position: object.position.clone(), quaternion: object.quaternion.clone() };
+    root.add(object);
+  });
+  if (layout === 'laid-out') placeOnGrid(objects.map(({ object }) => object));
+  return root;
 }
 
 /** A file that only carries a picture of the model. */
@@ -269,14 +299,12 @@ function applyPartTint(object: THREE.Object3D, index: number, total: number) {
   });
 }
 
-/** Lay bundle parts out on a grid, one cell per part, tinted apart. */
-export function arrangeBundle(objects: { object: THREE.Object3D; name: string }[]): THREE.Group {
-  const root = new THREE.Group();
-  const placed = objects.map(({ object, name }, index) => {
-    applyPartTint(object, index, objects.length);
+/** Spread objects on a grid, one cell per object (each centred in its cell). */
+function placeOnGrid(objects: THREE.Object3D[]) {
+  const placed = objects.map((object) => {
+    object.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(object);
     object.position.sub(box.getCenter(new THREE.Vector3()));
-    object.name = name || object.name || `Part ${index + 1}`;
     return { object, size: box.getSize(new THREE.Vector3()) };
   });
   const maxPartDim = Math.max(...placed.map((p) => Math.max(p.size.x, p.size.y, p.size.z)), 1);
@@ -285,10 +313,20 @@ export function arrangeBundle(objects: { object: THREE.Object3D; name: string }[
   placed.forEach((entry, index) => {
     entry.object.position.x = (index % cols) * spacing;
     entry.object.position.z = -Math.floor(index / cols) * spacing;
-    entry.object.userData.previewPart = true;
-    entry.object.userData.previewPartId = String(index);
-    root.add(entry.object);
   });
+}
+
+/** Lay bundle parts out on a grid, one cell per part, tinted apart. */
+export function arrangeBundle(objects: { object: THREE.Object3D; name: string }[]): THREE.Group {
+  const root = new THREE.Group();
+  objects.forEach(({ object, name }, index) => {
+    applyPartTint(object, index, objects.length);
+    object.name = name || object.name || `Part ${index + 1}`;
+    object.userData.previewPart = true;
+    object.userData.previewPartId = String(index);
+    root.add(object);
+  });
+  placeOnGrid(objects.map(({ object }) => object));
   return root;
 }
 
@@ -330,6 +368,9 @@ export class PreviewEngine {
   private settings: StudioSettings;
   private resizeObserver: ResizeObserver | null = null;
   private disposed = false;
+  /** Assembly view: clicks pick parts to move, and nothing is hidden. */
+  private assembly = false;
+  private gizmo: TransformControls | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -584,6 +625,8 @@ export class PreviewEngine {
       materialsOf(mesh).forEach((mat) => mat?.dispose());
     });
     this.scene.clear();
+    this.gizmo?.detach();
+    this.gizmo?.dispose();
     this.controls.dispose();
     this.renderer.dispose();
   }
@@ -723,6 +766,7 @@ export class PreviewEngine {
     const start = this.pickStart;
     this.pickStart = null;
     if (!start || event.button !== 0) return;
+    if (this.gizmo?.dragging) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (dx * dx + dy * dy > 16) return; // a drag, not a click
@@ -735,11 +779,89 @@ export class PreviewEngine {
     for (let node: THREE.Object3D | null = hit.object; node; node = node.parent) {
       const part = this.parts.find((entry) => entry.object === node);
       if (part) {
-        this.focusPart(part.id);
+        if (this.assembly) this.events.partPicked?.(part.id);
+        else this.focusPart(part.id);
         return;
       }
     }
   };
+
+  // ------------------------------------------------------------ assembly view
+
+  /** Assembly view on or off: clicks pick parts instead of showing one alone. */
+  setAssembly(on: boolean) {
+    this.assembly = on;
+    if (!on) this.editPart(null);
+  }
+
+  setPartVisible(id: string, visible: boolean) {
+    const part = this.parts.find((entry) => entry.id === id);
+    if (part) part.object.visible = visible;
+    if (!visible && this.gizmo?.object === part?.object) this.editPart(null);
+  }
+
+  /** Put the move (or turn) handle on a part; null takes it away. */
+  editPart(id: string | null, mode: 'translate' | 'rotate' = 'translate') {
+    const part = id ? this.parts.find((entry) => entry.id === id) : null;
+    if (!part) {
+      this.gizmo?.detach();
+      return;
+    }
+    if (!this.gizmo) {
+      const gizmo = new TransformControls(this.camera, this.renderer.domElement);
+      gizmo.addEventListener('dragging-changed', (event) => {
+        this.controls.enabled = !(event as unknown as { value: boolean }).value;
+      });
+      gizmo.addEventListener('objectChange', () => this.events.partMoved?.());
+      this.scene.add(gizmo.getHelper());
+      this.gizmo = gizmo;
+    }
+    this.gizmo.setMode(mode);
+    this.gizmo.setSize(0.9);
+    this.gizmo.attach(part.object);
+  }
+
+  /** Lay the parts out again: where their files put them, or on a grid. */
+  relayoutParts(layout: 'designed' | 'laid-out') {
+    if (!this.model || !this.parts.length) return;
+    this.editPart(null);
+    for (const part of this.parts) {
+      const designed = part.object.userData.designedPose as { position: THREE.Vector3; quaternion: THREE.Quaternion } | undefined;
+      if (designed) {
+        part.object.position.copy(designed.position);
+        part.object.quaternion.copy(designed.quaternion);
+      }
+    }
+    // Measured in the model's own frame: no spin or offset left over.
+    this.turntable.rotation.set(0, 0, 0);
+    this.model.position.set(0, 0, 0);
+    this.model.updateMatrixWorld(true);
+    if (layout === 'laid-out') placeOnGrid(this.parts.map((part) => part.object));
+    this.centerModel(this.model);
+    this.afterPoseChange();
+  }
+
+  /** Where each part sits now, by part id. */
+  partPoses(): Record<string, PartPose> {
+    const out: Record<string, PartPose> = {};
+    for (const part of this.parts) {
+      const p = part.object.position;
+      const q = part.object.quaternion;
+      out[part.id] = { position: [p.x, p.y, p.z], quaternion: [q.x, q.y, q.z, q.w] };
+    }
+    return out;
+  }
+
+  /** Put parts where a saved assembly had them (parts not in it stay where they are). */
+  setPartPoses(poses: Record<string, PartPose>) {
+    for (const part of this.parts) {
+      const pose = poses[part.id];
+      if (!pose) continue;
+      part.object.position.set(...pose.position);
+      part.object.quaternion.set(...pose.quaternion);
+    }
+    this.afterPoseChange();
+  }
 
   private raycast(event: PointerEvent): THREE.Intersection | null {
     const rect = this.canvas.getBoundingClientRect();

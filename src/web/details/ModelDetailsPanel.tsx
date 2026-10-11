@@ -13,6 +13,7 @@ import { loadSlicers, offerSlicerSettings, sendToSlicer, type Slicer } from '../
 import { useCan } from '../session';
 import { MakerWorldSection } from '../makerworld/MakerWorldSection';
 import { showCategory } from '../pages/CategoriesPage';
+import { NotesEnglish } from '../notes/NotesEnglish';
 
 /** The model the panel shows, as get-model returns it (with its images). */
 export interface PanelModel extends GridModel {
@@ -24,6 +25,7 @@ export interface PanelModel extends GridModel {
   rating?: number | null;
   thumbnail?: string | null;
   source?: string | null;
+  notes?: string | null;
   categories?: string[];
 }
 
@@ -387,6 +389,7 @@ export function ModelDetailsPanel() {
       <section className="jp-details__section">
         <h3 className="jp-details__heading">Notes</h3>
         <div className="jp-details__editor" ref={setNotesHost} />
+        {model && <NotesEnglish filePath={model.filePath} notes={model.notes} compact />}
       </section>
 
       <section className="jp-details__section">
