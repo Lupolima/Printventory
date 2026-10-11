@@ -33,6 +33,45 @@ export function MakerWorldSteps() {
   );
 }
 
+/** What to do once for a Google Cloud Translation API key (Settings → MakerWorld). */
+export function GoogleTranslateSteps() {
+  return (
+    <ol className="jp-site-setup__steps" id="google-translate-steps">
+      <li>
+        <strong>Create a project.</strong> Go to <Site href="https://console.cloud.google.com">console.cloud.google.com</Site> and sign in. In the project
+        picker at the top choose <strong>New Project</strong>, name it (for example <em>JusttPrint</em>) and click <strong>Create</strong>; make sure it is
+        selected in the top bar.
+      </li>
+      <li>
+        <strong>Turn on billing.</strong> Open <strong>Billing</strong> in the left menu and link a billing account (a card). Google asks for it for Translation
+        even within the 500,000 free characters a month; new accounts often get trial credit too.
+      </li>
+      <li>
+        <strong>Turn on the Translation API.</strong> In <strong>APIs &amp; Services → Library</strong>, search for <strong>Cloud Translation API</strong>, open
+        it and click <strong>Enable</strong>.
+      </li>
+      <li>
+        <strong>Create the key.</strong> In <strong>APIs &amp; Services → Credentials</strong> choose <strong>Create credentials → API key</strong> and copy it
+        (it starts with <code>AIza</code>).
+      </li>
+      <li>
+        <strong>Restrict the key</strong> (recommended). Click <strong>Edit API key</strong>: under <strong>API restrictions</strong> choose{' '}
+        <strong>Restrict key</strong>, tick only <strong>Cloud Translation API</strong> and save, so a leaked key cannot be used for anything else. Under{' '}
+        <strong>Application restrictions</strong> you can also allow only your server's public IP address, if it does not change.
+      </li>
+      <li>
+        <strong>Safety nets on Google's side</strong> (optional). In <strong>Billing → Budgets &amp; alerts</strong> create a budget of, say, $1, and Google
+        emails you if anything is ever charged. In <strong>APIs &amp; Services → Cloud Translation API → Quotas</strong> you can lower the characters per day to
+        about 16,000 (500,000 ÷ 31): Google then refuses more by itself.
+      </li>
+      <li>
+        <strong>Add it here.</strong> Paste the key below and click <strong>Check and Save Key</strong>, then <strong>Save</strong>. JusttPrint tests it with a
+        few characters, puts Google first in the list of translators, and counts what it sends.
+      </li>
+    </ol>
+  );
+}
+
 /** What to do once for Thingiverse downloads. */
 export function ThingiverseSteps() {
   return (

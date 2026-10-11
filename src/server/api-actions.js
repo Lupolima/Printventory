@@ -66,6 +66,8 @@ const ACTIONS = {
   'makerworld-account-status': [],
   'makerworld-sign-in': ['object'],
   'makerworld-sign-out': [],
+  'google-translate-status': [],
+  'set-google-translate-key': ['string'],
   'makerworld-download': ['object'],
   'save-site-edits': ['string', 'object?'],
   'get-geometry-duplicates': ['object?'],

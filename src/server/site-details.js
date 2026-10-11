@@ -119,9 +119,10 @@ async function fetchDesign(link, fetchImpl, headers = {}) {
 
 /** English names for the files (Settings → MakerWorld → File name translation). */
 async function addTranslations(details, deps) {
-  const mode = translate.modeOf(setting(translate.SETTING_KEY));
+  const order = translate.currentOrder();
+  const mode = translate.orderKey(order);
   const stems = details.files.map((file) => splitName(file.name).stem);
-  const { english, by, error } = await translate.translateNames(stems, mode, deps);
+  const { english, by, error } = await translate.translateNames(stems, order, deps);
   details.files = details.files.map((file, i) => ({ ...file, english: english[i] ? `${english[i]}${splitName(file.name).extension}` : null }));
   details.translation = { mode, by, error };
   return details;
@@ -343,7 +344,7 @@ async function fetchDetails(url, { refresh = false, event = null, fetchImpl = ht
   const key = linkKey(link);
   const row = table().prepare('SELECT data, fetched_at FROM site_details WHERE key = ?').get(key);
   const kept = row ? JSON.parse(row.data) : null;
-  const mode = translate.modeOf(setting(translate.SETTING_KEY));
+  const mode = translate.orderKey(translate.currentOrder());
   const fresh = row && Date.now() - Date.parse(row.fetched_at) < MAX_AGE_MS;
   if (kept && fresh && !refresh && (kept.translation && kept.translation.mode) === mode) {
     return { details: kept, fetchedAt: row.fetched_at, stale: false, error: null };

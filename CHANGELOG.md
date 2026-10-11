@@ -2,6 +2,15 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.16.0] - 2026-10-11
+
+**Changes:**
+- **Settings in tabs:** Settings shows one group at a time (General, Appearance, Library, Scanning, Integrations, Backup…), picked on the left, or across the top on phones, where the chosen tab scrolls into view. A group with several settings has a tab for each (Integrations: Thingiverse, MakerWorld, MCP Server); its tools stay listed under them. Links to a group or a setting (#/settings/backup, #/settings/makerworld) open its tab, and changing tabs does not add steps for Back.
+- **Google Cloud Translation:** a third translator for file names and notes, with an API key from a Google Cloud project (Settings → MakerWorld → Google Cloud Translation; the key is checked with Google before it is kept, and never shown again). Settings → MakerWorld now lists the translators in the order they are tried: tick the ones to use and move them up or down; when one fails, is not set up or has used up its free characters, the next is used. Adding a Google key puts Google first. The section has step-by-step instructions for getting a key (a Google Cloud project, billing, the Cloud Translation API, a restricted API key, and optional budget and quota limits on Google's side).
+- **Google's free characters:** JusttPrint counts every character it sends to Google, by Google's month (Pacific time). Settings shows how many of the 500,000 free characters are used and how many days are left until the month resets; the notifications warn at 80% and 95% and when they are used up, each with the days left. When they are used up JusttPrint either stops using Google until the month resets (the next translator takes over; the default) or keeps using it and Google charges, as you choose there.
+
+**Upgrading:** no changes needed. Reload open browser tabs after the update. The translator chosen before (the free service, the AI service or off) is kept as the list's order.
+
 ## [7.15.0] - 2026-10-11
 
 **Upgrading:** no changes needed. Reload open browser tabs after the update. Earlier versions of model files (Upload New Version) are kept in `versions/` next to the database, so in the data volume.

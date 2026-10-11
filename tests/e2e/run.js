@@ -986,11 +986,19 @@ async function browserChecks(base, wsUrl, session) {
       await page.waitForSelector('#jp-filter-popover', { state: 'visible', timeout: 5000 }).catch(() => {});
     };
     // A row of the Settings page (src/web/pages/SettingsPage.tsx); the old sidebar buttons live there now.
+    // Settings is in tabs: go through them until the row shows.
     const runSetting = async (label) => {
       await page.evaluate(() => {
         window.location.hash = '#/settings';
       });
-      await page.click(`.jp-settings-row:has-text("${label}")`);
+      await page.waitForSelector('#jp-settings-tabs [role=tab]', { timeout: 10000 });
+      const row = `.jp-settings-row:has-text("${label}")`;
+      for (const tab of await page.$$('#jp-settings-tabs [role=tab]')) {
+        if (await page.isVisible(row)) break;
+        await tab.click();
+        await page.waitForTimeout(150);
+      }
+      await page.click(row);
     };
     const showLibrary = () =>
       page.evaluate(() => {
@@ -3003,13 +3011,32 @@ async function browserChecks(base, wsUrl, session) {
         () => true,
         () => false
       );
+    // Settings is in tabs: one group at a time; a group with several forms has tabs for them.
+    const showSetting = async (id) => {
+      // Like a click on a tab: no step for Back.
+      await page.evaluate((section) => {
+        window.location.replace(`#/settings/${section}`);
+      }, id);
+      await page.waitForTimeout(300);
+    };
+    const performanceShown = await formOpen('#setting-performance #performance-settings-dialog[open]');
+    const oneGroup = (await page.locator('.jp-settings-panel').count()) === 1 && !(await page.isVisible('#setting-stl-home'));
+    await showSetting('scanning');
+    const stlHomeShown = await formOpen('#setting-stl-home #stl-home-dialog[open]');
+    await showSetting('mcp');
+    const mcpShown = await formOpen('#setting-mcp #mcp-server-settings-dialog[open]');
+    const mcpTab = (await page.getAttribute('.jp-settings-subtabs [role=tab]:has-text("MCP Server")', 'aria-selected')) === 'true';
     check(
-      'Settings shows the settings forms on the page',
-      (await formOpen('#setting-performance #performance-settings-dialog[open]')) &&
-        (await formOpen('#setting-stl-home #stl-home-dialog[open]')) &&
-        (await formOpen('#setting-mcp #mcp-server-settings-dialog[open]')) &&
+      'Settings shows one group at a time, its forms in tabs',
+      performanceShown &&
+        oneGroup &&
+        stlHomeShown &&
+        mcpShown &&
+        mcpTab &&
+        !(await page.isVisible('#setting-makerworld')) &&
         (await page.evaluate(() => !document.querySelector('#performance-settings-dialog:modal')))
     );
+    await page.click('.jp-settings-subtabs [role=tab]:has-text("MakerWorld")');
     check(
       'Settings → MakerWorld shows the sign-in and the translation choice',
       (await page.waitForSelector('#setting-makerworld #makerworld-settings-dialog[open] #makerworld-account-status', { timeout: 10000 }).then(
@@ -3017,9 +3044,24 @@ async function browserChecks(base, wsUrl, session) {
         () => false
       )) &&
         /Not signed in/.test(await page.textContent('#makerworld-account-status')) &&
-        (await page.inputValue('#makerworld-translation')) === 'free'
+        (await page.isChecked('#translator-list li:first-child input')) &&
+        /MyMemory/.test(await page.textContent('#translator-list li:first-child')) &&
+        (await page.isDisabled('#translator-list li:has-text("Google") input')) &&
+        (await page.isVisible('#google-translate-key'))
+    );
+    const googleStatus = (await invoke(base, session, 'google-translate-status')).result || {};
+    check(
+      "Google Cloud Translation's status counts this month against the free characters",
+      googleStatus.hasKey === false &&
+        googleStatus.free === 500000 &&
+        googleStatus.used === 0 &&
+        googleStatus.daysLeft >= 1 &&
+        /^\d{4}-\d{2}-01$/.test(googleStatus.resetsOn),
+      JSON.stringify(googleStatus)
     );
     const sizeBefore = (await invoke(base, session, 'get-setting', ['maxFileSizeMB'])).result;
+    await page.click('#settings-tab-general');
+    await page.waitForSelector('#setting-performance #performance-settings-dialog[open]', { timeout: 10000 }).catch(() => {});
     await page.fill('#max-file-size', '61');
     await page.click('#save-performance-settings');
     const inlineSaved = await page
@@ -3036,23 +3078,17 @@ async function browserChecks(base, wsUrl, session) {
         ))
     );
     await invoke(base, session, 'save-setting', ['maxFileSizeMB', sizeBefore == null ? '50' : sizeBefore]);
-    await page.click('.jp-settings-index__link:text-is("Backup")');
+    await page.click('#settings-tab-backup');
     check(
-      'the index jumps to a group',
-      await page
-        .waitForFunction(
-          () => {
-            const group = document.getElementById('settings-backup')?.getBoundingClientRect();
-            return !!group && group.top < window.innerHeight / 2 && group.top > 0;
-          },
-          null,
-          { timeout: 5000 }
-        )
-        .then(
-          () => true,
-          () => false
-        )
+      'a tab shows its group',
+      (await page.waitForSelector('#settings-backup', { timeout: 5000 }).then(
+        () => true,
+        () => false
+      )) &&
+        /#\/settings\/backup$/.test(page.url()) &&
+        !(await page.isVisible('#setting-performance'))
     );
+    await showSetting('stats');
     await page.click('.jp-settings-row:has-text("Library Stats")');
     check('Library Stats opens from Settings', await page.isVisible('#stats-dialog'));
     const shownTotal = await page
@@ -4322,8 +4358,7 @@ async function browserChecks(base, wsUrl, session) {
     if (flagged) {
       const flaggedModel = (await invoke(base, session, 'get-model', [flagged])).result;
       await invoke(base, session, 'save-model', [{ ...flaggedModel, markAsNew: true }]);
-      await page.click('.jp-sidebar .jp-nav__row:has-text("Settings")');
-      await page.click('.jp-settings-row:has-text("Clear New Flag")');
+      await runSetting('Clear New Flag');
       const askClear = await page
         .waitForSelector('dialog[id^="browser-message-"][open]:has-text("clear the New flag") button:text-is("Yes")', { timeout: 10000 })
         .catch(() => null);
@@ -5447,7 +5482,7 @@ async function accountChecks(base, wsUrl, admin) {
       )
     );
     await viewerPage.evaluate(() => {
-      window.location.hash = '#/settings';
+      window.location.hash = '#/settings/password';
     });
     await viewerPage.waitForSelector('.jp-settings-page', { timeout: 5000 });
     check(

@@ -43,9 +43,12 @@ export function formatRoute(page: PageId, section = ''): string {
   return `#/${page}${section ? `/${encodeURIComponent(section)}` : ''}`;
 }
 
-export function navigate(page: PageId, section = '') {
+/** Go to a page; `replace` changes the address without a step for Back (tabs within a page). */
+export function navigate(page: PageId, section = '', { replace = false }: { replace?: boolean } = {}) {
   const hash = formatRoute(page, section);
-  if (window.location.hash !== hash) window.location.hash = hash;
+  if (window.location.hash === hash) return;
+  if (replace) window.location.replace(hash);
+  else window.location.hash = hash;
 }
 
 function subscribe(listener: () => void) {

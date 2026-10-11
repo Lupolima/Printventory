@@ -2,8 +2,8 @@
 
 /**
  * English for notes in another language (a MakerWorld designer's description in Chinese, say),
- * with the translator set under Settings → MakerWorld (the free MyMemory service, the AI service,
- * or off):
+ * with the translators chosen under Settings → MakerWorld, tried in their order (Google Cloud
+ * Translation, the free MyMemory service, the AI service; none: off):
  *
  * - shown: a model page and the details panel show an English translation under such notes;
  * - when added: a new model's notes are translated in the background and saved as the English,
@@ -39,11 +39,6 @@ function table() {
   }
   return db;
 }
-
-const setting = (key) => {
-  const row = database.db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  return row ? row.value : null;
-};
 
 /** The part of notes to translate: before "Original:" when an English translation is already there. */
 function originalPart(notes) {
@@ -127,32 +122,37 @@ async function translateText(text, deps = {}) {
     .trim()
     .slice(0, MAX_TEXT);
   if (!notesNeedTranslation(source)) return { english: null, by: null, error: null };
-  const mode = translate.modeOf(setting(translate.SETTING_KEY));
-  if (mode === 'off') return { english: null, by: null, error: null };
-  const key = crypto.createHash('sha1').update(`${mode}\n${source}`).digest('hex');
+  const order = translate.currentOrder();
+  if (!order.length) return { english: null, by: null, error: null };
+  // A translation is kept once, whoever made it.
+  const key = crypto.createHash('sha1').update(source).digest('hex');
   const kept = table().prepare('SELECT english, by FROM text_translations WHERE key = ?').get(key);
   if (kept) return { english: kept.english, by: kept.by, error: null };
-  try {
-    let english;
-    let by;
-    if (mode === 'ai') {
-      const settings = deps.aiSettings || require('./ipc/ai').getAISettings();
-      const ask =
-        deps.ask || ((prompt) => require('./ai-ask').askAi(prompt, { aiSettings: settings, puterHandler: deps.puterHandler || null, maxTokens: 4000 }));
-      english = String(await ask(AI_PROMPT(source))).trim();
-      by = 'ai';
-    } else {
-      english = (await translateFreeText(source, deps.fetchImpl)).trim();
-      by = 'free';
+  /** @type {string | null} */
+  let error = null;
+  for (const translator of order) {
+    try {
+      let english;
+      if (translator === 'ai') {
+        const settings = deps.aiSettings || require('./ipc/ai').getAISettings();
+        const ask =
+          deps.ask || ((prompt) => require('./ai-ask').askAi(prompt, { aiSettings: settings, puterHandler: deps.puterHandler || null, maxTokens: 4000 }));
+        english = String(await ask(AI_PROMPT(source))).trim();
+      } else if (translator === 'google') {
+        english = (await require('./google-translate').translateLongText(source, { fetchImpl: deps.fetchImpl })).trim();
+      } else {
+        english = (await translateFreeText(source, deps.fetchImpl)).trim();
+      }
+      if (!english) throw new Error('The translator answered nothing');
+      table()
+        .prepare('INSERT OR REPLACE INTO text_translations (key, english, by, created_at) VALUES (?, ?, ?, ?)')
+        .run(key, english, translator, new Date().toISOString());
+      return { english, by: translator, error: null };
+    } catch (failure) {
+      error = failure instanceof Error ? failure.message : String(failure);
     }
-    if (!english) throw new Error('The translator answered nothing');
-    table()
-      .prepare('INSERT OR REPLACE INTO text_translations (key, english, by, created_at) VALUES (?, ?, ?, ?)')
-      .run(key, english, by, new Date().toISOString());
-    return { english, by, error: null };
-  } catch (error) {
-    return { english: null, by: null, error: error instanceof Error ? error.message : String(error) };
   }
+  return { english: null, by: null, error };
 }
 
 /** A model's notes in English, to show under them: { english, by, error } (english null when not needed). */
@@ -189,8 +189,6 @@ async function work(deps = {}) {
       const id = queue.shift();
       const model = database.db.prepare('SELECT id, notes FROM models WHERE id = ?').get(id);
       if (!model || !notesNeedTranslation(model.notes)) continue;
-      // Puter runs in a browser: background translations need the free service or another AI service.
-      if (translate.modeOf(setting(translate.SETTING_KEY)) === 'ai' && (require('./ipc/ai').getAISettings().aiService || '') === 'puter') continue;
       const { english, error } = await translateText(model.notes, deps);
       if (error && /limit|quota|free translations/i.test(error)) {
         pausedUntil = Date.now() + 12 * 3600 * 1000;

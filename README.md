@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.15.0**
+**Version 7.16.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -31,7 +31,7 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **Collections**: group models from any folders into projects, gift lists or spare-part sets, and **smart collections** that keep a search and always show what it finds
 - **Search by meaning, with a photo, and More like this**: the AI service finds related words or tells what a photo shows; models with a similar shape at any size
 - **Typed search**: `tag:robot creator:"M Armory" -tag:broken (category:Toys OR category:Art) is:unprinted rating:4+` in the search box
-- **Notes in English**: notes in another language get an English translation, and new models' notes are saved in English with the original kept
+- **Notes in English**: notes in another language get an English translation, and new models' notes are saved in English with the original kept; translated by Google Cloud Translation (with a warning before its 500,000 free characters a month run out), the free MyMemory service or your AI service, in the order you choose
 - **Share links and QR codes**: a read-only page for a model or a collection that opens without an account, with a 3D view, optional downloads and an expiry date
 - **Statistics**: prints per month, success rate, top designers, most printed models and printers
 - **3D preview** of single models or every part in a folder or ZIP bundle
@@ -163,7 +163,7 @@ All are optional. You can change most of these later under **Settings** in the a
 
 ## Using the Web App
 
-The sidebar holds every page: **Home**, **Library**, **Collections**, **Categories**, **Queue**, **Printers**, **Statistics**, **Tags**, **Duplicates**, **Organize**, **Scan Library**, **AI Tagging**, **Settings** and **Help**. On a phone, open it with **Menu** in the bottom bar. Search from the top bar (Ctrl/⌘ K).
+The sidebar holds every page: **Home**, **Library**, **Collections**, **Categories**, **Queue**, **Printers**, **Statistics**, **Tags**, **Duplicates**, **Organize**, **Scan Library**, **AI Tagging**, **Settings** and **Help**. On a phone, open it with **Menu** in the bottom bar. Search from the top bar (Ctrl/⌘ K). **Settings** is in tabs: a group at a time on the left (across the top on phones), with a tab for each setting in groups that have several, such as **Integrations → MakerWorld**.
 
 - **Log in** with your user name and password; the first account is `admin` (or `JUSTTPRINT_USERNAME`) with the `JUSTTPRINT_PASSWORD` password. Browsers stay logged in for 30 days. Change your password from the account menu (top right) → **Change Password**; this logs you out in every browser.
 - **User accounts**: under **Settings → Authentication → Users**, an admin adds people and gives each a role. **Viewers** browse, preview and download; **Editors** also edit models, tags and the print log, upload, move and delete files; **Admins** also change settings, backups, JusttPrint backend access and accounts. The JusttPrint backend checks every action, and each person sees only the pages, menu items and buttons their role can use (a viewer's details panel is read-only). Each person keeps their own view, sort, column layout, panel sizes and color scheme; everything else under Settings is the same for everyone.

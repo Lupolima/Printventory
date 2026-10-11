@@ -3,7 +3,8 @@ import { callAction, settings } from '../api';
 import { ModalDialog } from '../components/ModalDialog';
 import { exposeGlobal, showMessage } from '../page';
 import { accountStatus, type AccountStatus } from './makerworld';
-import { MakerWorldSteps } from '../links/SiteSetup';
+import { GoogleTranslateSteps, MakerWorldSteps } from '../links/SiteSetup';
+import { googleFirst, move, orderOf, rowsFor, savedOrder, TRANSLATOR_LABELS, usageLine, type TranslatorRow } from './translators';
 
 declare global {
   interface Window {
@@ -12,6 +13,23 @@ declare global {
 }
 
 const TRANSLATION_KEY = 'makerWorldTranslation';
+const ORDER_KEY = 'translationOrder';
+const AT_LIMIT_KEY = 'googleTranslateAtLimit';
+const FREE_KEY = 'googleTranslateFreeChars';
+
+/** google-translate-status (src/server/google-translate.js). */
+interface GoogleStatus {
+  hasKey: boolean;
+  keyHint: string | null;
+  used: number;
+  free: number;
+  percent: number;
+  month: string;
+  daysLeft: number;
+  resetsOn: string;
+  atLimit: 'stop' | 'pay';
+  stopped: boolean;
+}
 
 /**
  * Settings → MakerWorld: the MakerWorld sign-in downloads use (sign in, sign out), and where the
@@ -20,8 +38,41 @@ const TRANSLATION_KEY = 'makerWorldTranslation';
 export function MakerWorldSettingsDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState<AccountStatus | null>(null);
-  const [translation, setTranslation] = useState('free');
+  const [rows, setRows] = useState<TranslatorRow[]>(rowsFor(['free']));
+  const [google, setGoogle] = useState<GoogleStatus | null>(null);
+  const [googleKey, setGoogleKey] = useState('');
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [atLimit, setAtLimit] = useState<'stop' | 'pay'>('stop');
+  const [freeChars, setFreeChars] = useState('500000');
   const [saving, setSaving] = useState(false);
+
+  const loadGoogle = () =>
+    callAction<GoogleStatus>('google-translate-status').then(
+      (found) => {
+        setGoogle(found);
+        setAtLimit(found.atLimit);
+        setFreeChars(String(found.free));
+        return found;
+      },
+      () => null
+    );
+
+  async function saveKey(remove = false) {
+    setKeyBusy(true);
+    try {
+      const had = google?.hasKey;
+      const found = await callAction<GoogleStatus>('set-google-translate-key', remove ? '' : googleKey);
+      setGoogle(found);
+      setGoogleKey('');
+      // A new key: Google goes first (move it in the list to change that).
+      if (found.hasKey && !had) setRows((now) => googleFirst(now));
+      if (!found.hasKey) setRows((now) => now.map((row) => (row.id === 'google' ? { ...row, on: false } : row)));
+    } catch (error) {
+      await showMessage('Google Cloud Translation', error instanceof Error ? error.message : String(error));
+    } finally {
+      setKeyBusy(false);
+    }
+  }
 
   const refresh = () => accountStatus().then(setStatus, () => setStatus(null));
 
@@ -29,9 +80,9 @@ export function MakerWorldSettingsDialog() {
     () =>
       exposeGlobal('openMakerWorldSettings', () => {
         void refresh();
-        settings
-          .get<string | null>(TRANSLATION_KEY)
-          .then((value) => setTranslation(value || 'free'))
+        void loadGoogle();
+        Promise.all([settings.get<string | null>(ORDER_KEY), settings.get<string | null>(TRANSLATION_KEY)])
+          .then(([order, legacy]) => setRows(rowsFor(savedOrder(order, legacy))))
           .catch(() => {})
           .finally(() => {
             if (!dialogRef.current?.open) dialogRef.current?.showModal();
@@ -51,7 +102,13 @@ export function MakerWorldSettingsDialog() {
   async function save() {
     setSaving(true);
     try {
-      await settings.save(TRANSLATION_KEY, translation);
+      const order = orderOf(rows);
+      await settings.save(ORDER_KEY, JSON.stringify(order));
+      // The older single choice, for anything still reading it.
+      await settings.save(TRANSLATION_KEY, order.find((id) => id !== 'google') || (order.length ? 'free' : 'off'));
+      await settings.save(AT_LIMIT_KEY, atLimit);
+      const free = Math.floor(Number(freeChars));
+      if (Number.isFinite(free) && free > 0) await settings.save(FREE_KEY, String(free));
       dialogRef.current?.close();
       await showMessage(
         'Saved',
@@ -102,20 +159,128 @@ export function MakerWorldSettingsDialog() {
       </div>
       <div className="settings-group">
         <h4>English file names and notes</h4>
-        <div className="form-group">
-          <label htmlFor="makerworld-translation">Translate file names and notes with:</label>
-          <select id="makerworld-translation" value={translation} onChange={(event) => setTranslation(event.target.value)}>
-            <option value="free">Free translation service (MyMemory)</option>
-            <option value="ai">AI service (Settings → AI Tagging)</option>
-            <option value="off">Off: original names only</option>
-          </select>
+        <p className="setting-description">
+          MakerWorld does not translate file names, and designers often write their descriptions in their own language. Names and notes already in English are
+          left alone. A model's page shows English under notes in another language, and a new model's notes are saved in English with the original under them.
+          The translators below are tried from the top: when one fails, is not set up or has used up its free characters, the next one is used. Untick them all
+          to keep the original names and notes. Only the names and notes are sent.
+        </p>
+        <ol className="translator-list" id="translator-list">
+          {rows.map((row, index) => (
+            <li key={row.id} className={row.on ? 'is-on' : undefined}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={row.on}
+                  disabled={row.id === 'google' && !google?.hasKey}
+                  onChange={(event) => setRows((now) => now.map((r) => (r.id === row.id ? { ...r, on: event.target.checked } : r)))}
+                />
+                <span>
+                  {TRANSLATOR_LABELS[row.id]}
+                  <span className="setting-description">
+                    {row.id === 'google'
+                      ? google?.hasKey
+                        ? ` · key ${google.keyHint}`
+                        : ' · add an API key below'
+                      : row.id === 'free'
+                        ? ' · no account, about 5,000 characters a day'
+                        : ' · its costs'}
+                  </span>
+                </span>
+              </label>
+              <span className="translator-list__move">
+                <button
+                  type="button"
+                  aria-label={`Move ${TRANSLATOR_LABELS[row.id]} up`}
+                  disabled={index === 0}
+                  onClick={() => setRows((now) => move(now, index, -1))}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${TRANSLATOR_LABELS[row.id]} down`}
+                  disabled={index === rows.length - 1}
+                  onClick={() => setRows((now) => move(now, index, 1))}
+                >
+                  ↓
+                </button>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="settings-group" id="google-translate-settings">
+        <h4>Google Cloud Translation</h4>
+        <p className="setting-description">
+          An API key from a Google Cloud project with the Cloud Translation API turned on (and billing, which Google asks for even within the free characters).
+          Google gives {Number(google?.free || 500000).toLocaleString('en-US')} characters a month free and then charges about $20 per million; JusttPrint
+          counts what it sends and warns in the notifications at 80% and 95% and when they are used up.
+        </p>
+        <details className="google-translate-help" open={!google?.hasKey}>
+          <summary>How to get an API key</summary>
+          <GoogleTranslateSteps />
           <p className="setting-description">
-            MakerWorld does not translate file names, and designers often write their descriptions in their own language. Names and notes already in English are
-            left alone. A model's page shows English under notes in another language, and a new model's notes are saved in English with the original under them.
-            The free service needs no account (about 5,000 characters a day); the AI service uses the one set up for AI Tagging and its costs. Only the names
-            and notes are sent.
+            Google sometimes moves things in its console: searching its top bar for “Credentials” or “Cloud Translation API” always gets there.
           </p>
+        </details>
+        <div className="form-group">
+          <label htmlFor="google-translate-key">{google?.hasKey ? `API key (${google.keyHint}): replace it` : 'API key'}</label>
+          <input
+            id="google-translate-key"
+            type="password"
+            autoComplete="off"
+            value={googleKey}
+            placeholder={google?.hasKey ? 'A new key' : 'AIza…'}
+            onChange={(event) => setGoogleKey(event.target.value)}
+          />
+          <div className="translator-key-buttons">
+            <button type="button" id="google-translate-save-key" disabled={keyBusy || !googleKey.trim()} onClick={() => void saveKey()}>
+              {keyBusy ? 'Checking…' : 'Check and Save Key'}
+            </button>
+            {google?.hasKey && (
+              <button type="button" disabled={keyBusy} onClick={() => void saveKey(true)}>
+                Remove Key
+              </button>
+            )}
+          </div>
         </div>
+        {google?.hasKey && (
+          <>
+            <div className={`google-usage${google.percent >= 95 ? ' is-danger' : google.percent >= 80 ? ' is-warning' : ''}`} id="google-translate-usage">
+              <div
+                className="google-usage__bar"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={google.percent}
+                aria-label="Free characters used"
+              >
+                <span style={{ width: `${google.percent}%` }} />
+              </div>
+              <p className="setting-description">
+                {usageLine(google)}
+                {google.stopped ? ' · used up: JusttPrint is not using Google until then' : ''}
+              </p>
+            </div>
+            <div className="form-group">
+              <span className="google-usage__label">When the free characters are used up:</span>
+              <label className="translator-radio">
+                <input type="radio" name="google-at-limit" checked={atLimit === 'stop'} onChange={() => setAtLimit('stop')} />
+                <span>Stop using Google until the month resets (the next translator is used)</span>
+              </label>
+              <label className="translator-radio">
+                <input type="radio" name="google-at-limit" id="google-at-limit-pay" checked={atLimit === 'pay'} onChange={() => setAtLimit('pay')} />
+                <span>Keep using Google and pay for the characters over the free ones</span>
+              </label>
+            </div>
+            <div className="form-group">
+              <label htmlFor="google-translate-free">Free characters a month</label>
+              <input id="google-translate-free" type="number" min={1000} step={1000} value={freeChars} onChange={(event) => setFreeChars(event.target.value)} />
+              <p className="setting-description">Google's free allowance; change it only if Google changes it.</p>
+            </div>
+          </>
+        )}
       </div>
     </ModalDialog>
   );
