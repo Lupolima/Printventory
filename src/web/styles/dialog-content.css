@@ -1828,3 +1828,10 @@
   gap: var(--jp-space-2);
   font-weight: 400;
 }
+.google-translate-help {
+  margin: var(--jp-space-2) 0 var(--jp-space-3);
+}
+.google-translate-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}

@@ -3,7 +3,7 @@ import { callAction, settings } from '../api';
 import { ModalDialog } from '../components/ModalDialog';
 import { exposeGlobal, showMessage } from '../page';
 import { accountStatus, type AccountStatus } from './makerworld';
-import { MakerWorldSteps } from '../links/SiteSetup';
+import { GoogleTranslateSteps, MakerWorldSteps } from '../links/SiteSetup';
 import { googleFirst, move, orderOf, rowsFor, savedOrder, TRANSLATOR_LABELS, usageLine, type TranslatorRow } from './translators';
 
 declare global {
@@ -217,6 +217,13 @@ export function MakerWorldSettingsDialog() {
           Google gives {Number(google?.free || 500000).toLocaleString('en-US')} characters a month free and then charges about $20 per million; JusttPrint
           counts what it sends and warns in the notifications at 80% and 95% and when they are used up.
         </p>
+        <details className="google-translate-help" open={!google?.hasKey}>
+          <summary>How to get an API key</summary>
+          <GoogleTranslateSteps />
+          <p className="setting-description">
+            Google sometimes moves things in its console: searching its top bar for “Credentials” or “Cloud Translation API” always gets there.
+          </p>
+        </details>
         <div className="form-group">
           <label htmlFor="google-translate-key">{google?.hasKey ? `API key (${google.keyHint}): replace it` : 'API key'}</label>
           <input
