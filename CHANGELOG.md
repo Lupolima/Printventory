@@ -2,7 +2,7 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.18.0] - 2026-10-11
 
 **Changes:**
 - **Categories and Subcategories:** the categories are now a fixed list of 11 Categories, each with its Subcategories (MakerWorld's own list: Art › 2D Art, Coin & Badges, Signs & Logos, Sculptures…; Toys & Games › Board Games, Characters, Puzzles…; 3D Printer › Accessories, Parts, Test Models; Generative 3D Model › Hueforge & Lithophane, Make My Sign, Statue Maker…). Every model has exactly one place, a Category and a Subcategory, shown as "Toys & Games › Puzzles" in its details and on its page; searching `category:` finds either.
