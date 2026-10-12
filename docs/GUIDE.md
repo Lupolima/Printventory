@@ -52,9 +52,9 @@ The library shows your models as cards: preview, name, designer (or folder), fil
 - **Tabs**: **All Models**, **Printed**, **Unprinted**, **Queue** (queued or printing) and **Favorites**. The count next to them is the number of models shown.
 - **Views**: **Grid** (cards), **Wall** (large previews only; the tile size is next to the view buttons) and **List** (one row per model with columns you can show, hide and resize).
 - **Folders**: the folder button opens a folder panel beside the grid; click a folder to show only its models.
-- **Selecting**: click a card to show it in the details panel. Ctrl/⌘-click or Shift-click selects several, which opens multi-edit. The arrow keys move the selection, Ctrl/⌘ A selects everything shown.
-- **The model menu**: right-click a card (or press the Menu key, or Shift+F10) for Open in Slicer, 3D preview, move, rename, delete, Generate Tags and more.
-- **Print status**: click a card's status badge to log a print; Shift-click it to change the status without logging.
+- **Selecting**: click a card to show it in the details panel. To change several models, click **Edit** next to **Filter**, Ctrl/⌘-click a card, or Shift-click: a Shift-click chooses every card from the one you clicked last to this one. See [Edit mode](#edit-mode). The arrow keys move the selection, Ctrl/⌘ A selects everything shown.
+- **The model menu**: the **⋯** button on a card (or the Menu key, Shift+F10, or a long press on a touch screen) for Open in Slicer, 3D preview, move, rename, remove, Generate Tags and more. **Delete from Disk** is for admins and the editors an admin allows.
+- **Print status**: **Log Print** in the details panel logs a print; its **Print status** picker changes the status without logging.
 
 ### Search and filters
 
@@ -74,21 +74,32 @@ When a scan finds two or more model files in the same folder or ZIP file, they s
 
 Single files in a folder are not grouped.
 
+### Groups
+
+Models kept together under a name (a set, a kit, a multi-part print) are a **group**: one stacked card with how many of its models are printed. Click it for the group's page: the pictures of all its models, its description, the groups inside it, and its models with their print status; on the right **Open All in Slicer**, **Log Print** for every model, **Rename**, **Ungroup** and the totals. **Choose** on the page picks models to put in a new group inside it (**Create Group Inside**), move into a group inside it, or take out of it. Make groups in [Edit mode](#edit-mode). A group's name is its models' parent model: models that share a parent model are a group, and changing a model's parent model moves it to that group. Ungrouping changes no files.
+
 ## Model details
 
 ![The details panel](images/details.png)
 
-Click a model to see it in the details panel:
+Click a model to see it in the details panel, which shows the sections of its page in one column:
 
-- **Preview**: click it (or **3D**) for the 3D preview. Thumbnails of the model's images run underneath.
-- **Name and designer**, then the **tags** (× removes one; the picker adds one, + creates a new tag).
-- **Open in Slicer** sends the model to your first slicer; the arrow lists the others. **Log Print** records a print.
-- **Details**: file, format, size, print status, source link, designer, parent model, license, location (click a folder to show it), date added and rating. Fields save as you change them.
-- **Notes** (Markdown) and **Print History** (each logged print with date, printer and outcome).
+- **Name, designer** and the groups it is in.
+- **Pictures**: click one for full size (or **3D** for the 3D preview); the strip underneath has the others.
+- **Model Details**: **Open in Slicer** (the arrow lists the other slicers), **Edit**, **Log Print** and **Open Page**, then file, format, size, print status, rating, designer, source, group, license, tags, Category, Subcategory, location and date added.
+- **Description**, the site's section (for models from MakerWorld, Printables or Thingiverse), **Videos**, **Documents**, **Notes** (edited in place), the other files in its folder, kit progress and **Print History**.
 
-### Editing several models
+### Edit mode
 
-Select several cards (Ctrl/⌘-click or Shift-click) to open the multi-edit panel. Changes there apply to every selected model as soon as you make them: print status, source, designer, parent model and license, and adding or removing a tag. **Log a Print on Selected** records one print for all of them.
+Click **Edit** next to **Filter** above the grid (or press Ctrl/⌘ E). A click on a card now chooses it instead of opening it:
+
+- **One model**: its details in the sidebar, with **Edit** for the Edit dialog.
+- **Two or more, or a group**: the **Multi-edit** panel. Changes there apply to every chosen model (and every model of the chosen groups) as soon as you make them: print status, source, designer, parent model, license, Category, and adding or removing a tag. **Log a Print on Selected** records one print for all of them.
+- **Create Group** puts the chosen models in a new group: type its name or click a suggestion (what their names, folder, site or designer share). Chosen groups go inside the new one.
+- **Add to** picks any group already in the library (a group inside a group shows as Robot › Arms) and puts the chosen models, and any chosen groups, in it. With a group and models chosen, **Add to** that group does the same.
+- **One group**: its editor: rename it, write its description, take models out (×), **Open Group Page** or **Ungroup**.
+
+**Done** (or Escape) leaves Edit mode.
 
 ### Print status and history
 
@@ -181,7 +192,7 @@ If two people edit the same field of the same model, nobody's work is lost silen
 
 A collection groups models from any folders: a project, a gift list, the spare parts for one printer. A model can be in several collections, and stays where it is on disk.
 
-- **Add to Collection…** in a model's menu (right-click, or **…** on a card) adds it, or every selected model, to the collections you tick; **Create and Add** makes a new one on the spot. A dash means some of the selected models are in that collection already.
+- **Add to Collection…** in a model's menu (**…** on a card) adds it, or every selected model, to the collections you tick; **Create and Add** makes a new one on the spot. A dash means some of the selected models are in that collection already.
 - **Collections** in the sidebar shows them as cards with a picture of the latest model added. Open one to see its models; click a model to show it in the Library, or **×** to take it out of the collection.
 - **Rename**, **Description**, **Share** and the bin (delete) are at the top of a collection. Deleting a collection keeps the models and turns off its share links.
 
@@ -215,7 +226,7 @@ Change a role with its menu; **Set Password** gives someone a new password and l
 - **Tags** lists every tag with how many models use it. Create, rename (renaming onto an existing tag merges the two), delete, or show a tag's models.
 - **Duplicates** finds identical files by their contents and shows each group side by side. **Find: Same geometry** finds the same model saved as different files instead (an STL and its 3MF, a re-export, a copy turned on the plate); JusttPrint reads each STL and 3MF once for it, and mirrored left and right parts are not matched. **Find: Same shape, any resolution** also finds the same design exported with more or fewer triangles (a smooth and a coarse STL of one part); since a part a few percent bigger, or one that differs only in small details, looks the same to it, check those groups before deleting. **Keep this** marks the other copies for deletion; **Easy** keeps one copy of each group for you (preferring a folder you choose). Nothing is deleted until you confirm **Delete Selected**. You can limit the search to the models currently shown.
 - **Organize** moves the models in a scanned folder into a folder structure you choose (up to four levels, such as designer / parent model / license). **Preview** shows what will happen first; each original is removed only after its copy is checked, and files that are not in the library stay where they are. The models folder must be mounted without `:ro`.
-- **AI Tagging** sets up the AI service; then select models, right-click and choose **Generate Tags**, and tick the tags to keep. See [AI tagging](#ai-tagging).
+- **AI Tagging** sets up the AI service; then choose models with **Edit**, open a chosen card's **⋯** menu and choose **Generate Tags**, and tick the tags to keep. See [AI tagging](#ai-tagging).
 - **Settings → Library** has the Metadata Manager (rename or remove designers, licenses and parent models everywhere), Library Stats, Print Roulette (random models to print), Clear New Flag and Purge Models.
 
 ## AI tagging
@@ -225,7 +236,7 @@ AI tagging looks at a model's thumbnail, name and folder names and suggests tags
 1. Click **AI Tagging** in the sidebar.
 2. Pick a service: OpenAI, Claude or Gemini need an API key; **Puter** signs in to your Puter account instead; **custom** works with a local OpenAI-compatible server such as Ollama or LM Studio (no key).
 3. Pick a model and the tagging options (number of tags, replace / merge / append, categories, detail level), then save.
-4. Select models, right-click and choose **Generate Tags**. **Tag from Folder** copies folder names onto the models as tags without asking the AI.
+4. Choose models with **Edit**, open a chosen card's **⋯** menu and choose **Generate Tags**. **Tag from Folder** copies folder names onto the models as tags without asking the AI.
 
 While it runs, the review fills in model by model. **Stop** skips the models not started yet (the tags already suggested can still be applied). **Run in Background** closes the review and keeps going: the sidebar shows the progress in every open browser, and **Review** there opens it again, also after you reload the page. Once you apply or cancel a finished review, its suggestions are gone. One run at a time; with **Puter** the AI runs in your browser, so keep that tab open.
 
@@ -268,7 +279,7 @@ AI apps (Claude Code, Claude Desktop, Cursor, VS Code and others) can connect to
 
 ## Keyboard
 
-**Help → Keyboard Shortcuts** lists them all. The main ones: **Ctrl/⌘ K** search, **Tab** moves between cards (each card is one stop), **Enter** or **Space** selects, the arrow keys move the selection, **Ctrl/⌘ A** selects all, **Ctrl/⌘ E** multi-edit, **Ctrl/⌘ Z** undoes the last edit, **Escape** closes a dialog, drawer or popover. A **Skip to content** link is the first Tab stop on every page.
+**Help → Keyboard Shortcuts** lists them all. The main ones: **Ctrl/⌘ K** search, **Tab** moves between cards (each card is one stop), **Enter** or **Space** selects, the arrow keys move the selection, **Ctrl/⌘ A** selects all, **Ctrl/⌘ E** Edit mode, **Ctrl/⌘ Z** undoes the last edit, **Escape** closes a dialog, drawer or popover. A **Skip to content** link is the first Tab stop on every page.
 
 ## Your data
 

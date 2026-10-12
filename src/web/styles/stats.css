@@ -456,9 +456,6 @@
 :root[data-role='viewer'] .model-engagement-bar {
   pointer-events: none;
 }
-:root[data-role='viewer'] #edit-mode-toggle {
-  display: none;
-}
 
 /* Users */
 .users-roles {
@@ -513,6 +510,18 @@
 }
 .users-row__actions button,
 .users-row__password button {
+  width: auto;
+  margin: 0;
+}
+.users-row__delete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  color: var(--jp-text-2);
+  font-size: 13px;
+}
+.users-row__delete input {
   width: auto;
   margin: 0;
 }

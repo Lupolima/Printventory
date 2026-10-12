@@ -176,20 +176,23 @@ export function ModelGallery({
       </div>
       {(items.length > 1 || canAdd) && (
         <div className="jp-gallery__row">
-          <div className="jp-details__strip" role="listbox" aria-label="Pictures" aria-orientation="horizontal">
-            {items.map((item, i) => (
-              <button
-                key={item.kind === 'photo' ? item.file.name : `render-${i}`}
-                type="button"
-                role="option"
-                aria-selected={i === at}
-                aria-label={item.kind === 'photo' ? item.file.name : `3D render ${i + 1}`}
-                className={cx('jp-details__thumb', i === at && 'is-selected')}
-                onClick={() => setIndex(i)}
-              >
-                <Picture item={item} />
-              </button>
-            ))}
+          <div className="jp-details__strip">
+            <div className="jp-gallery__options" role="listbox" aria-label="Pictures" aria-orientation="horizontal">
+              {items.map((item, i) => (
+                <button
+                  key={item.kind === 'photo' ? item.file.name : `render-${i}`}
+                  type="button"
+                  role="option"
+                  aria-selected={i === at}
+                  aria-label={item.kind === 'photo' ? item.file.name : `3D render ${i + 1}`}
+                  className={cx('jp-details__thumb', i === at && 'is-selected')}
+                  onClick={() => setIndex(i)}
+                >
+                  <Picture item={item} />
+                </button>
+              ))}
+            </div>
+            {/* Not a picture to choose: after the list, at the end of the strip. */}
             {canAdd && (
               <button
                 type="button"

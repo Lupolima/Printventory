@@ -6,6 +6,7 @@ import { pickFolder } from '../components/FolderPicker';
 import { fileIsUnderPreferredDirectory, pickDedupKeeperPath } from '../dedup-keeper.mjs';
 import { exposeGlobal, onServerEvent, showMessage, type LibraryFilters } from '../page';
 import { navigate } from '../shell/routes';
+import { useCanDeleteFiles } from '../session';
 import { formatFileSize } from '../StatsDialog';
 import { makeThumbnail } from '../thumbnails/pipeline';
 
@@ -336,6 +337,7 @@ function Duplicates({ footer }: { footer: (actions: ReactNode) => ReactNode }) {
   const [zipEnabled, setZipEnabled] = useState(false);
   const [preferredDir, setPreferredDir] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const canDelete = useCanDeleteFiles();
   const [mode, setMode] = useState<Mode>('files');
   const modeRef = useRef<Mode>('files');
   modeRef.current = mode;
@@ -616,7 +618,7 @@ function Duplicates({ footer }: { footer: (actions: ReactNode) => ReactNode }) {
       >
         Clear
       </button>
-      {groups.length > 0 && (
+      {groups.length > 0 && canDelete && (
         <button
           type="button"
           id="delete-selected"

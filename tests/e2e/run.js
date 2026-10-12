@@ -1143,12 +1143,7 @@ async function browserChecks(base, wsUrl, session) {
       check('clicking a card selects it and shows its details', (await page.isVisible(`${card}.selected`)) && (await page.isVisible('#model-details')));
       // Details panel fields (React, src/web/details/DetailsFields.tsx).
       const panelModel = async () => (await invoke(base, session, 'get-model', [cardPath])).result || {};
-      const shownName = await page
-        .waitForFunction((name) => document.getElementById('model-name')?.value === name, path.basename(cardPath), { timeout: 10000 })
-        .then(() => true)
-        .catch(async () => page.inputValue('#model-name').catch((e) => e.message));
-      check('details show the model name', shownName === true, shownName);
-      // The JusttPrint 5 panel (React, src/web/details/ModelDetailsPanel.tsx): title, Details list, slicer dropdown.
+      // The sidebar (React, src/web/details/ModelDetailsPanel.tsx): the model page's sections in one column.
       const cardFile = path.basename(cardPath);
       check(
         'the panel shows the name as its title and the file in the Details list',
@@ -1161,85 +1156,59 @@ async function browserChecks(base, wsUrl, session) {
             () => false
           )) &&
           (await page.textContent('#model-details .jp-prop:has(.jp-prop__label:text-is("File")) .jp-prop__value')) === cardFile &&
-          (await page.isVisible('#model-details .jp-props #model-designer')) &&
-          (await page.isVisible('#model-details .jp-details__tags #details-add-tag'))
+          (await page.isVisible('#model-details #jp-details-edit')) &&
+          (await page.isVisible('#model-details #jp-details-open-page')) &&
+          (await page.isVisible('#model-details #model-print-status'))
       );
       await page.click('#model-details .jp-split__more');
       check('Open in Slicer offers to set up a slicer when none is configured', await page.isVisible('.jp-menu [role="menuitem"]:has-text("Set up a slicer")'));
       await page.keyboard.press('Escape');
-      await page.fill('#model-source', 'https://example.com/e2e-source');
-      await page.press('#model-source', 'Enter');
-      const savedSource = await waitFor(async () => ((await panelModel()).source === 'https://example.com/e2e-source' ? true : null), 10000, 'source').catch(
-        async () => JSON.stringify({ shown: await page.inputValue('#model-source'), saved: (await panelModel()).source })
-      );
-      check('details save the source URL', savedSource === true, savedSource);
-      await page.click('#details-add-designer');
-      const designerPrompt = await page.waitForSelector('dialog.browser-input-dialog[open] input', { timeout: 10000 }).catch(() => null);
-      if (designerPrompt) {
-        await designerPrompt.fill('E2E Panel Designer');
-        await page.click('dialog.browser-input-dialog[open] button[type=submit]');
+      // Source, designer and tags: the Edit dialog (src/web/details/EditModelDialog.tsx) from the sidebar.
+      await page.click('#jp-details-edit');
+      const editOpen = await page.waitForSelector('#edit-model-dialog[open] #edit-model-source', { timeout: 10000 }).catch(() => null);
+      if (editOpen) {
+        await page.fill('#edit-model-source', 'https://example.com/e2e-source');
+        await page.fill('#edit-model-designer', 'E2E Panel Designer');
+        await page.fill('#edit-model-tags', 'e2e-panel-tag');
+        await page.click('#edit-model-save');
       }
-      const designerSaved = await waitFor(async () => ((await panelModel()).designer === 'E2E Panel Designer' ? true : null), 10000, 'designer').catch(
-        () => false
-      );
-      // The panel and the card redraw after the save (the designer list reloads first), so wait for them.
-      const designerShown = await page
+      const hasPanelTag = async () => ((await panelModel()).tags || []).some((t) => (t.name || t) === 'e2e-panel-tag');
+      const editSaved = await waitFor(
+        async () => {
+          const m = await panelModel();
+          return m.source === 'https://example.com/e2e-source' && m.designer === 'E2E Panel Designer' && (await hasPanelTag()) ? true : null;
+        },
+        10000,
+        'edit from the sidebar'
+      ).catch(async () => JSON.stringify(await panelModel()));
+      const editShown = await page
         .waitForFunction(
           (cardSelector) =>
-            document.getElementById('model-designer')?.value === 'E2E Panel Designer' &&
+            /By E2E Panel Designer/.test(document.querySelector('#model-details .jp-model-page__byline')?.textContent || '') &&
             /E2E Panel Designer/.test(document.querySelector(`${cardSelector} .designer-info`)?.textContent || ''),
           card,
           { timeout: 10000 }
         )
-        .then(() => true)
-        .catch(async () =>
-          JSON.stringify({
-            select: await page.inputValue('#model-designer').catch(() => null),
-            card: await page.textContent(`${card} .designer-info`).catch(() => null)
-          })
+        .then(
+          () => true,
+          () => false
         );
-      check('details add a new designer', designerSaved === true && designerShown === true, `saved: ${designerSaved}, shown: ${designerShown}`);
-      await page.selectOption('#model-designer', '');
-      await waitFor(async () => (!(await panelModel()).designer ? true : null), 10000, 'designer cleared').catch(() => {});
-      // The list offers designers in use: give another model one to pick.
+      check(
+        'Edit from the sidebar saves the source, designer and tags, and the sidebar and card show them',
+        !!editOpen && editSaved === true && editShown,
+        String(editSaved)
+      );
+      // As before: the model keeps that source, another model has a designer, and the tag is gone.
       const listedOn = (await page.$$eval('.file-grid [data-filepath]', (els) => els.map((el) => el.getAttribute('data-filepath')))).find(
         (p) => p !== cardPath
       );
-      await invoke(base, session, 'update-models-batch', [[{ filePath: listedOn, designer: 'E2E Listed Designer' }]]);
-      await page.click('.form-group:has(#model-designer) .list-button');
-      const listItem = await page.waitForSelector('#searchable-list-dialog[open] li:text-is("E2E Listed Designer")', { timeout: 10000 }).catch(() => null);
-      if (listItem) await listItem.click();
-      else await page.evaluate(() => document.getElementById('searchable-list-dialog')?.close());
-      const pickSaved = await waitFor(async () => ((await panelModel()).designer === 'E2E Listed Designer' ? true : null), 10000, 'designer picked').catch(
-        () => false
-      );
-      const pickShown = await page
-        .waitForFunction(() => document.getElementById('model-designer')?.value === 'E2E Listed Designer', null, { timeout: 10000 })
-        .then(() => true)
-        .catch(() => false);
-      check(
-        'details pick a designer from the list',
-        !!listItem && pickSaved === true && pickShown,
-        JSON.stringify({ found: !!listItem, saved: pickSaved, shown: pickShown })
-      );
-      await page.click('#details-add-tag');
-      const tagPrompt = await page.waitForSelector('dialog.browser-input-dialog[open] input', { timeout: 10000 }).catch(() => null);
-      if (tagPrompt) {
-        await tagPrompt.fill('e2e-panel-tag');
-        await page.click('dialog.browser-input-dialog[open] button[type=submit]');
-      }
-      const hasPanelTag = async () => ((await panelModel()).tags || []).some((t) => (t.name || t) === 'e2e-panel-tag');
-      check(
-        'details create and add a tag',
-        (await waitFor(async () => ((await hasPanelTag()) ? true : null), 10000, 'tag added').catch(() => false)) === true &&
-          (await page.isVisible('#model-tags .tag[data-tag-name="e2e-panel-tag"]'))
-      );
-      await page.click('#model-tags .tag[data-tag-name="e2e-panel-tag"] .tag-remove');
-      check(
-        'details remove a tag',
-        (await waitFor(async () => (!(await hasPanelTag()) ? true : null), 10000, 'tag removed').catch(() => false)) === true &&
-          !(await page.isVisible('#model-tags .tag[data-tag-name="e2e-panel-tag"]'))
-      );
+      await invoke(base, session, 'update-models-batch', [
+        [
+          { filePath: listedOn, designer: 'E2E Listed Designer' },
+          { filePath: cardPath, designer: 'E2E Listed Designer', tags: [] }
+        ]
+      ]);
+      await waitFor(async () => (!(await hasPanelTag()) ? true : null), 10000, 'tag removed').catch(() => {});
       // Print status and history in the details panel, and the Log Print dialog (React, src/web/print/PrintHistory.tsx).
       await page.selectOption('#model-print-status', 'queued');
       const queued = await waitFor(async () => ((await panelModel()).print_status === 'queued' ? true : null), 10000, 'status').catch(() => false);
@@ -1247,7 +1216,7 @@ async function browserChecks(base, wsUrl, session) {
         'details set the print status',
         queued === true &&
           (await page
-            .waitForFunction((sel) => document.querySelector(`${sel} .print-status`)?.textContent === 'In Queue', card, { timeout: 10000 })
+            .waitForFunction(() => document.getElementById('model-print-status')?.value === 'queued', null, { timeout: 10000 })
             .then(
               () => true,
               () => false
@@ -1335,6 +1304,16 @@ async function browserChecks(base, wsUrl, session) {
           shownStem === stem && !!edited && fs.existsSync(renamedPath) && !fs.existsSync(cardPath) && (await page.isVisible('#model-details')),
           JSON.stringify({ shownStem, stem, edited: !!edited })
         );
+        // The sidebar follows the rename: wait for it before editing again.
+        await page
+          .waitForFunction(
+            (name) =>
+              document.querySelector('#model-details .jp-prop:has(.jp-prop__label) .jp-prop__value')?.textContent === name &&
+              !!document.getElementById('jp-details-edit'),
+            path.basename(renamedPath),
+            { timeout: 15000 }
+          )
+          .catch(() => {});
         await editOnce({ name: stem, license: before.license || '', notes: before.notes || '', rating: String(Number(before.rating) || 0) });
         const restored = await waitFor(async () => ((await invoke(base, session, 'get-model', [cardPath])).result ? true : null), 10000, 'renamed back').catch(
           () => false
@@ -1647,21 +1626,9 @@ async function browserChecks(base, wsUrl, session) {
         await page.waitForSelector(card, { timeout: 10000 }).catch(() => {});
         await page.click(`${card} .file-name`).catch(() => {});
       }
-      await page.click(`${card} .print-status`, { modifiers: ['Shift'] });
-      const wantItem = await page.waitForSelector('.print-status-menu .print-status-menu-item:text-is("Want")', { timeout: 10000 }).catch(() => null);
-      if (wantItem) await wantItem.click();
-      const wanted = await waitFor(async () => ((await panelModel()).print_status === 'want' ? true : null), 10000, 'badge status').catch(() => false);
       check(
-        'shift-click on a card badge sets the status',
-        !!wantItem &&
-          wanted === true &&
-          !(await page.isVisible('.print-status-menu')) &&
-          (await page
-            .waitForFunction(() => document.getElementById('model-print-status')?.value === 'want', null, { timeout: 10000 })
-            .then(
-              () => true,
-              () => false
-            ))
+        'cards show only the file type and Subcategory badges',
+        !(await page.$(`${card} .jp-model-card__badges .print-status`)) && (await page.isVisible(`${card} .jp-model-card__badges .jp-badge`))
       );
       await invoke(base, session, 'set-print-status', [{ filePath: cardPath, printStatus: 'unprinted' }]);
       check(
@@ -1670,40 +1637,34 @@ async function browserChecks(base, wsUrl, session) {
           !(await page.$('#details-filaments-slot')) &&
           !(await page.isVisible('#model-details .jp-details__heading:text-is("Filament")'))
       );
-      // Notes in the details panel and the Edit Notes dialog (React, src/web/details/DetailsNotes.tsx).
+      // Notes in the sidebar (React, src/web/pages/ModelPageParts.tsx NotesPanel): edited in place, shown as Markdown.
       const notesBefore = (await panelModel()).notes || '';
-      await page.click('#model-notes-preview');
-      const notesEditor = await page.waitForSelector('#notes-modal-dialog[open] #notes-richtext', { timeout: 10000 }).catch(() => null);
-      check('clicking the notes preview opens the editor', !!notesEditor);
+      await page.click('#model-details #jp-model-notes button[aria-label="Edit your notes"]');
+      const notesEditor = await page.waitForSelector('#model-details #jp-model-notes-input', { timeout: 10000 }).catch(() => null);
+      check('the notes edit button opens the editor in place', !!notesEditor);
       if (notesEditor) {
-        await page.evaluate(() => {
-          document.getElementById('notes-richtext').innerHTML = '';
-        });
-        await page.focus('#notes-richtext');
-        await page.keyboard.type('Hello ');
-        await page.click('#notes-modal-dialog .notes-toolbar [data-md="bold"]');
-        await page.keyboard.type('world');
-        await page.click('#save-notes-button');
+        await notesEditor.fill('Hello **world**');
+        await page.click('#model-details #jp-model-notes-save');
       }
       const notesSaved = await waitFor(async () => ((await panelModel()).notes === 'Hello **world**' ? true : null), 10000, 'notes saved').catch(async () =>
         JSON.stringify((await panelModel()).notes)
       );
       check(
-        'the notes editor saves Markdown and the preview renders it',
-        notesSaved === true && !(await page.isVisible('#notes-modal-dialog')) && (await page.isVisible('#model-notes-preview strong:text-is("world")')),
+        'the notes save as Markdown and show rendered',
+        notesSaved === true &&
+          (await page.waitForSelector('#model-details #jp-model-notes strong:text-is("world")', { timeout: 10000 }).then(
+            () => true,
+            () => false
+          )),
         String(notesSaved)
       );
-      await page.click('#open-notes-modal-button');
-      await page.waitForSelector('#notes-modal-dialog[open]', { timeout: 10000 }).catch(() => {});
-      const editorHtml = await page.innerHTML('#notes-richtext').catch(() => '');
-      await page.focus('#notes-richtext');
-      await page.keyboard.type(' discarded');
-      await page.click('#cancel-notes-button');
+      await page.click('#model-details #jp-model-notes button[aria-label="Edit your notes"]');
+      await page.fill('#model-details #jp-model-notes-input', 'Hello world discarded');
+      await page.click('#model-details #jp-model-notes-cancel');
       await page.waitForTimeout(500);
       check(
         'cancel leaves the notes unchanged',
-        /<strong>world<\/strong>/.test(editorHtml) && (await panelModel()).notes === 'Hello **world**' && !(await page.isVisible('#notes-modal-dialog')),
-        editorHtml
+        (await panelModel()).notes === 'Hello **world**' && !(await page.isVisible('#model-details #jp-model-notes-input'))
       );
       await invoke(base, session, 'update-models-batch', [[{ filePath: cardPath, notes: notesBefore }]]);
       // Path row (React, src/web/details/DetailsPath.tsx): folders, then the file; a folder click filters the grid.
@@ -1855,14 +1816,22 @@ async function browserChecks(base, wsUrl, session) {
         await window.performCombinedSearch?.();
       });
       await page.waitForSelector(card, { timeout: 10000 }).catch(() => {});
-      // Model menu (React, src/web/menus/ContextMenu.tsx): right-click, a destructive item asks first, Escape closes.
+      // Model menu (React, src/web/menus/ContextMenu.tsx): the card's ⋯ button (right-click does nothing), a destructive item asks first, Escape closes.
+      const openCardMenu = async () => {
+        await page.hover(card);
+        await page.click(`${card} .thumbnail-menu-button`, { force: true });
+      };
       await page.click(`${card} .file-name`, { button: 'right' });
+      await page.waitForTimeout(500);
+      check('right-clicking a card shows no menu', !(await page.isVisible('#html-context-menu')));
+      await page.keyboard.press('Escape');
+      await openCardMenu();
       check(
-        'right-clicking a card shows the model menu',
-        await page.waitForSelector('#html-context-menu .html-context-menu-item:text-is("Preview")', { timeout: 10000 }).then(
+        "the card's ⋯ button shows the model menu, without a close button",
+        (await page.waitForSelector('#html-context-menu .html-context-menu-item:text-is("Preview")', { timeout: 10000 }).then(
           () => true,
           () => false
-        )
+        )) && !(await page.$('#html-context-menu .html-context-menu-close'))
       );
       await page.click('#html-context-menu .html-context-menu-item:text-is("Remove from Library")');
       const removeAsk = await page
@@ -1874,7 +1843,7 @@ async function browserChecks(base, wsUrl, session) {
         'Remove from Library asks first, and No keeps the model',
         !!removeAsk && !(await page.isVisible('#html-context-menu')) && !!(await invoke(base, session, 'get-model', [cardPath])).result
       );
-      await page.click(`${card} .file-name`, { button: 'right' });
+      await openCardMenu();
       await page.waitForSelector('#html-context-menu', { timeout: 10000 }).catch(() => {});
       await page.keyboard.press('Escape');
       check(
@@ -1901,7 +1870,7 @@ async function browserChecks(base, wsUrl, session) {
           }
         });
       });
-      await page.click(`${card} .file-name`, { button: 'right' });
+      await openCardMenu();
       await page.click('#html-context-menu .html-context-menu-item:text-is("Copy Path")');
       check(
         "Copy Path copies the model's path",
@@ -1913,7 +1882,7 @@ async function browserChecks(base, wsUrl, session) {
           ),
         await page.evaluate(() => window.__copiedText)
       );
-      await page.click(`${card} .file-name`, { button: 'right' });
+      await openCardMenu();
       const [menuDownload] = await Promise.all([
         page.waitForEvent('download', { timeout: 10000 }).catch(() => null),
         page.click('#html-context-menu .html-context-menu-item:text-is("Download")')
@@ -2157,7 +2126,7 @@ async function browserChecks(base, wsUrl, session) {
       await page.click(`${card} .file-name`, { modifiers: [multiKey] });
       await page.click(`.file-grid .file-item-detailed[data-filepath="${other.replace(/"/g, '\\"')}"] .file-name`, { modifiers: [multiKey] });
       check(
-        'Ctrl/Cmd-click selects several cards for multi-edit',
+        'Ctrl/Cmd-click chooses several cards in Edit mode, which opens Multi-edit',
         (await page.locator('.file-grid .file-item.selected').count()) === 2 && (await page.isVisible('#multi-edit-panel'))
       );
       // Multi-edit panel (React, src/web/details/MultiEditPanel.tsx): each change applies to both selected models.
@@ -2200,10 +2169,84 @@ async function browserChecks(base, wsUrl, session) {
       const tagOffBoth = await waitFor(async () => ((await pairModels()).every((m) => !hasTag(m)) ? true : null), 10000, 'multi untag').catch(() => false);
       check('multi-edit removes a tag from every selected model after asking', !!confirmRemoveTag && tagOffBoth === true);
       check('multi-edit has no Filament section', !(await page.$('#multi-filament-select')));
+      // Create Group (Multi-edit): name it; the models become one group card, which stays chosen.
+      await page.click('#multi-create-group');
+      const nameField = await page.waitForSelector('#jp-group-name-input', { timeout: 10000 }).catch(() => null);
+      if (nameField) {
+        await nameField.fill('E2E Made Group');
+        await page.click('#jp-group-name-submit');
+      }
+      const madeCard = await page
+        .waitForSelector('.file-grid .parent-model-group[data-group-key="parent:e2e made group"].selected', { timeout: 15000 })
+        .catch(() => null);
+      const madeParents = (await pairModels()).map((m) => m.parentModel);
+      check(
+        'Create Group makes a group of the chosen models, shown as one chosen card',
+        !!nameField &&
+          !!madeCard &&
+          madeParents.every((name) => name === 'E2E Made Group') &&
+          !!(await page.$('#jp-group-editor-name:text-is("E2E Made Group")')),
+        JSON.stringify(madeParents)
+      );
+      await page.click('#jp-group-editor-ungroup').catch(() => {});
+      const ungroupAsk = await page.waitForSelector('dialog[id^="browser-message-"][open] button:text-is("Ungroup")', { timeout: 10000 }).catch(() => null);
+      if (ungroupAsk) await ungroupAsk.click();
+      const ungrouped = await waitFor(async () => ((await pairModels()).every((m) => !m.parentModel) ? true : null), 10000, 'ungroup').catch(() => false);
+      check('Ungroup makes them single models again', !!ungroupAsk && ungrouped === true);
+      // Add to (Multi-edit): the chosen models go into a group already in the library.
+      await invoke(base, session, 'create-group', [{ name: 'E2E Existing', filePaths: [third] }]);
+      for (const p of pair) await page.click(`.file-grid .file-item-detailed[data-filepath="${p.replace(/"/g, '\\"')}"] .file-name`);
+      const existingOption = await page
+        .waitForSelector('#multi-existing-group option:text-is("E2E Existing (1)")', { state: 'attached', timeout: 10000 })
+        .catch(() => null);
+      if (existingOption) {
+        await page.selectOption('#multi-existing-group', await existingOption.getAttribute('value'));
+        await page.click('#multi-add-existing');
+      }
+      const addedToExisting = await waitFor(
+        async () => ((await pairModels()).every((m) => m.parentModel === 'E2E Existing') ? true : null),
+        10000,
+        'added to group'
+      ).catch(async () => JSON.stringify((await pairModels()).map((m) => m.parentModel)));
+      check('Add to puts the chosen models in a group already in the library', !!existingOption && addedToExisting === true, String(addedToExisting));
+      const existingId = (await invoke(base, session, 'find-group', ['E2E Existing'])).result;
+      if (existingId) await invoke(base, session, 'ungroup', [existingId]);
       await invoke(base, session, 'update-models-batch', [pairBefore.map((m) => ({ filePath: m.filePath, designer: m.designer || null, tags: m.tags || [] }))]);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
       check('Escape leaves multi-edit', !(await page.isVisible('#multi-edit-panel')));
+      // Shift-click: every card from the one clicked last to this one, in grid order; the pointer stays the arrow.
+      const ordered = await page.$$eval('.file-grid .file-item-detailed[data-filepath]', (els) =>
+        els.sort((a, b) => Number(a.dataset.index) - Number(b.dataset.index)).map((el) => el.getAttribute('data-filepath'))
+      );
+      if (ordered.length >= 3) {
+        const cardAt = (i) => `.file-grid .file-item-detailed[data-filepath="${ordered[i].replace(/"/g, '\\"')}"] .file-name`;
+        await page.click(cardAt(0));
+        await page.click(cardAt(2), { modifiers: ['Shift'] });
+        const rangeChosen = await page
+          .waitForFunction(() => document.querySelectorAll('.file-grid .file-item.selected').length === 3, null, { timeout: 10000 })
+          .then(
+            () => true,
+            () => false
+          );
+        check(
+          'Shift-click chooses every card in between and opens Multi-edit',
+          rangeChosen &&
+            (await page.isVisible('#multi-edit-panel')) &&
+            /^3 models selected$/.test((await page.textContent('#multi-edit-panel .selected-count')).trim())
+        );
+        const cursors = await page.evaluate(
+          (sel) => [document.querySelector(sel)?.closest('.file-item'), document.querySelector(sel)].map((el) => (el ? getComputedStyle(el).cursor : null)),
+          cardAt(1)
+        );
+        check(
+          'cards show the normal arrow pointer',
+          cursors.every((c) => c === 'default'),
+          JSON.stringify(cursors)
+        );
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      }
       await invoke(base, session, 'update-models-batch', [[{ filePath: cardPath, rating: 0, favorite: 0 }]]);
 
       // A model with several images shows a carousel; the image left showing becomes the default.
@@ -2304,12 +2347,10 @@ async function browserChecks(base, wsUrl, session) {
       !!groupShown && /2 models/.test(await page.textContent(`${groupCard} .parent-model-group-meta`))
     );
     if (groupShown) {
-      await page.click(`${groupCard} .parent-model-group-meta`);
-      const children = await page
-        .waitForFunction(() => document.querySelectorAll('.file-grid .file-item.parent-model-group-child').length === 2, null, { timeout: 10000 })
-        .then(() => true)
-        .catch(() => false);
-      check('clicking a group expands it to its models', children && (await page.isVisible(`${groupCard}.expanded`)));
+      check(
+        'a group card is a stack that does not expand',
+        (await page.isVisible(`${groupCard}.jp-group-card--stack`)) && !(await page.$(`${groupCard} .parent-model-group-chevron`))
+      );
       await page.click(`${groupCard} .model-star[data-star="4"]`);
       const groupRated = await waitFor(
         async () => {
@@ -2320,12 +2361,62 @@ async function browserChecks(base, wsUrl, session) {
         'group rating'
       ).catch(() => false);
       check('rating a group rates every model in it', groupRated === true);
-      await page.click(`${groupCard} .parent-model-group-chevron`);
-      const collapsed = await page
-        .waitForFunction(() => document.querySelectorAll('.file-grid .file-item.parent-model-group-child').length === 0, null, { timeout: 10000 })
-        .then(() => true)
-        .catch(() => false);
-      check('the chevron collapses the group', collapsed && !(await page.isVisible(`${groupCard}.expanded`)));
+      // A click opens the group's page (React, src/web/pages/GroupPage.tsx).
+      await page.click(`${groupCard} .parent-model-group-title`);
+      const groupPage = await page.waitForSelector('#jp-group-page-title:text-is("E2E Group")', { timeout: 15000 }).catch(() => null);
+      check(
+        "clicking a group opens the group's page with its models",
+        !!groupPage &&
+          (await page
+            .waitForFunction(() => document.querySelectorAll('#jp-group-models .jp-group-part').length === 2, null, { timeout: 10000 })
+            .then(
+              () => true,
+              () => false
+            ))
+      );
+      if (groupPage) {
+        // Choose one model and make a group inside.
+        await page.click('#jp-group-choose');
+        await page.click('#jp-group-models .jp-group-part:first-child .jp-group-part__check input');
+        await page.click('#jp-group-make-subgroup');
+        await page.fill('#jp-group-name-input', 'E2E Inner');
+        await page.click('#jp-group-name-submit');
+        const inner = await page.waitForSelector('#jp-group-subgroups .jp-group-stack:has-text("E2E Inner")', { timeout: 10000 }).catch(() => null);
+        check('a group page makes a group inside it from chosen models', !!inner && (await page.locator('#jp-group-models .jp-group-part').count()) === 1);
+        if (inner) {
+          await inner.click();
+          await page.waitForSelector('#jp-group-page-title:text-is("E2E Inner")', { timeout: 10000 }).catch(() => {});
+          check(
+            'a group inside shows where it is in the breadcrumbs',
+            /E2E Group/.test((await page.textContent('.jp-model-page__crumbs').catch(() => '')) || '')
+          );
+          await page.click('#jp-group-models .jp-group-part .jp-btn--primary');
+          await page.waitForSelector('#jp-model-page-title', { timeout: 10000 }).catch(() => {});
+          check(
+            "a model's page shows the groups it is in",
+            /E2E Group\s*›\s*E2E Inner/.test((await page.textContent('.jp-model-page__in-group').catch(() => '')) || '')
+          );
+          const innerId = (await invoke(base, session, 'find-group', ['E2E Group'])).result;
+          const parentModels = await Promise.all(
+            grouped.map(async (filePath) => ((await invoke(base, session, 'get-model', [filePath])).result || {}).parentModel)
+          );
+          check('models in a group inside keep the top group as parent model', !!innerId && parentModels.every((name) => name === 'E2E Group'));
+        }
+      }
+      await page.evaluate(() => {
+        window.location.hash = '#/library';
+      });
+      await page.waitForSelector(groupCard, { timeout: 15000 }).catch(() => {});
+      // Edit mode (the header's Edit button): choosing a group shows its editor.
+      await page.click('#jp-edit-button');
+      await page.click(`${groupCard} .parent-model-group-title`);
+      const editor = await page.waitForSelector('#jp-group-editor-name:text-is("E2E Group")', { timeout: 10000 }).catch(() => null);
+      check(
+        'in Edit mode a click chooses a group and shows its editor',
+        !!editor && (await page.isVisible(`${groupCard}.selected`)) && /1 group selected/.test(await page.textContent('#multi-edit-panel .selected-count'))
+      );
+      await page.click('#jp-edit-button');
+      check('Done leaves Edit mode', !(await page.isVisible('#multi-edit-panel')) && !(await page.isVisible('#jp-edit-hint')));
     }
     await invoke(base, session, 'update-models-batch', [grouped.map((filePath) => ({ filePath, parentModel: null, rating: 0 }))]);
     await page.evaluate(() => window.performCombinedSearch({ force: true }));
@@ -3502,9 +3593,9 @@ async function browserChecks(base, wsUrl, session) {
       const sizes = await phone.evaluate(() =>
         Object.fromEntries(
           [
-            ['tag', '#details-add-tag'],
+            ['edit', '#model-details #jp-details-edit'],
             ['slicer', '#model-details .jp-split__more'],
-            ['designer', '#model-designer']
+            ['status', '#model-details #model-print-status']
           ].map(([k, s]) => {
             const r = document.querySelector(s)?.getBoundingClientRect();
             return [k, r ? [Math.round(r.width), Math.round(r.height)] : null];
@@ -3513,7 +3604,7 @@ async function browserChecks(base, wsUrl, session) {
       );
       check(
         'the details buttons and fields are finger-sized',
-        sizes.tag?.[0] >= 40 && sizes.tag?.[1] >= 40 && sizes.slicer?.[0] >= 40 && sizes.designer?.[1] >= 40,
+        sizes.edit?.[1] >= 40 && sizes.slicer?.[0] >= 40 && sizes.slicer?.[1] >= 40 && sizes.status?.[1] >= 40,
         JSON.stringify(sizes)
       );
       await phone.tap('#jp-details-close');
@@ -5019,6 +5110,17 @@ async function accountChecks(base, wsUrl, admin) {
     'viewers cannot undo Metadata Editor changes',
     (await invoke(base, viewer, 'restore-metadata', [{ type: 'designer', name: 'x', current: '', modelIds: [1] }])).status === 403
   );
+  // Deleting files from disk: admins, and editors an admin allows (users.js canDeleteFiles).
+  const notAFile = path.join(LIBRARY, 'no-such-e2e-model.stl');
+  check(
+    'editors cannot delete files from disk until an admin allows it',
+    (await invoke(base, editor, 'delete-file', [notAFile])).status === 403 && (await invoke(base, editor, 'trash-file', [notAFile])).status === 403
+  );
+  const makerId = ((await invoke(base, admin, 'list-users')).result?.users || []).find((u) => u.username === 'maker')?.id;
+  await invoke(base, admin, 'update-user', [makerId, { canDeleteFiles: true }]);
+  const allowedStatus = (await invoke(base, editor, 'delete-file', [notAFile])).status;
+  check('an editor an admin allows may delete files from disk', allowedStatus !== 403, String(allowedStatus));
+  await invoke(base, admin, 'update-user', [makerId, { canDeleteFiles: false }]);
   const users = (await invoke(base, admin, 'list-users')).result || {};
   check(
     'the user list has all three, without password hashes',
@@ -5629,15 +5731,16 @@ async function accountChecks(base, wsUrl, admin) {
     );
     // A viewer's details panel shows the model but offers no edits.
     await viewerPage.click('.file-grid [data-filepath] .file-name', { timeout: 10000 }).catch(() => {});
-    await viewerPage.waitForSelector('#model-designer', { timeout: 10000 }).catch(() => {});
+    await viewerPage.waitForSelector('#model-details .jp-details__title', { timeout: 10000 }).catch(() => {});
+    await viewerPage.waitForSelector('#model-details #model-print-status', { timeout: 10000 }).catch(() => {});
     check(
       "a viewer's details panel is read-only",
-      (await viewerPage.isDisabled('#model-designer')) &&
-        !(await viewerPage.isVisible('#tag-select')) &&
-        !(await viewerPage.isVisible('#open-notes-modal-button')) &&
+      (await viewerPage.isVisible('#model-details .jp-details__title')) &&
+        !(await viewerPage.isVisible('#model-details #jp-details-edit')) &&
+        !(await viewerPage.isVisible('#model-details #jp-model-notes button[aria-label="Edit your notes"]')) &&
         !(await viewerPage.isVisible('#jp-details-log-print')) &&
         (await viewerPage.isDisabled('#model-print-status')) &&
-        !(await viewerPage.isVisible('#edit-mode-toggle'))
+        !(await viewerPage.isVisible('#jp-edit-button'))
     );
     check('viewers still open models in a slicer from the details', await viewerPage.isVisible('#jp-details-open-slicer'));
     check(
@@ -5712,23 +5815,26 @@ async function accountChecks(base, wsUrl, admin) {
       });
       await p.waitForSelector(cardOf(uploadedPath), { timeout: 15000 }).catch(() => {});
       await p.click(cardOf(uploadedPath)).catch(() => {});
-      await p.waitForSelector('#model-designer', { timeout: 10000 }).catch(() => {});
+      await p.waitForSelector('#model-details .jp-details__title', { timeout: 10000 }).catch(() => {});
     }
     await invoke(base, admin, 'save-model', [{ filePath: uploadedPath, designer: 'Live Designer' }]);
     check(
       "a change made elsewhere shows up in another browser's details panel",
       await editorPage
-        .waitForFunction(() => document.getElementById('model-designer')?.value === 'Live Designer', null, { timeout: 15000 })
+        .waitForFunction(() => /By Live Designer/.test(document.querySelector('#model-details .jp-model-page__byline')?.textContent || ''), null, {
+          timeout: 15000
+        })
         .then(
           () => true,
           () => false
         )
     );
-    await editorPage.click('#model-notes-preview');
-    await editorPage.waitForSelector('#notes-modal-dialog[open] #notes-richtext', { timeout: 10000 });
+    const editNotes = '#model-details #jp-model-notes button[aria-label="Edit your notes"]';
+    await editorPage.click(editNotes);
+    await editorPage.waitForSelector('#model-details #jp-model-notes-input', { timeout: 10000 });
     await invoke(base, admin, 'save-model', [{ filePath: uploadedPath, notes: 'Their note' }]);
-    await editorPage.fill('#notes-richtext', 'My note');
-    await editorPage.click('#save-notes-button');
+    await editorPage.fill('#model-details #jp-model-notes-input', 'My note');
+    await editorPage.click('#model-details #jp-model-notes-save');
     const conflictBox = await editorPage
       .waitForSelector('dialog[id^="browser-message-"][open]:has-text("Changed by someone else")', { timeout: 10000 })
       .catch(() => null);
@@ -5761,31 +5867,32 @@ async function accountChecks(base, wsUrl, admin) {
         ((await invoke(base, admin, 'get-model', [uploadedPath])).result || {}).designer === 'Live Designer',
       JSON.stringify(stale)
     );
-    // Undo (src/web/library/undo.ts): the notice's button, then Ctrl/Cmd+Z.
-    const sourceNow = async () => ((await invoke(base, admin, 'get-model', [uploadedPath])).result || {}).source || '';
-    const sourceBefore = await sourceNow();
+    // Undo (src/web/library/undo.ts): the notice's button, then Ctrl/Cmd+Z, after editing the notes in the sidebar.
+    const notesNow = async () => ((await invoke(base, admin, 'get-model', [uploadedPath])).result || {}).notes || '';
+    const notesBefore = await notesNow();
     await editorPage.evaluate(() => window.reloadShownModelDetails?.());
     for (const [how, typed] of [
-      ['the Undo button', 'https://example.com/undo-button'],
-      ['Ctrl/Cmd+Z', 'https://example.com/undo-key']
+      ['the Undo button', 'Undo button note'],
+      ['Ctrl/Cmd+Z', 'Undo key note']
     ]) {
-      await editorPage.fill('#model-source', typed);
-      await editorPage.press('#model-source', 'Enter');
-      const saved = await waitFor(async () => (await sourceNow()) === typed, 10000, 'source saved').catch(() => false);
-      const toast = await editorPage.waitForSelector('[data-testid="undo-toast"]:has-text("Changed the source")', { timeout: 10000 }).catch(() => null);
+      await editorPage.click(editNotes);
+      await editorPage.fill('#model-details #jp-model-notes-input', typed);
+      await editorPage.click('#model-details #jp-model-notes-save');
+      const saved = await waitFor(async () => (await notesNow()) === typed, 10000, 'notes saved').catch(() => false);
+      const toast = await editorPage.waitForSelector('[data-testid="undo-toast"]:has-text("Changed the notes")', { timeout: 10000 }).catch(() => null);
       if (how === 'the Undo button') await editorPage.click('[data-testid="undo-toast"] button:text-is("Undo")').catch(() => {});
       else {
         // The shortcut is off while typing in a field: leave it first, as a person would.
         await editorPage.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
         await editorPage.keyboard.press('ControlOrMeta+z');
       }
-      const undone = await waitFor(async () => (await sourceNow()) === sourceBefore, 10000, 'source undone').catch(() => false);
-      check(`${how} undoes a details edit`, saved && !!toast && undone, await sourceNow());
+      const undone = await waitFor(async () => (await notesNow()) === notesBefore, 10000, 'notes undone').catch(() => false);
+      check(`${how} undoes a details edit`, saved && !!toast && undone, await notesNow());
     }
     check(
       'the details panel shows the undone value',
       await editorPage
-        .waitForFunction((v) => document.getElementById('model-source')?.value === v, sourceBefore, { timeout: 10000 })
+        .waitForFunction(() => /Their note/.test(document.querySelector('#model-details #jp-model-notes')?.textContent || ''), null, { timeout: 10000 })
         .then(
           () => true,
           () => false

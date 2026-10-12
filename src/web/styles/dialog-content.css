@@ -22,35 +22,6 @@
   padding: 4px 0;
 }
 
-.html-context-menu-with-close {
-  padding-top: 20px;
-}
-
-.html-context-menu-close {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  width: auto;
-  height: auto;
-  margin: 0;
-  padding: 0 4px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  box-shadow: none;
-  color: var(--jp-text-2);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.html-context-menu-close:hover {
-  background: transparent;
-  color: var(--jp-text);
-  transform: none;
-  box-shadow: none;
-}
-
 .html-context-menu-separator {
   height: 1px;
   background: var(--jp-border);

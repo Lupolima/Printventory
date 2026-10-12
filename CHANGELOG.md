@@ -2,6 +2,34 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.21.0] - 2026-10-12
+
+**Changes:**
+- **Groups:**
+  - Models kept together under a name show as one **stacked card**, with its Subcategory and how many of its models are printed. It no longer opens up in the grid; a click opens the **group's page**.
+  - **Group page**, laid out like a model page: the pictures of all its models, its **Description** (editors write it in place), the **groups inside it**, and its models with their print status. On the right: **Open All in Slicer**, **Log Print** for all of them, **Rename**, **Ungroup**, and the group's totals, tags, Category and Subcategory.
+  - **Groups inside groups:** **Choose** models on a group's page to **Create Group Inside**, move them into a group inside it, or take them out.
+  - **Breadcrumbs:** a group's page and its models' pages show where they are (Library / Robot / Arms / Gear).
+  - A group's name is its models' **Parent Model**: models that share one are a group, and changing a model's Parent Model (in Edit, or from a 3MF) moves it. **Ungroup** makes them single models again and changes no files.
+- **Edit mode:**
+  - **Edit**, next to **Filter** above the grid, replaces Multi-Edit Mode.
+  - While it is on, a click on a card chooses it. One model shows its details; a second (or a group) opens **Multi-edit**, whose changes apply to every chosen model and the chosen groups' models.
+  - **Create Group** in Multi-edit: name the group, or click one of the suggested names (what the models' names, folder, site or designer share). Chosen groups go inside it.
+  - **Shift-click** chooses every card from the one you clicked last to the one you Shift-click, in the grid's order (groups as groups), and turns Edit mode on.
+  - **Add to** a group already in the library: pick any group (groups inside groups too, shown as Robot › Arms) and the chosen models, and chosen groups, go into it. With a group and models chosen, **Add to** that group does the same for it.
+  - One group chosen shows its editor: rename it, write its description, take models out, open its page, or **Ungroup** it.
+- **Details sidebar:** shows the model page's sections in one column (pictures, Model Details with its buttons, Description, the site's section, Videos, Documents, Notes, files, kit progress and Print History), with **Open Page**. Download to Library stays in its site section.
+- **Model menu:**
+  - The **⋯** button opens it. Right-clicking a model card no longer does; a long press on a touch screen still does.
+  - The menu has no **x** button any more; Escape or a click elsewhere closes it.
+- **Deleting files from disk:**
+  - **Delete from Disk**, and Delete Selected on the Duplicates page, are now for admins only.
+  - Editors remove models from the library instead, unless an admin ticks **Can delete files from disk** for them under **Settings → Authentication → Users**.
+- **Pointer:** the normal arrow over model and group cards, also in Edit mode (no pointing hand).
+- **Cards:** only the file type and Subcategory badges, the same height and on one line; a long Subcategory ends in "…". Print status shows on the tabs, in the list view and on the model's page.
+
+**Upgrading:** models that already share a Parent Model become groups on the first look at them; nothing on disk changes. Editors can no longer delete files from disk until an admin allows them. Reload open browser tabs after the update.
+
 ## [7.20.0] - 2026-10-12
 
 **Changes:**

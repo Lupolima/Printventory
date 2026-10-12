@@ -5,6 +5,7 @@ const { ipcMain } = require('../runtime');
 const fs = require('fs');
 const path = require('path');
 const { isUrlModel } = require('../../core/library-paths');
+const { canDeleteFiles } = require('../users');
 const { parseThumbnails, readThumbnailColumn } = require('../../core/thumbnails');
 const { deleteModelJunctionRows, deleteModelsByFilePaths } = require('../../core/models');
 const { clientDialogs } = require('../dialogs');
@@ -390,6 +391,8 @@ ipcMain.handle('show-context-menu', async (event, fileIdentifier) => {
 
   // Viewers only look: drop the items that change the library or files.
   if (event && event.user && event.user.role === 'viewer') menuItems = viewerMenuItems(menuItems);
+  // Delete from Disk is for admins and the editors allowed to (users.js); the rest remove from the library.
+  if (event && event.user && !canDeleteFiles(event.user)) menuItems = menuItems.filter((item) => item.label !== 'Delete from Disk');
 
   // The browser renders the menu; clicks come back through execute-context-menu-action.
   {

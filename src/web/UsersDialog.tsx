@@ -69,6 +69,17 @@ function UserRow({
     onChanged();
   }
 
+  async function changeDelete(on: boolean) {
+    try {
+      await usersApi.update(user.id, { canDeleteFiles: on });
+      setStatus(on ? `${user.username} can now delete files from disk.` : `${user.username} can now only remove models from the library.`);
+      if (isMe) await loadCurrentUser();
+    } catch (error) {
+      setStatus(errorText(error));
+    }
+    onChanged();
+  }
+
   async function savePassword() {
     if (password.length < minLength) {
       setStatus(`Passwords are at least ${minLength} characters.`);
@@ -114,6 +125,15 @@ function UserRow({
         <span className="users-row__meta">{user.lastLoginAt ? `Last login ${timeAgo(user.lastLoginAt)}` : 'Never logged in'}</span>
       </div>
       <RoleSelect id={`user-role-${user.id}`} label={`Role of ${user.username}`} value={user.role} disabled={user.fromEnv} onChange={changeRole} />
+      {user.role === 'editor' && (
+        <label
+          className="users-row__delete"
+          title="Delete from Disk in the model menu, and deleting duplicates. Without it they remove models from the library."
+        >
+          <input type="checkbox" id={`user-delete-${user.id}`} checked={!!user.canDeleteFiles} onChange={(event) => void changeDelete(event.target.checked)} />
+          <span>Can delete files from disk</span>
+        </label>
+      )}
       <div className="users-row__actions">
         {!user.fromEnv && !settingPassword && (
           <button type="button" onClick={() => setSettingPassword(true)}>
@@ -168,6 +188,7 @@ export function UsersDialog() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('viewer');
+  const [canDelete, setCanDelete] = useState(false);
   const load = useRef(0);
   const [guestAccess, setGuestAccess] = useState(false);
 
@@ -205,10 +226,11 @@ export function UsersDialog() {
       return;
     }
     try {
-      const created = await usersApi.create({ username: name, password, role });
+      const created = await usersApi.create({ username: name, password, role, canDeleteFiles: role === 'editor' && canDelete });
       setUsername('');
       setPassword('');
       setRole('viewer');
+      setCanDelete(false);
       setStatus(`Added ${created.username} (${ROLE_LABELS[created.role]}). Give them the user name and password.`);
       await refresh();
     } catch (error) {
@@ -291,6 +313,12 @@ export function UsersDialog() {
             <label htmlFor="users-new-role">Role</label>
             <RoleSelect id="users-new-role" value={role} onChange={setRole} />
           </div>
+          {role === 'editor' && (
+            <label className="users-row__delete">
+              <input type="checkbox" id="users-new-delete" checked={canDelete} onChange={(event) => setCanDelete(event.target.checked)} />
+              <span>Can delete files from disk</span>
+            </label>
+          )}
         </div>
         <div className="dialog-buttons mcp-inline-actions">
           <button type="button" id="users-add" onClick={addUser}>

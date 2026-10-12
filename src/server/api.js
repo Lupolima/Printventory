@@ -26,7 +26,10 @@ const express = require('express');
 const events = require('./events');
 const { ipcMain } = require('./runtime');
 const { assertActionArgs, isAction, requiredRole } = require('./api-actions');
-const { ROLE_LABELS, roleAllows } = require('./users');
+const { ROLE_LABELS, canDeleteFiles, roleAllows } = require('./users');
+
+/** Actions that delete files from disk: admins, and editors allowed to (users.js canDeleteFiles). */
+const DISK_DELETE_ACTIONS = new Set(['delete-file', 'trash-file']);
 const { assertNetworkIpcArgs } = require('./server-paths');
 const { networkPathContext } = require('./path-context');
 const { jsonStringifyForWs } = require('./ws-json');
@@ -77,6 +80,12 @@ async function runAction(req, res, keepaliveMs) {
     const who = user ? `${ROLE_LABELS[user.role] || user.role} accounts` : 'This account';
     console.warn(`[API] Refused ${name} for ${user ? user.username : 'nobody'}: needs ${role}`);
     sendError(res, 403, `${who} cannot do this. Ask an admin${role === 'admin' ? '' : ' to make you an editor'}.`);
+    return;
+  }
+
+  if (DISK_DELETE_ACTIONS.has(name) && !canDeleteFiles(user)) {
+    console.warn(`[API] Refused ${name} for ${user.username}: may not delete files`);
+    sendError(res, 403, 'This account cannot delete files from disk. Remove the model from the library instead, or ask an admin.');
     return;
   }
 

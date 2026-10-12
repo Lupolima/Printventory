@@ -1,21 +1,15 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, ChevronDown, ClipboardPen, Heart, MoreHorizontal, Pencil } from 'lucide-react';
-import { LIBRARY_CHANGED, models } from '../api';
+import { ChevronDown } from 'lucide-react';
 import { cx } from '../components/Button';
 import { Menu } from '../components/Menu';
-import { cardTitle, displayFileName, formatOf, normalizeRating, parseThumbnails } from '../grid/ModelCard';
+import { normalizeRating, parseThumbnails } from '../grid/ModelCard';
 import type { GridModel } from '../grid/layout';
-import { formatFileSize } from '../library/paths';
-import { exposeGlobal, onServerEvent } from '../page';
+import { exposeGlobal } from '../page';
 import { useAdopt } from '../shell/adopt';
-import { loadSlicers, offerSlicerSettings, sendToSlicer, type Slicer } from '../slicer';
-import { useCan } from '../session';
-import { MakerWorldSection } from '../makerworld/MakerWorldSection';
-import { ModelMediaSection } from '../media/ModelMediaSection';
-import { folderOf } from '../media/media';
-import { CategoryPlace } from '../pages/CategoriesPage';
-import { NotesEnglish } from '../notes/NotesEnglish';
+import { offerSlicerSettings, sendToSlicer, type Slicer } from '../slicer';
+import { ModelView } from '../pages/ModelPage';
+import { useRoute } from '../shell/routes';
 
 /** The model the panel shows, as get-model returns it (with its images). */
 export interface PanelModel extends GridModel {
@@ -156,14 +150,14 @@ export function SlicerButton({ filePath, slicers }: { filePath: string; slicers:
  * Details list, Notes and Print History. The editors are the existing details
  * components (DetailsFields, DetailsNotes, PrintHistory, DetailsPath), moved
  * into this layout while it is shown (shell/adopt.ts); the phone keeps the old panel.
+ * Now: the model page's sections in one column (ModelView compact); the older editors are kept,
+ * hidden, for the code that fills them.
  */
 export function ModelDetailsPanel() {
   const [slot] = useState(() => document.getElementById('details-hero-slot'));
-  const canEdit = useCan('editor');
-  const [model, setModel] = useState<PanelModel | null>(null);
-  const [imageIndex, setImageIndex] = useState(0);
-  const [slicers, setSlicers] = useState<Slicer[]>([]);
-  const shownPath = useRef<string | null>(null);
+  const route = useRoute();
+  /** The model shown; the view loads it, and follows changes made elsewhere. */
+  const [filePath, setFilePath] = useState<string | null>(null);
 
   const [tagsHost, setTagsHost] = useState<HTMLDivElement | null>(null);
   const [statusHost, setStatusHost] = useState<HTMLDivElement | null>(null);
@@ -171,227 +165,42 @@ export function ModelDetailsPanel() {
   const [pathHost, setPathHost] = useState<HTMLDivElement | null>(null);
   const [notesHost, setNotesHost] = useState<HTMLDivElement | null>(null);
   const [historyHost, setHistoryHost] = useState<HTMLDivElement | null>(null);
-  const [footerHost, setFooterHost] = useState<HTMLDivElement | null>(null);
   useAdopt('#details-tags-slot', tagsHost);
-  useAdopt('#details-print-slot', statusHost);
+  /** In the view: the print status picker and the print history list (with delete). */
+  const [statusSlot, setStatusSlot] = useState<HTMLDivElement | null>(null);
+  const [historySlot, setHistorySlot] = useState<HTMLDivElement | null>(null);
+  const [pathSlot, setPathSlot] = useState<HTMLDivElement | null>(null);
+  useAdopt('#details-print-slot', statusSlot ?? statusHost);
   useAdopt('#details-fields-slot', fieldsHost);
-  useAdopt('#details-path-group', pathHost);
+  useAdopt('#details-path-group', pathSlot ?? pathHost);
   useAdopt('#details-notes-slot', notesHost);
-  useAdopt('#details-history-slot', historyHost);
-  useAdopt('#enter-multi-edit-button', footerHost);
+  useAdopt('#details-history-slot', historySlot ?? historyHost);
 
   useEffect(
     () =>
       exposeGlobal('detailsHero', {
-        show: (next: PanelModel) => {
-          if (next.filePath !== shownPath.current) setImageIndex(0);
-          shownPath.current = next.filePath;
-          setModel(next);
-        },
-        clear: () => {
-          shownPath.current = null;
-          setModel(null);
-        }
+        show: (next: PanelModel) => setFilePath(next.filePath),
+        clear: () => setFilePath(null)
       }),
     []
   );
 
-  // Follow changes made elsewhere (cards, menus, other browsers) and the slicer list.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const reload = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        loadSlicers().then(setSlicers, () => {});
-        const path = shownPath.current;
-        if (!path) return;
-        models.get<PanelModel>(path).then(
-          (fresh) => {
-            if (fresh && shownPath.current === path) setModel(fresh);
-          },
-          () => {}
-        );
-      }, 400);
-    };
-    loadSlicers().then(setSlicers, () => {});
-    const off = onServerEvent('refresh-grid', reload);
-    window.addEventListener(LIBRARY_CHANGED, reload);
-    return () => {
-      if (timer) clearTimeout(timer);
-      off();
-      window.removeEventListener(LIBRARY_CHANGED, reload);
-    };
-  }, []);
-
   if (!slot) return null;
-  const images = panelImages(model);
-  // Viewers read; the favorite, rating and Log Print are for editors and admins.
-  const shown = images[imageIndex < images.length ? imageIndex : 0];
-  const favorite = !!model?.favorite;
-  const designer = typeof model?.designer === 'string' ? model.designer.trim() : '';
-  const filePath = model?.filePath || '';
-  // Online models (added from a link) have no file: nothing to show in 3D.
-  const online = filePath.startsWith('url::');
-
   return createPortal(
     <div className="jp jp-details">
-      <div className="jp-details__preview">
-        {online ? (
-          <div className="jp-details__image">
-            <img src={shown} alt="" draggable={false} />
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="jp-details__image"
-            title="Open the 3D preview"
-            aria-label="Open the 3D preview"
-            onClick={() => {
-              if (filePath) void window.openPreview?.(filePath);
-            }}
-          >
-            <img src={shown} alt="" draggable={false} />
-          </button>
-        )}
-        <div className="jp-details__preview-actions">
-          {canEdit && (
-            <button
-              type="button"
-              className={cx('jp-details__overlay-btn', favorite && 'is-favorited')}
-              aria-pressed={favorite}
-              aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-              title={favorite ? 'Remove from favorites' : 'Add to favorites'}
-              onClick={async () => {
-                if (model && (await saveCardField(model.filePath, 'favorite', !favorite))) setModel({ ...model, favorite: !favorite });
-              }}
-            >
-              <Heart size={18} aria-hidden="true" fill={favorite ? 'currentColor' : 'none'} />
-            </button>
-          )}
-          <button
-            type="button"
-            className="jp-details__overlay-btn"
-            aria-label="More actions"
-            title="More actions"
-            aria-haspopup="menu"
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              if (filePath) void window.contextMenu?.show(filePath, rect.left, rect.bottom);
-            }}
-          >
-            <MoreHorizontal size={18} aria-hidden="true" />
-          </button>
-        </div>
-        {!online && (
-          <button
-            type="button"
-            className="jp-details__overlay-btn jp-details__view-3d"
-            title="Open the 3D preview"
-            onClick={() => {
-              if (filePath) void window.openPreview?.(filePath);
-            }}
-          >
-            <Box size={16} aria-hidden="true" />
-            <span>3D</span>
-          </button>
-        )}
-      </div>
-
-      {images.length > 1 && (
-        <div className="jp-details__strip" role="listbox" aria-label="Images" aria-orientation="horizontal">
-          {images.map((src, index) => (
-            <button
-              key={index}
-              type="button"
-              role="option"
-              aria-selected={index === imageIndex}
-              aria-label={`Image ${index + 1} of ${images.length}`}
-              className={cx('jp-details__thumb', index === imageIndex && 'is-selected')}
-              onClick={() => setImageIndex(index)}
-            >
-              <img src={src} alt="" draggable={false} />
-            </button>
-          ))}
-        </div>
+      {/* The page's sections, in one column (pages/ModelPage.tsx); not while a page covers the library. */}
+      {filePath && route.page === 'library' && (
+        <ModelView key={filePath} filePath={filePath} compact statusSlot={setStatusSlot} historySlot={setHistorySlot} pathSlot={setPathSlot} />
       )}
-
-      <div className="jp-details__identity">
-        <h2 className="jp-details__title" title={model ? displayFileName(model) : undefined}>
-          {model ? cardTitle(model) : ''}
-        </h2>
-        <p className="jp-details__byline">{designer ? `By ${designer}` : ''}</p>
+      {/* The older editors stay loaded for the code that fills them, out of sight. */}
+      <div hidden>
+        <div ref={setTagsHost} />
+        <div ref={setStatusHost} />
+        <div ref={setFieldsHost} />
+        <div ref={setPathHost} />
+        <div ref={setNotesHost} />
+        <div ref={setHistoryHost} />
       </div>
-
-      <div className="jp-details__tags" ref={setTagsHost} />
-
-      <div className="jp-details__actions">
-        <SlicerButton filePath={filePath} slicers={slicers} />
-        {canEdit && (
-          <button
-            type="button"
-            id="jp-details-log-print"
-            className="jp-btn jp-btn--secondary jp-btn--lg"
-            onClick={() => {
-              if (filePath) void window.PrintHistory?.openLogDialog({ filePaths: [filePath] });
-            }}
-          >
-            <ClipboardPen size={18} aria-hidden="true" />
-            <span>Log Print</span>
-          </button>
-        )}
-        {canEdit && (
-          <button
-            type="button"
-            id="jp-details-edit"
-            className="jp-btn jp-btn--secondary jp-btn--lg"
-            onClick={() => {
-              if (filePath) window.openEditModel?.(filePath);
-            }}
-          >
-            <Pencil size={18} aria-hidden="true" />
-            <span>Edit</span>
-          </button>
-        )}
-      </div>
-
-      <section className="jp-details__section">
-        <h3 className="jp-details__heading">Details</h3>
-        <div className="jp-props">
-          <Prop label="File" title={model ? displayFileName(model) : undefined}>
-            {model ? displayFileName(model) : ''}
-          </Prop>
-          <Prop label="Format">{model ? formatOf(model) || '—' : ''}</Prop>
-          <Prop label="Size">{model?.size ? formatFileSize(Number(model.size)) : '—'}</Prop>
-          <div className="jp-props__group" ref={setStatusHost} />
-          <div className="jp-props__group" ref={setFieldsHost} />
-          <div className="jp-prop jp-prop--path">
-            <span className="jp-prop__label">Location</span>
-            <div className="jp-prop__value" ref={setPathHost} />
-          </div>
-          <Prop label="Category">{model?.categories?.length ? <CategoryPlace names={model?.categories} id="jp-details-categories" /> : '—'}</Prop>
-          <Prop label="Added">{formatAdded(model?.dateAdded) || '—'}</Prop>
-          <Prop label="Rating">{model && <Rating model={model} readOnly={!canEdit} onSaved={(rating) => setModel({ ...model, rating })} />}</Prop>
-        </div>
-      </section>
-
-      <MakerWorldSection model={model} />
-
-      {model && !model.filePath.startsWith('url::') && !model.filePath.includes('::') && (
-        <ModelMediaSection key={`media:${model.filePath}`} folder={folderOf(model.filePath)} alone={false} compact />
-      )}
-
-      <section className="jp-details__section">
-        <h3 className="jp-details__heading">Notes</h3>
-        <div className="jp-details__editor" ref={setNotesHost} />
-        {model && <NotesEnglish filePath={model.filePath} notes={model.notes} compact />}
-      </section>
-
-      <section className="jp-details__section">
-        <h3 className="jp-details__heading">Print History</h3>
-        <div className="jp-details__editor" ref={setHistoryHost} />
-      </section>
-
-      <div className="jp-details__footer" ref={setFooterHost} />
     </div>,
     slot
   );
