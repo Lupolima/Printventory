@@ -15,10 +15,10 @@ import { cardPreviewHeight, type GridModel, type GridView } from './layout';
 import { applyColumns } from './columns';
 import { Heart, MoreHorizontal } from 'lucide-react';
 import { navigate } from '../shell/routes';
-import { TONE_ICONS, printStatusInfo } from '../components/Badge';
+import { printStatusInfo } from '../components/Badge';
 import { cx } from '../components/Button';
 import { showCategory } from '../pages/CategoriesPage';
-import { badgeTitle, effectiveStatus, type PrintModel } from '../print/printStatus';
+import { effectiveStatus, type PrintModel } from '../print/printStatus';
 
 /** Card and preview height of a JusttPrint 5 card, as CSS variables (library.css). */
 export function tileStyle(position: { width: number; height: number }): CSSProperties {
@@ -309,29 +309,6 @@ export function cardTitle(model: GridModel): string {
   const name = displayFileName(model);
   const dot = name.lastIndexOf('.');
   return dot > 0 ? name.slice(0, dot) : name;
-}
-
-/** The card's print status: click logs a print, Shift-click picks a status (window.PrintHistory). */
-function CardPrintStatus({ model }: { model: GridModel }) {
-  const info = printStatusInfo(effectiveStatus(model as PrintModel));
-  const Icon = info.icon ?? TONE_ICONS[info.tone];
-  return (
-    <button
-      type="button"
-      tabIndex={-1}
-      className={`print-status jp-status jp-status--${info.tone}`}
-      title={`${badgeTitle(model as PrintModel)}\nClick to log a print; Shift-click to set the status.`}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.shiftKey) window.PrintHistory?.openStatusMenu(event.currentTarget, model.filePath);
-        else void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] });
-      }}
-    >
-      <Icon size={12} aria-hidden="true" />
-      <span>{info.label}</span>
-    </button>
-  );
 }
 
 /** The print-status badge; window.PrintHistory sets its class, text and click. */
@@ -910,7 +887,6 @@ function ModelTile({ host, model, common, images, current, setRenderSlot }: Tile
               {model.subcategory}
             </button>
           )}
-          <CardPrintStatus model={model} />
         </div>
       </div>
     </div>

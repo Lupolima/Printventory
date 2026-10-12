@@ -3,12 +3,15 @@
  * panel for the selection. Clicking cards, the arrow keys, Ctrl/Cmd+A and filter changes move
  * between them. The panels' contents are React (src/web/details/); this shows, hides and fills them.
  */
-import { models as modelApi } from '../api';
-import { folderOf, normalizePath, type GridModel, type GridView, type GroupRecord } from '../grid/layout';
+import { useSyncExternalStore } from 'react';
+import { groups as groupsApi, models as modelApi } from '../api';
+import { buildDisplayRecords, folderOf, normalizePath, type GridModel, type GridView, type GroupRecord } from '../grid/layout';
+import { foldersAsModels } from './folderMode';
 import { selection } from '../selection';
 import { sidebarOn } from '../details/sidebarPref';
 import { navigate } from '../shell/routes';
-import { expandedGroups, listHooks, refreshGrid } from './models';
+import { expandedGroups, listHooks, refreshGrid, shownModels } from './models';
+import { groupSelection, type ChosenGroup } from './groupSelection';
 
 const panel = (id: 'model-details' | 'bundle-details' | 'multi-edit-panel') => document.getElementById(id);
 
@@ -112,48 +115,86 @@ export function showBundleDetails(record: GroupRecord) {
   refreshGrid();
 }
 
-// ---- Multi-edit mode ----
+// ---- Edit mode (the library header's Edit button) ----
 
+/**
+ * Edit mode: a click on a card chooses it instead of opening it. One model chosen: its details
+ * in the sidebar; more (or a group): the Multi-edit panel for all of them.
+ */
 let multiEdit = false;
 export const isMultiEdit = () => multiEdit;
+const modeListeners = new Set<() => void>();
 
-function syncModeButton() {
-  const toggle = document.getElementById('edit-mode-toggle');
-  if (!toggle) return;
-  toggle.textContent = multiEdit ? 'Exit Multi-Edit Mode' : 'Multi-Edit Mode';
-  toggle.classList.toggle('active', multiEdit);
+/** True while Edit mode is on (the header's Edit button). */
+export function useEditMode(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      modeListeners.add(listener);
+      return () => modeListeners.delete(listener);
+    },
+    () => multiEdit
+  );
 }
 
-/** Show the multi-edit panel for the selection. */
+function syncModeButton() {
+  document.body.classList.toggle('jp-editing', multiEdit);
+  modeListeners.forEach((listener) => listener());
+}
+
+/** Show the panel for what is chosen: one model's details, else Multi-edit. */
+function showEditPanels() {
+  if (!multiEdit) return;
+  const paths = selection.values();
+  if (paths.length === 1 && !groupSelection.size) {
+    void showModelDetails(paths[0]);
+    return;
+  }
+  detailsToken++;
+  panel('model-details')?.classList.add('hidden');
+  if (!panel('bundle-details')?.classList.contains('hidden')) {
+    panel('bundle-details')?.classList.add('hidden');
+    bundleGroupKey = null;
+  }
+  const multi = panel('multi-edit-panel');
+  const wasHidden = !!multi?.classList.contains('hidden');
+  multi?.classList.remove('hidden');
+  if (wasHidden) window.multiEdit?.open();
+  else window.multiEdit?.selectionChanged();
+}
+
+/** Turn Edit mode on with what is chosen. */
 export function enterMultiEdit() {
   multiEdit = true;
   syncModeButton();
-  panel('model-details')?.classList.add('hidden');
+  showEditPanels();
   const multi = panel('multi-edit-panel');
-  multi?.classList.remove('hidden');
-  window.multiEdit?.open();
-  requestAnimationFrame(() => multi?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  if (multi && !multi.classList.contains('hidden')) requestAnimationFrame(() => multi.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
 
-/** Leave multi-edit mode: clear the selection and show the (empty) details panel. */
+/** Leave Edit mode: nothing chosen, the (empty) details panel. */
 export function exitMultiEdit() {
   selection.clear();
+  groupSelection.clear();
   multiEdit = false;
   syncModeButton();
   panel('multi-edit-panel')?.classList.add('hidden');
-  panel('model-details')?.classList.remove('hidden');
+  panel('model-details')?.classList.add('hidden');
   clearDetails();
+  refreshGrid();
 }
 
-/** Ctrl/Cmd+E: from the details panel, start multi-edit with its model; else switch modes. */
+/** The Edit button and Ctrl/Cmd+E: from the details panel, start with its model; else switch modes. */
 export function toggleMultiEdit(fromDetails = false) {
   if (fromDetails) {
     const current = currentModelPath();
     if (current) selection.add(current);
     return enterMultiEdit();
   }
-  if (multiEdit) exitMultiEdit();
-  else enterMultiEdit();
+  if (multiEdit) return exitMultiEdit();
+  // The Edit button starts with nothing chosen: the next click chooses the model to edit.
+  selection.clear();
+  groupSelection.clear();
+  enterMultiEdit();
 }
 
 /** Select every model the filters show (not only the drawn cards). */
@@ -172,20 +213,17 @@ export async function selectAllShown() {
 export function resetSelectionAndDetails() {
   detailsToken++;
   selection.clear();
-  if (!panel('multi-edit-panel')?.classList.contains('hidden')) {
-    panel('multi-edit-panel')?.classList.add('hidden');
-    panel('model-details')?.classList.remove('hidden');
-    multiEdit = false;
-    syncModeButton();
-  }
+  groupSelection.clear();
   clearDetails();
+  // Edit mode stays on, with nothing chosen.
+  if (multiEdit) showEditPanels();
 }
 
 /** A filtered result came back: keep only selected models it has, and the details only if shown. */
 export function syncSelectionWithModels(models: GridModel[]) {
   const shown = new Set(models.filter((m) => m?.filePath).map((m) => normalizePath(m.filePath)));
   selection.retain((path) => shown.has(normalizePath(path)));
-  if (multiEdit && selection.size === 0) return exitMultiEdit();
+  if (multiEdit) return showEditPanels();
   const paths = [detailsPath, document.getElementById('path-tree-container')?.getAttribute('data-file-path')].filter((p): p is string => !!p);
   if (!paths.length && selection.size === 0) return;
   const stillShown = paths.some((p) => shown.has(normalizePath(p))) || selection.values().some((p) => shown.has(normalizePath(p)));
@@ -290,33 +328,26 @@ function menuTarget(filePath: string): string | string[] {
   return filePath || selected[0];
 }
 
-/** Right-click and long-press open the model menu. */
+/** A long press (touch screens) opens the model menu; the mouse uses the card's ⋯ button. */
 export function bindCardMenu(card: TapCard, filePath: string) {
-  const open = (event: { clientX: number; clientY: number; pointerType?: string }) => {
-    if (event.pointerType !== 'mouse') suppressTap(card);
-    window.contextMenu?.show(menuTarget(filePath), event.clientX, event.clientY);
-  };
-  card.addEventListener(
-    'contextmenu',
-    (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      open(event as MouseEvent & { pointerType?: string });
-    },
-    card.classList.contains('file-item-list')
-  );
-  bindLongPress(card, (clientX, clientY) => open({ clientX, clientY }));
+  bindLongPress(card, (clientX, clientY) => {
+    suppressTap(card);
+    window.contextMenu?.show(menuTarget(filePath), clientX, clientY);
+  });
 }
 
-/** The card's ⋯ button: the model menu with a close button. */
+/** The card's ⋯ button: the model menu. */
 export function showCardMenu(filePath: string, x: number, y: number) {
-  window.contextMenu?.show(menuTarget(filePath), x, y, { showClose: true });
+  window.contextMenu?.show(menuTarget(filePath), x, y);
 }
 
 /** A plain click: select the card and show its details (a second click unselects), or toggle it in multi-edit. */
 function toggleCard(card: TapCard, filePath: string) {
   if (card?._suppressTap) return;
-  if (multiEdit) return void selection.toggle(filePath);
+  if (multiEdit) {
+    selection.toggle(filePath);
+    return showEditPanels();
+  }
   // Sidebar off: the model's page instead.
   if (!sidebarOn()) {
     selection.set([filePath]);
@@ -332,8 +363,59 @@ function toggleCard(card: TapCard, filePath: string) {
   showModelDetails(filePath);
 }
 
+// ---- Shift-click: a range of cards ----
+
+type CardRef = { kind: 'model'; path: string } | { kind: 'group'; key: string };
+
+/** The card clicked last: where a Shift-click range starts. */
+let anchor: CardRef | null = null;
+
+/**
+ * Shift-click: choose every card from the one clicked last to this one, in the grid's order (a
+ * group card as a group, a bundle's or folder's card as its models), in Edit mode.
+ */
+function chooseRange(target: CardRef) {
+  const records = buildDisplayRecords(shownModels(), expandedGroups, { folders: foldersAsModels() });
+  const indexOf = (ref: CardRef) =>
+    records.findIndex((record) =>
+      ref.kind === 'model'
+        ? record.type === 'model' && normalizePath(record.model.filePath) === normalizePath(ref.path)
+        : record.type === 'group' && record.groupKey === ref.key
+    );
+  const to = indexOf(target);
+  if (to < 0) return;
+  const from = anchor ? indexOf(anchor) : -1;
+  const [first, last] = from < 0 ? [to, to] : from < to ? [from, to] : [to, from];
+  const paths: string[] = [];
+  const groups: ChosenGroup[] = [];
+  for (const record of records.slice(first, last + 1)) {
+    if (record.type === 'model') {
+      if (record.model.filePath) paths.push(record.model.filePath);
+      continue;
+    }
+    const children = record.children.map((child) => child.filePath).filter((p): p is string => !!p);
+    if (record.groupKind === 'parentModel') groups.push({ key: record.groupKey, name: record.groupLabel, filePaths: children });
+    // An expanded bundle's models follow as cards of their own.
+    else if (!record.expanded) paths.push(...children);
+  }
+  window.getSelection()?.removeAllRanges();
+  selection.set(paths);
+  groupSelection.set(groups);
+  if (!multiEdit) {
+    multiEdit = true;
+    syncModeButton();
+  }
+  refreshGrid();
+  showEditPanels();
+}
+
 export function cardClick(event: MouseEvent, card: TapCard, filePath: string, view: GridView) {
   if (tapSuppressed(card, event)) return;
+  if (event.shiftKey) {
+    event.preventDefault();
+    return chooseRange({ kind: 'model', path: filePath });
+  }
+  anchor = { kind: 'model', path: filePath };
   if (event.ctrlKey || event.metaKey) {
     // Ctrl/Cmd-click starts multi-edit with this card, or toggles it in multi-edit.
     event.preventDefault();
@@ -342,7 +424,7 @@ export function cardClick(event: MouseEvent, card: TapCard, filePath: string, vi
       enterMultiEdit();
     } else {
       selection.toggle(filePath);
-      if (selection.size === 0) exitMultiEdit();
+      showEditPanels();
     }
     return;
   }
@@ -381,9 +463,36 @@ function expandGroup(record: GroupRecord) {
   if (record.groupKind === 'bundle') showBundleDetails(record);
 }
 
-/** Click on a group card: collapse it, or expand it (and show a bundle's panel). */
-export function groupClick(record: GroupRecord, view: GridView, card: TapCard) {
+/** A group's page (#/group/<id>), found by the name its models share. */
+export async function openGroupPage(name: string) {
+  const id = await groupsApi.find(name).catch(() => null);
+  navigate('group', id ? String(id) : name);
+}
+
+/**
+ * Click on a group card. A group (models sharing a Parent Model): its page, or in Edit mode choose
+ * it. A ZIP bundle: expand or collapse it (and show its panel); in Edit mode choose its models.
+ */
+export function groupClick(record: GroupRecord, view: GridView, card: TapCard, shiftKey = false) {
   if (tapSuppressed(card)) return;
+  if (shiftKey) return chooseRange({ kind: 'group', key: record.groupKey });
+  anchor = { kind: 'group', key: record.groupKey };
+  if (multiEdit) {
+    const paths = record.children.map((child) => child.filePath).filter((p): p is string => !!p);
+    if (record.groupKind === 'parentModel') {
+      groupSelection.toggle({ key: record.groupKey, name: record.groupLabel, filePaths: paths });
+    } else if (paths.every((p) => selection.has(p))) {
+      for (const p of paths) selection.delete(p);
+    } else {
+      for (const p of paths) selection.add(p);
+    }
+    refreshGrid();
+    return showEditPanels();
+  }
+  if (record.groupKind === 'parentModel') {
+    void openGroupPage(record.groupLabel);
+    return;
+  }
   // Folders as models: the folder's page (its arrow still expands it in the grid).
   if (record.groupKind === 'folder') {
     const folder = folderOf(record.children[0] || { filePath: '' });
@@ -393,6 +502,9 @@ export function groupClick(record: GroupRecord, view: GridView, card: TapCard) {
   if (!expandedSet(record).has(record.groupKey)) expandGroup(record);
   else toggleGroup(record);
 }
+
+/** Choose a group card in Edit mode (the grid draws it chosen). */
+export const isGroupChosen = (groupKey: string) => groupSelection.has(groupKey);
 
 /** Right-click and long-press menu for a group (Preview, and the actions for its models). */
 export function bindGroupMenu(card: TapCard, record: GroupRecord) {
@@ -436,6 +548,4 @@ function bindGridBackground() {
 
 if (typeof document !== 'undefined') {
   bindGridBackground();
-  document.getElementById('edit-mode-toggle')?.addEventListener('click', () => toggleMultiEdit());
-  document.getElementById('enter-multi-edit-button')?.addEventListener('click', () => toggleMultiEdit(true));
 }

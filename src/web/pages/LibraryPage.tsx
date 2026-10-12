@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { FilterX, FolderOpen, Library, Link2, PanelRight, ScanSearch, SlidersHorizontal, Upload, X } from 'lucide-react';
+import { FilterX, FolderOpen, Library, Link2, PanelRight, Pencil, ScanSearch, SlidersHorizontal, Upload, X } from 'lucide-react';
 import { Button, IconButton } from '../components/Button';
 import { EmptyState } from '../components/Panel';
 import { Tabs } from '../components/Tabs';
@@ -13,6 +13,7 @@ import { NAV } from '../shell/nav';
 import { useCan } from '../session';
 import { setSidebarOn, useSidebarOn } from '../details/sidebarPref';
 import { setFoldersAsModels, useFoldersAsModels } from '../library/folderMode';
+import { toggleMultiEdit, useEditMode } from '../library/details';
 
 const scanLibrary = () =>
   NAV.flatMap((section) => section.items)
@@ -29,7 +30,7 @@ function useSearchStatus() {
 
 /**
  * The Filter popover: the old sidebar's filter section (search options, sort, folders, every
- * filter, Multi-Edit Mode), moved in while the shell is shown. It stays in the page while closed
+ * filter), moved in while the shell is shown. It stays in the page while closed
  * so the moved section always has a home. Closes on Escape, the ×, the Filter button, or a click
  * elsewhere in the app (not in dialogs and pickers the filters open).
  */
@@ -138,6 +139,7 @@ export function LibraryHeader() {
   const canUpload = useCan('editor');
   const sidebar = useSidebarOn();
   const folders = useFoldersAsModels();
+  const editing = useEditMode();
   useAdopt('#grid-toolbar-slot', tools);
   useAdopt('#folder-rail-toggle-slot', rail);
   useAdopt('#current-filter', chips);
@@ -220,9 +222,31 @@ export function LibraryHeader() {
                 </span>
               )}
             </button>
+            {canUpload && (
+              <button
+                type="button"
+                id="jp-edit-button"
+                className={`jp-btn jp-btn--${editing ? 'primary' : 'secondary'} jp-btn--md`}
+                aria-pressed={editing}
+                title={
+                  editing
+                    ? 'Stop editing'
+                    : 'Edit: click models and groups to change them. One model: its details; more: Multi-edit, where you can also make a group'
+                }
+                onClick={() => toggleMultiEdit()}
+              >
+                <Pencil size={16} aria-hidden="true" />
+                <span>{editing ? 'Done' : 'Edit'}</span>
+              </button>
+            )}
           </div>
         </div>
         <div className="jp-library-header__chips" ref={setChips} />
+        {editing && (
+          <p className="jp-library-header__editing" id="jp-edit-hint" role="status">
+            Editing: click models and groups to choose them. One model shows its details; more open Multi-edit, where you can also make a group.
+          </p>
+        )}
         {/* Below the chips, so it never covers them (Clear All, AND / OR / NOT). */}
         <FilterPopover open={open} onClose={() => setOpen(false)} button={filterButton} />
       </div>

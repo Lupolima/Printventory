@@ -1077,34 +1077,6 @@ body.server-mode .sidebar {
   margin-bottom: 5px;
 }
 
-#edit-mode-toggle {
-  background: var(--jp-accent);
-  color: var(--jp-on-accent);
-  padding: 12px 24px;
-  border: none;
-  border-radius: 24px;
-  cursor: pointer;
-  width: calc(100% - 40px);
-  font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(var(--jp-accent-rgb), 0.3);
-}
-
-#edit-mode-toggle:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--jp-accent-rgb), 0.4);
-}
-
-#edit-mode-toggle.active {
-  background: linear-gradient(135deg, var(--jp-success) 0%, var(--jp-success) 100%);
-  box-shadow: 0 4px 12px rgba(var(--jp-success-rgb), 0.3);
-}
-
-#edit-mode-toggle.active:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--jp-success-rgb), 0.4);
-}
-
 #invert-filter-button {
   width: calc(100% - 40px);
   max-width: 280px;
@@ -1168,30 +1140,6 @@ body.server-mode .sidebar {
 .tags-list .item-chip {
   margin: 0;
   font-size: 14px;
-}
-
-/* Add styles for the multi-edit mode buttons - match filter section width */
-#enter-multi-edit-button {
-  margin: 8px 16px 12px;
-  background-color: var(--jp-surface-2);
-  color: var(--jp-text);
-  border: 1px solid var(--jp-border-strong);
-  padding: 8px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  width: calc(100% - 32px);
-  max-width: none;
-  box-sizing: border-box;
-}
-
-#enter-multi-edit-button:hover {
-  background-color: var(--jp-surface-2);
-}
-
-/* Hide the old edit mode toggle button */
-#edit-mode-toggle {
-  display: none !important;
 }
 
 .print-lifecycle-controls {

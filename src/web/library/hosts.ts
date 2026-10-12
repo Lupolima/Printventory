@@ -8,6 +8,7 @@ import { navigate } from '../shell/routes';
 import { runSearch } from '../filters/search';
 import type { GridModel } from '../grid/layout';
 import { selection } from '../selection';
+import { editedPaths, groupSelection } from './groupSelection';
 import { syncThumbnailFromField } from '../thumbnails/cache';
 import {
   bindCardMenu,
@@ -17,6 +18,7 @@ import {
   exitMultiEdit,
   groupClick,
   isBundleShown,
+  isGroupChosen,
   isMultiEdit,
   navigateDetails,
   openCardPreview,
@@ -115,6 +117,7 @@ window.gridHost = {
   toggleGroup,
   bindGroupMenu,
   isBundleDetailsGroup: isBundleShown,
+  isGroupChosen,
   openBundlePreview: (record) => {
     window.openBundlePreview?.(record as never);
   },
@@ -130,11 +133,13 @@ window.detailsHost = {
 };
 
 window.multiEditHost = {
-  selectedPaths: () => selection.values(),
+  selectedPaths: editedPaths,
   exit: exitMultiEdit,
   selectAllVisible: selectAllShown,
   clearSelection: () => {
     selection.clear();
+    groupSelection.clear();
+    refreshGrid();
     window.multiEdit?.open();
   },
   saveField: (field, value) => saveSelectedField(field, value),

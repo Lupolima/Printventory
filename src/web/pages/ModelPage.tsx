@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Box, ClipboardPen, Download, FileBox, Heart, MoreHorizontal, Pencil } from 'lucide-react';
-import { callAction, dedup, downloadUrl, LIBRARY_CHANGED, models as modelApi, prints, type PrintEvent } from '../api';
+import { ArrowLeft, Box, ClipboardPen, Download, ExternalLink, FileBox, Heart, MoreHorizontal, Pencil } from 'lucide-react';
+import { callAction, dedup, downloadUrl, groups as groupsApi, LIBRARY_CHANGED, models as modelApi, prints, type ModelGroupRef, type PrintEvent } from '../api';
 import { Button, IconButton, cx } from '../components/Button';
 import { EmptyState, Panel, Skeleton } from '../components/Panel';
 import { formatAdded, panelImages, Prop, Rating, saveCardField, SlicerButton, type PanelModel } from '../details/ModelDetailsPanel';
@@ -285,12 +285,33 @@ function MoreLikeThis({ filePath }: { filePath: string }) {
   );
 }
 
-/**
- * A model's page (#/model/<path>): everything the details sidebar shows, on a page of its own,
- * like a model page on a model site. The pictures, notes, the site's details and the other files
- * of its folder on the left; details and actions on the right. Changes go through the Edit dialog.
- */
+/** A model's page (#/model/<path>). */
 export function ModelPage({ filePath }: { filePath: string }) {
+  return <ModelView filePath={filePath} />;
+}
+
+/**
+ * A model, like a model page on a model site: the pictures, description, the site's print profile,
+ * videos, documents and the other files of its folder on the left; details, actions, notes and the
+ * print history on the right. `compact` (the details sidebar) puts the same sections in one column.
+ * Changes go through the Edit dialog.
+ */
+export function ModelView({
+  filePath,
+  compact = false,
+  statusSlot,
+  historySlot,
+  pathSlot
+}: {
+  filePath: string;
+  compact?: boolean;
+  /** The sidebar: where its print status picker goes (in place of the Print status row). */
+  statusSlot?: (element: HTMLDivElement | null) => void;
+  /** The sidebar: where its print history list goes (with delete, in place of the read-only list). */
+  historySlot?: (element: HTMLDivElement | null) => void;
+  /** The sidebar: its path row (folders to click, Reveal in folders) in place of the Location row. */
+  pathSlot?: (element: HTMLDivElement | null) => void;
+}) {
   const canEdit = useCan('editor');
   const [model, setModel] = useState<PageModel | null | undefined>(undefined);
   const [files, setFiles] = useState<FolderFile[]>([]);
@@ -298,6 +319,8 @@ export function ModelPage({ filePath }: { filePath: string }) {
   const [slicers, setSlicers] = useState<Slicer[]>([]);
   /** The model's site's details (its description, videos and PDF), when it came from one. */
   const [site, setSite] = useState<MakerWorldDetails | null>(null);
+  /** The group it is in (innermost) and the groups above it. */
+  const [group, setGroup] = useState<ModelGroupRef | null>(null);
 
   const load = useCallback(async () => {
     const next = await modelApi.get<PageModel>(filePath).catch(() => null);
@@ -311,7 +334,10 @@ export function ModelPage({ filePath }: { filePath: string }) {
         () => setSite(null)
       );
     else setSite(null);
-    if (next.id) prints.events(next.id).then(setEvents, () => setEvents([]));
+    if (next.id) {
+      prints.events(next.id).then(setEvents, () => setEvents([]));
+      groupsApi.ofModel(next.id).then(setGroup, () => setGroup(null));
+    } else setGroup(null);
   }, [filePath]);
 
   useEffect(() => {
@@ -319,32 +345,41 @@ export function ModelPage({ filePath }: { filePath: string }) {
     setFiles([]);
     setEvents([]);
     setSite(null);
+    setGroup(null);
     void load();
     loadSlicers().then(setSlicers, () => {});
-    window.scrollTo(0, 0);
-    document.getElementById('jp-content')?.scrollTo(0, 0);
+    if (!compact) {
+      window.scrollTo(0, 0);
+      document.getElementById('jp-content')?.scrollTo(0, 0);
+    }
     let timer: ReturnType<typeof setTimeout> | null = null;
     const soon = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => void load(), 400);
     };
-    const offs = [onServerEvent('refresh-grid', soon), onServerEvent('categories-changed', soon), onServerEvent('models-changed', soon)];
+    const offs = [
+      onServerEvent('refresh-grid', soon),
+      onServerEvent('categories-changed', soon),
+      onServerEvent('models-changed', soon),
+      onServerEvent('groups-changed', soon)
+    ];
     window.addEventListener(LIBRARY_CHANGED, soon);
     return () => {
       if (timer) clearTimeout(timer);
       offs.forEach((off) => off());
       window.removeEventListener(LIBRARY_CHANGED, soon);
     };
-  }, [load]);
+  }, [load, compact]);
 
   if (model === undefined) {
     return (
-      <div className="jp-page__inner jp-model-page">
-        <Skeleton height={420} />
+      <div className={compact ? 'jp-model-view--compact' : 'jp-page__inner jp-model-page'}>
+        <Skeleton height={compact ? 240 : 420} />
       </div>
     );
   }
   if (!model) {
+    if (compact) return <p className="jp-meta jp-model-view--compact">This model is not in the library any more.</p>;
     return (
       <div className="jp-page__inner jp-model-page">
         <Panel>
@@ -357,6 +392,7 @@ export function ModelPage({ filePath }: { filePath: string }) {
   }
 
   const online = model.filePath.startsWith('url::');
+  const inZip = model.filePath.includes('::');
   const designer = typeof model.designer === 'string' ? model.designer.trim() : '';
   const tags = tagNames(model.tags);
   const status = effectiveStatus(model);
@@ -367,6 +403,279 @@ export function ModelPage({ filePath }: { filePath: string }) {
   const favorite = !!model.favorite;
   const source = typeof model.source === 'string' ? model.source.trim() : '';
   const sourceIsLink = /^https?:\/\//i.test(source);
+  const title = model.title || cardTitle(model);
+  const Heading = compact ? 'h2' : 'h1';
+
+  const header = (
+    <header className="jp-model-page__header">
+      <Heading className={compact ? 'jp-details__title' : 'jp-page-title'} id={compact ? undefined : 'jp-model-page-title'} title={title}>
+        {title}
+      </Heading>
+      {designer && (
+        <p className="jp-model-page__byline">
+          <button type="button" className="jp-link-button" onClick={() => showInLibrary(() => filterActions.setValue('designer', designer))}>
+            By {designer}
+          </button>
+        </p>
+      )}
+      {group && (
+        <p className="jp-model-page__in-group">
+          In{' '}
+          {group.crumbs.map((crumb, index) => (
+            <span key={crumb.id}>
+              {index > 0 && ' › '}
+              <button type="button" className="jp-link-button" onClick={() => navigate('group', String(crumb.id))}>
+                {crumb.name}
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
+    </header>
+  );
+
+  const gallery = (
+    <ModelGallery
+      key={`gallery:${model.filePath}`}
+      filePath={model.filePath}
+      folder={online || inZip ? null : model.modelFolder || folderOf(model.filePath)}
+      renders={(model.renders ?? panelImages(model)).filter((src) => src !== '3d.png')}
+      online={online}
+      alone={files.length <= 1}
+    />
+  );
+
+  const description = (
+    <DescriptionSection
+      filePath={model.filePath}
+      description={model.description}
+      siteDescription={site?.description}
+      siteDescriptionEnglish={site?.descriptionEnglish}
+    />
+  );
+
+  // The sidebar keeps the site's whole section (with Download to Library); the page its Print Profile.
+  const siteSection = fromSite && (
+    <div className="jp-card jp-model-page__site">
+      <MakerWorldSection model={model} page={!compact} />
+    </div>
+  );
+
+  const media =
+    !online && !inZip ? (
+      <>
+        <ModelMediaSection
+          key={`videos:${model.filePath}`}
+          folder={folderOf(model.filePath)}
+          alone={files.length <= 1}
+          parts={['video']}
+          title="Videos"
+          sectionId="jp-model-videos"
+          siteVideos={site?.videos || []}
+        />
+        <ModelMediaSection
+          key={`documents:${model.filePath}`}
+          folder={folderOf(model.filePath)}
+          alone={files.length <= 1}
+          parts={['document']}
+          title="Documents"
+          sectionId="jp-model-documents"
+          siteDocuments={site?.pdfUrl ? [{ url: site.pdfUrl, name: decodeURIComponent(site.pdfUrl.split('/').pop() || 'Model PDF') }] : []}
+        />
+      </>
+    ) : (
+      <SiteOnlyMedia videos={site?.videos || []} pdfUrl={site?.pdfUrl || null} />
+    );
+
+  const details = (
+    <section
+      className="jp-card jp-model-page__panel"
+      aria-labelledby={compact ? undefined : 'jp-model-page-details'}
+      aria-label={compact ? 'Model Details' : undefined}
+    >
+      <h2 className="jp-panel-title" id={compact ? undefined : 'jp-model-page-details'}>
+        Model Details
+      </h2>
+      <div className="jp-model-page__actions">
+        <div className="jp-model-page__slicer">
+          <SlicerButton filePath={model.filePath} slicers={slicers} />
+        </div>
+        {canEdit && (
+          <Button icon={Pencil} id={compact ? 'jp-details-edit' : 'jp-model-page-edit'} onClick={() => window.openEditModel?.(model.filePath)}>
+            Edit
+          </Button>
+        )}
+        {canEdit && (
+          <Button
+            icon={ClipboardPen}
+            id={compact ? 'jp-details-log-print' : undefined}
+            onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}
+          >
+            Log Print
+          </Button>
+        )}
+        {!compact && !online && !inZip && <UploadVersionButton filePath={model.filePath} folder={folderOf(model.filePath)} />}
+        {compact && (
+          <Button icon={ExternalLink} id="jp-details-open-page" onClick={() => navigate('model', model.filePath)}>
+            Open Page
+          </Button>
+        )}
+        <span className="jp-model-page__icons">
+          {canEdit && (
+            <IconButton
+              icon={Heart}
+              label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+              className={cx(favorite && 'is-favorited')}
+              onClick={async () => {
+                if (await saveCardField(model.filePath, 'favorite', !favorite)) setModel({ ...model, favorite: !favorite });
+              }}
+            />
+          )}
+          <IconButton
+            icon={MoreHorizontal}
+            label="More actions"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              void window.contextMenu?.show(model.filePath, rect.left, rect.bottom);
+            }}
+          />
+        </span>
+      </div>
+      <div className="jp-props">
+        <Prop label="File" title={displayFileName(model)}>
+          {displayFileName(model)}
+        </Prop>
+        <Prop label="Format">{formatOf(model) || '—'}</Prop>
+        <Prop label="Size">{model.size ? formatFileSize(Number(model.size)) : '—'}</Prop>
+        {statusSlot ? <div className="jp-props__group" ref={statusSlot} /> : <Prop label="Print status">{STATUS_LABELS[status as PrintStatus] || status}</Prop>}
+        <Prop label="Rating">
+          <Rating model={model} readOnly={!canEdit} onSaved={(rating) => setModel({ ...model, rating })} />
+        </Prop>
+        <Prop label="Designer">{designer || '—'}</Prop>
+        <Prop label="Source" title={source || undefined}>
+          {sourceIsLink ? (
+            <a href={source} target="_blank" rel="noopener noreferrer">
+              {source.replace(/^https?:\/\/(www\.)?/i, '')}
+            </a>
+          ) : (
+            source || '—'
+          )}
+        </Prop>
+        <Prop label="Group">
+          {group ? (
+            <button type="button" className="jp-link-button" onClick={() => navigate('group', String(group.id))}>
+              {group.crumbs.map((crumb) => crumb.name).join(' › ')}
+            </button>
+          ) : (
+            model.parentModel || '—'
+          )}
+        </Prop>
+        <Prop label="License">{model.license || '—'}</Prop>
+        <Prop label="Tags">
+          {tags.length ? (
+            <span className="jp-details__categories">
+              {tags.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="jp-chip"
+                  title={`Show models tagged ${name}`}
+                  onClick={() => showInLibrary(() => filterActions.setTags([name]))}
+                >
+                  {name}
+                </button>
+              ))}
+            </span>
+          ) : (
+            '—'
+          )}
+        </Prop>
+        <Prop label="Category">
+          {model.categories?.[0] ? <CategoryPlace names={[model.categories[0]]} id={compact ? undefined : 'jp-model-page-categories'} /> : '—'}
+        </Prop>
+        <Prop label="Subcategory">
+          {model.categories?.[1] ? <CategoryPlace names={[model.categories[1]]} id={compact ? undefined : 'jp-model-page-subcategory'} /> : '—'}
+        </Prop>
+        {pathSlot && !online ? (
+          <div className="jp-prop jp-prop--path">
+            <span className="jp-prop__label">Location</span>
+            <div className="jp-prop__value" ref={pathSlot} />
+          </div>
+        ) : (
+          <Prop label="Location" title={online ? undefined : model.filePath}>
+            {online ? 'Online model' : folderPath || '—'}
+          </Prop>
+        )}
+        <Prop label="Added">{formatAdded(model.dateAdded) || '—'}</Prop>
+      </div>
+    </section>
+  );
+
+  const notes = <NotesPanel filePath={model.filePath} notes={model.notes} onSaved={() => void load()} />;
+
+  const fileList = files.length > 1 && (
+    <section className="jp-card jp-model-page__panel" aria-label={`Files (${files.length})`}>
+      <h2 className="jp-panel-title">Files ({files.length})</h2>
+      <ul className="jp-model-page__file-list">
+        {files.map((file) => (
+          <li key={file.filePath}>
+            {file.filePath === model.filePath ? (
+              <strong>{file.fileName}</strong>
+            ) : (
+              <button type="button" className="jp-link-button" onClick={() => navigate('model', file.filePath)}>
+                {file.fileName}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+
+  const history = historySlot ? (
+    <section className="jp-card jp-model-page__panel" aria-label="Print History">
+      <h2 className="jp-panel-title">Print History</h2>
+      <div className="jp-details__editor" ref={historySlot} />
+    </section>
+  ) : (
+    <section className="jp-card jp-model-page__panel" aria-label="Print History">
+      <h2 className="jp-panel-title">Print History</h2>
+      {events.length ? (
+        <ul className="jp-model-page__history">
+          {events.map((entry) => (
+            <li key={entry.id}>
+              <span>{formatPrintDate(entry.printed_at)}</span>
+              <span>
+                {OUTCOME_LABELS[entry.outcome] || entry.outcome}
+                {entry.quantity > 1 ? ` ×${entry.quantity}` : ''}
+              </span>
+              {entry.notes && <span className="jp-meta">{entry.notes}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="jp-meta">Not printed yet.</p>
+      )}
+    </section>
+  );
+
+  if (compact) {
+    // The details sidebar: the page's sections in one column.
+    return (
+      <div className="jp-model-view--compact" data-filepath={model.filePath}>
+        {header}
+        {gallery}
+        {details}
+        {description}
+        {siteSection}
+        {media}
+        {notes}
+        {fileList}
+        {!online && <KitChecklist target={model.filePath} />}
+        {history}
+      </div>
+    );
+  }
 
   return (
     <div className="jp-page__inner jp-model-page" data-filepath={model.filePath}>
@@ -375,7 +684,16 @@ export function ModelPage({ filePath }: { filePath: string }) {
           <ArrowLeft size={16} aria-hidden="true" />
           Library
         </button>
-        {folder && (
+        {group ? (
+          group.crumbs.map((crumb) => (
+            <span key={crumb.id} className="jp-model-page__crumb">
+              <span aria-hidden="true">/</span>
+              <button type="button" className="jp-link-button" onClick={() => navigate('group', String(crumb.id))}>
+                {crumb.name}
+              </button>
+            </span>
+          ))
+        ) : folder ? (
           <>
             <span aria-hidden="true">/</span>
             <button
@@ -387,78 +705,25 @@ export function ModelPage({ filePath }: { filePath: string }) {
               {folder}
             </button>
           </>
-        )}
+        ) : null}
         <span aria-hidden="true">/</span>
-        <span className="jp-model-page__crumb-here">{model.title || cardTitle(model)}</span>
+        <span className="jp-model-page__crumb-here">{title}</span>
       </nav>
 
-      <header className="jp-model-page__header">
-        <h1 className="jp-page-title" id="jp-model-page-title">
-          {model.title || cardTitle(model)}
-        </h1>
-        {designer && (
-          <p className="jp-model-page__byline">
-            <button type="button" className="jp-link-button" onClick={() => showInLibrary(() => filterActions.setValue('designer', designer))}>
-              By {designer}
-            </button>
-          </p>
-        )}
-      </header>
+      {header}
 
       <div className="jp-model-page__grid">
         <div className="jp-model-page__main">
-          <ModelGallery
-            key={`gallery:${model.filePath}`}
-            filePath={model.filePath}
-            folder={online || model.filePath.includes('::') ? null : model.modelFolder || folderOf(model.filePath)}
-            renders={(model.renders ?? panelImages(model)).filter((src) => src !== '3d.png')}
-            online={online}
-            alone={files.length <= 1}
-          />
-
-          <DescriptionSection
-            filePath={model.filePath}
-            description={model.description}
-            siteDescription={site?.description}
-            siteDescriptionEnglish={site?.descriptionEnglish}
-          />
-
-          {fromSite && (
-            <div className="jp-card jp-model-page__site">
-              <MakerWorldSection model={model} page />
-            </div>
-          )}
-
-          {!online && !model.filePath.includes('::') ? (
-            <>
-              <ModelMediaSection
-                key={`videos:${model.filePath}`}
-                folder={folderOf(model.filePath)}
-                alone={files.length <= 1}
-                parts={['video']}
-                title="Videos"
-                sectionId="jp-model-videos"
-                siteVideos={site?.videos || []}
-              />
-              <ModelMediaSection
-                key={`documents:${model.filePath}`}
-                folder={folderOf(model.filePath)}
-                alone={files.length <= 1}
-                parts={['document']}
-                title="Documents"
-                sectionId="jp-model-documents"
-                siteDocuments={site?.pdfUrl ? [{ url: site.pdfUrl, name: decodeURIComponent(site.pdfUrl.split('/').pop() || 'Model PDF') }] : []}
-              />
-            </>
-          ) : (
-            <SiteOnlyMedia videos={site?.videos || []} pdfUrl={site?.pdfUrl || null} />
-          )}
+          {gallery}
+          {description}
+          {siteSection}
+          {media}
 
           <section className="jp-model-page__files" aria-labelledby="jp-model-page-files">
             <h2 className="jp-panel-title" id="jp-model-page-files">
               Files{folder ? <span className="jp-meta"> in {folder}</span> : null}
             </h2>
-            {!online && !model.filePath.includes('::') && files.length > 1 && (
+            {!online && !inZip && files.length > 1 && (
               <p className="jp-meta">
                 <button type="button" className="jp-link-button" id="jp-model-page-folder" onClick={() => navigate('folder', folderPath)}>
                   The folder as one model
@@ -480,142 +745,11 @@ export function ModelPage({ filePath }: { filePath: string }) {
         </div>
 
         <aside className="jp-model-page__side">
-          <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-details">
-            <h2 className="jp-panel-title" id="jp-model-page-details">
-              Model Details
-            </h2>
-            <div className="jp-model-page__actions">
-              <div className="jp-model-page__slicer">
-                <SlicerButton filePath={model.filePath} slicers={slicers} />
-              </div>
-              {canEdit && (
-                <Button icon={Pencil} id="jp-model-page-edit" onClick={() => window.openEditModel?.(model.filePath)}>
-                  Edit
-                </Button>
-              )}
-              {canEdit && (
-                <Button icon={ClipboardPen} onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}>
-                  Log Print
-                </Button>
-              )}
-              {!online && !model.filePath.includes('::') && <UploadVersionButton filePath={model.filePath} folder={folderOf(model.filePath)} />}
-              <span className="jp-model-page__icons">
-                {canEdit && (
-                  <IconButton
-                    icon={Heart}
-                    label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-                    className={cx(favorite && 'is-favorited')}
-                    onClick={async () => {
-                      if (await saveCardField(model.filePath, 'favorite', !favorite)) setModel({ ...model, favorite: !favorite });
-                    }}
-                  />
-                )}
-                <IconButton
-                  icon={MoreHorizontal}
-                  label="More actions"
-                  onClick={(event) => {
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    void window.contextMenu?.show(model.filePath, rect.left, rect.bottom);
-                  }}
-                />
-              </span>
-            </div>
-            <div className="jp-props">
-              <Prop label="File" title={displayFileName(model)}>
-                {displayFileName(model)}
-              </Prop>
-              <Prop label="Format">{formatOf(model) || '—'}</Prop>
-              <Prop label="Size">{model.size ? formatFileSize(Number(model.size)) : '—'}</Prop>
-              <Prop label="Print status">{STATUS_LABELS[status as PrintStatus] || status}</Prop>
-              <Prop label="Rating">
-                <Rating model={model} readOnly={!canEdit} onSaved={(rating) => setModel({ ...model, rating })} />
-              </Prop>
-              <Prop label="Designer">{designer || '—'}</Prop>
-              <Prop label="Source" title={source || undefined}>
-                {sourceIsLink ? (
-                  <a href={source} target="_blank" rel="noopener noreferrer">
-                    {source.replace(/^https?:\/\/(www\.)?/i, '')}
-                  </a>
-                ) : (
-                  source || '—'
-                )}
-              </Prop>
-              <Prop label="Parent model">{model.parentModel || '—'}</Prop>
-              <Prop label="License">{model.license || '—'}</Prop>
-              <Prop label="Tags">
-                {tags.length ? (
-                  <span className="jp-details__categories">
-                    {tags.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        className="jp-chip"
-                        title={`Show models tagged ${name}`}
-                        onClick={() => showInLibrary(() => filterActions.setTags([name]))}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </span>
-                ) : (
-                  '—'
-                )}
-              </Prop>
-              <Prop label="Category">{model.categories?.[0] ? <CategoryPlace names={[model.categories[0]]} id="jp-model-page-categories" /> : '—'}</Prop>
-              <Prop label="Subcategory">{model.categories?.[1] ? <CategoryPlace names={[model.categories[1]]} id="jp-model-page-subcategory" /> : '—'}</Prop>
-              <Prop label="Location" title={online ? undefined : model.filePath}>
-                {online ? 'Online model' : folderPath || '—'}
-              </Prop>
-              <Prop label="Added">{formatAdded(model.dateAdded) || '—'}</Prop>
-            </div>
-          </section>
-
-          <NotesPanel filePath={model.filePath} notes={model.notes} onSaved={() => void load()} />
-
-          {files.length > 1 && (
-            <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-file-list">
-              <h2 className="jp-panel-title" id="jp-model-page-file-list">
-                Files ({files.length})
-              </h2>
-              <ul className="jp-model-page__file-list">
-                {files.map((file) => (
-                  <li key={file.filePath}>
-                    {file.filePath === model.filePath ? (
-                      <strong>{file.fileName}</strong>
-                    ) : (
-                      <button type="button" className="jp-link-button" onClick={() => navigate('model', file.filePath)}>
-                        {file.fileName}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
+          {details}
+          {notes}
+          {fileList}
           {!online && <KitChecklist target={model.filePath} />}
-
-          <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">
-            <h2 className="jp-panel-title" id="jp-model-page-history">
-              Print History
-            </h2>
-            {events.length ? (
-              <ul className="jp-model-page__history">
-                {events.map((entry) => (
-                  <li key={entry.id}>
-                    <span>{formatPrintDate(entry.printed_at)}</span>
-                    <span>
-                      {OUTCOME_LABELS[entry.outcome] || entry.outcome}
-                      {entry.quantity > 1 ? ` ×${entry.quantity}` : ''}
-                    </span>
-                    {entry.notes && <span className="jp-meta">{entry.notes}</span>}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="jp-meta">Not printed yet.</p>
-            )}
-          </section>
+          {history}
         </aside>
       </div>
     </div>

@@ -158,7 +158,7 @@ test('login sets a session cookie that authenticates requests as that user', () 
   assert.match(setCookie, /HttpOnly/);
   assert.match(setCookie, /SameSite=Lax/);
   const cookie = cookieOf(res);
-  assert.deepStrictEqual(auth.authenticate(req({ cookie })), { id: res.body.user.id, username: 'maker', role: 'editor' });
+  assert.deepStrictEqual(auth.authenticate(req({ cookie })), { id: res.body.user.id, username: 'maker', role: 'editor', canDeleteFiles: false });
   assert.ok(!auth.isAuthenticated(req()));
   assert.ok(auth.listUsers().find((u) => u.username === 'maker').lastLoginAt, 'the login time is kept');
 });
@@ -333,7 +333,10 @@ test('the status route says who is logged in', () => {
   const cookie = cookieOf(login(auth, 'kid-password', 'kid'));
   const res = fakeRes();
   routesOf(auth)['GET /api/auth/status'](req({ cookie }), res);
-  assert.deepStrictEqual(res.body, { authenticated: true, user: { id: res.body.user.id, username: 'kid', role: 'viewer', roleLabel: 'Viewer' } });
+  assert.deepStrictEqual(res.body, {
+    authenticated: true,
+    user: { id: res.body.user.id, username: 'kid', role: 'viewer', roleLabel: 'Viewer', canDeleteFiles: false }
+  });
   const anon = fakeRes();
   routesOf(auth)['GET /api/auth/status'](req(), anon);
   assert.deepStrictEqual(anon.body, { authenticated: false });
@@ -469,4 +472,21 @@ test('guest access can be turned on with JUSTTPRINT_GUEST_ACCESS', () => {
   const { auth } = makeAuth({ env: { JUSTTPRINT_GUEST_ACCESS: 'true' } });
   assert.ok(auth.guestAccessOn());
   assert.ok(auth.verifyUpgrade(req({ origin: 'http://nas.local:5000' })).ok);
+});
+
+test('deleting files from disk: admins always, editors only when an admin allows it', () => {
+  const { auth } = withAdmin();
+  const { canDeleteFiles } = require('../src/server/users');
+  const editor = auth.createUser({ username: 'maker', password: 'maker-pass', role: 'editor' });
+  assert.strictEqual(editor.canDeleteFiles, false, 'new editors may not');
+  assert.strictEqual(auth.updateUser(editor.id, { canDeleteFiles: true }).canDeleteFiles, true);
+  const allowed = auth.createUser({ username: 'helper', password: 'helper-pass', role: 'editor', canDeleteFiles: true });
+  assert.strictEqual(allowed.canDeleteFiles, true, 'an editor can be added with it');
+  const viewer = auth.createUser({ username: 'look', password: 'look-pass', role: 'viewer', canDeleteFiles: true });
+  assert.strictEqual(viewer.canDeleteFiles, false, 'never a viewer');
+  assert.ok(auth.listUsers().find((u) => u.username === 'admin' || u.role === 'admin').canDeleteFiles, 'admins always may');
+  assert.strictEqual(canDeleteFiles({ role: 'editor', canDeleteFiles: true }), true);
+  assert.strictEqual(canDeleteFiles({ role: 'editor' }), false);
+  assert.strictEqual(canDeleteFiles({ role: 'viewer', canDeleteFiles: true }), false);
+  assert.strictEqual(canDeleteFiles({ role: 'admin' }), true);
 });

@@ -12,6 +12,8 @@ export interface CurrentUser {
   username: string;
   role: Role;
   roleLabel: string;
+  /** May delete files from disk (admins, and editors an admin allows); the rest remove from the library. */
+  canDeleteFiles?: boolean;
   /** Browsing without an account (guest access, Settings → Users): a Viewer that keeps no settings. */
   guest?: boolean;
 }
@@ -20,8 +22,8 @@ const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
 export const ROLE_LABELS: Record<Role, string> = { viewer: 'Viewer', editor: 'Editor', admin: 'Admin' };
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   viewer: 'Browse, preview and download.',
-  editor: 'Also edit models, tags and the print log, upload, move and delete files.',
-  admin: 'Also settings, backups, JusttPrint backend access and user accounts.'
+  editor: 'Also edit models, tags and the print log, upload, move files and remove models from the library (deleting files from disk when an admin allows it).',
+  admin: 'Also delete files from disk, settings, backups, JusttPrint backend access and user accounts.'
 };
 
 /** True when `role` is at least `required`. An unknown role allows nothing. */
@@ -74,3 +76,8 @@ export function useCan(required: Role): boolean {
 }
 
 if (typeof window !== 'undefined' && typeof fetch === 'function') void loadCurrentUser();
+
+/** True when the logged-in user may delete files from disk. */
+export function useCanDeleteFiles(): boolean {
+  return !!useCurrentUser()?.canDeleteFiles;
+}

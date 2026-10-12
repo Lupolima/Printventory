@@ -650,24 +650,6 @@ body.jp-shell-on #model-details .details-name-field {
   opacity: 1;
 }
 
-/* ---- Footer: Multi-Edit Mode ---- */
-#model-details .jp-details__footer #enter-multi-edit-button {
-  width: 100%;
-  height: var(--jp-control-height);
-  margin: 0;
-  padding: 0 var(--jp-space-4);
-  border: 1px solid var(--jp-border);
-  border-radius: var(--jp-radius-md);
-  background: transparent;
-  color: var(--jp-text-2);
-  font: 500 var(--jp-text-meta) var(--jp-font);
-  box-shadow: none;
-}
-#model-details .jp-details__footer #enter-multi-edit-button:hover {
-  background: var(--jp-surface-hover);
-  color: var(--jp-text);
-}
-
 /* theme.css forces a dark fill on every select (!important); in the panel they read as values. */
 #model-details .jp-details select {
   background-color: transparent !important;

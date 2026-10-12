@@ -82,6 +82,8 @@ export interface UserAccount {
   id: number;
   username: string;
   role: UserRole;
+  /** May delete files from disk: admins always, editors when an admin allows it. */
+  canDeleteFiles?: boolean;
   createdAt: string | null;
   lastLoginAt: string | null;
   /** The JUSTTPRINT_PASSWORD account: stays an admin, password set by the variable. */
@@ -91,8 +93,8 @@ export interface UserAccount {
 /** Settings → Users (admins). */
 export const users = {
   list: () => callAction<{ users: UserAccount[]; minPasswordLength: number }>('list-users'),
-  create: (details: { username: string; password: string; role: UserRole }) => callAction<UserAccount>('create-user', details),
-  update: (id: number, changes: { role?: UserRole; password?: string }) => callAction<UserAccount>('update-user', id, changes),
+  create: (details: { username: string; password: string; role: UserRole; canDeleteFiles?: boolean }) => callAction<UserAccount>('create-user', details),
+  update: (id: number, changes: { role?: UserRole; password?: string; canDeleteFiles?: boolean }) => callAction<UserAccount>('update-user', id, changes),
   remove: (id: number) => callAction<unknown>('delete-user', id)
 };
 
@@ -980,4 +982,64 @@ export const shareLinks = {
   list: (target?: ShareTarget) => callAction<ShareLink[]>('get-share-links', target ?? null),
   revoke: (token: string) => callAction<unknown>('revoke-share-link', token),
   url: (token: string) => `${window.location.origin}/s/${token}`
+};
+
+/** A group's place: its id and the groups from the top one down to it (model-groups.js). */
+export interface ModelGroupRef {
+  id: number;
+  crumbs: { id: number; name: string }[];
+}
+
+/** One model of a group page. */
+export interface GroupModel {
+  id: number;
+  filePath: string;
+  fileName: string | null;
+  size: number | null;
+  designer: string | null;
+  print_status: string | null;
+  printed: number | null;
+  print_count: number | null;
+  last_printed_at: string | null;
+  favorite: number | null;
+  rating: number | null;
+  category: string | null;
+  subcategory: string | null;
+  image: string | null;
+}
+
+/** A group's page (get-group). */
+export interface ModelGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  parentId: number | null;
+  crumbs: { id: number; name: string }[];
+  subgroups: { id: number; name: string; modelCount: number; image: string | null }[];
+  models: GroupModel[];
+  images: string[];
+  tags: string[];
+  category: string | null;
+  subcategory: string | null;
+  designer: string | null;
+  dateAdded: string | null;
+  totals: { models: number; size: number; printed: number };
+}
+
+/** Groups: models kept together under a name, with groups inside groups (src/server/model-groups.js). */
+export const groups = {
+  /** A group by id, or a top group by name. */
+  get: (ref: number | string) => callAction<ModelGroup | null>('get-group', ref),
+  /** Every group, with the groups above it in `path` ("Robot › Arms"). */
+  list: () => callAction<{ id: number; name: string; path: string; modelCount: number }[]>('list-groups'),
+  find: (name: string) => callAction<number | null>('find-group', name),
+  ofModel: (modelId: number) => callAction<ModelGroupRef | null>('get-model-group', modelId),
+  /** Names for a new group of these models (ids, or the paths the cards know). */
+  suggestNames: (models: (number | string)[]) => callAction<string[]>('suggest-group-names', models),
+  create: (details: { name: string; modelIds?: number[]; filePaths?: string[]; groupIds?: number[]; parentId?: number | null }) =>
+    callAction<ModelGroup>('create-group', details),
+  update: (id: number, changes: { name?: string; description?: string | null }) => callAction<ModelGroup>('update-group', id, changes),
+  add: (id: number, what: { modelIds?: number[]; filePaths?: string[]; groupIds?: number[] }) => callAction<ModelGroup>('add-to-group', id, what),
+  remove: (id: number, modelIds: number[]) => callAction<ModelGroup | null>('remove-from-group', id, modelIds),
+  ungroup: (id: number) => callAction<{ parentId: number | null }>('ungroup', id)
 };

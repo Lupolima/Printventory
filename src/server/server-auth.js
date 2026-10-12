@@ -16,7 +16,7 @@
  */
 
 const crypto = require('crypto');
-const { createMemoryUserStore, isRole, publicUser, ROLE_LABELS, USERNAME_PATTERN } = require('./users');
+const { canDeleteFiles, createMemoryUserStore, isRole, publicUser, ROLE_LABELS, USERNAME_PATTERN } = require('./users');
 
 const SESSION_COOKIE = 'pv_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -457,7 +457,7 @@ function createServerAuth({
     const row = loadUser(id);
     if (!row || !isRole(row.role)) return null;
     if (!safeEqual(parts[3], sign(signingSecret(), `u.${parts[1]}.${parts[2]}.${row.session_key}`))) return null;
-    return { id: row.id, username: row.username, role: row.role };
+    return { id: row.id, username: row.username, role: row.role, canDeleteFiles: !!row.can_delete_files };
   }
 
   function hasValidApiToken(req) {
@@ -604,8 +604,8 @@ function createServerAuth({
     if (row.role === 'admin' && users.countRole('admin') <= 1) throw new Error(message);
   }
 
-  /** @param {{ username?: string, password?: string, role?: string }} [input] */
-  function createUser({ username, password, role } = {}) {
+  /** @param {{ username?: string, password?: string, role?: string, canDeleteFiles?: boolean }} [input] */
+  function createUser({ username, password, role, canDeleteFiles } = {}) {
     const name = String(username || '').trim();
     if (!USERNAME_PATTERN.test(name)) {
       throw new Error('User names are 1 to 64 letters, digits, dots, dashes, underscores or @, starting with a letter or digit');
@@ -613,17 +613,25 @@ function createServerAuth({
     if (!isRole(role)) throw new Error('Choose a role: viewer, editor or admin');
     assertPassword(password);
     if (users.findByName(name)) throw new Error(`There is already a user named ${name}`);
-    const id = users.insert({ username: name, passwordHash: hashPassword(password), role, now: isoNow() });
+    const id = users.insert({
+      username: name,
+      passwordHash: hashPassword(password),
+      role,
+      canDeleteFiles: role === 'editor' && canDeleteFiles === true,
+      now: isoNow()
+    });
     return publicUser(users.findById(id));
   }
 
-  /** Change a user's role and/or password. A new password logs that user out everywhere. */
   /**
+   * Change a user's role, password and/or whether they may delete files from disk (editors; admins
+   * always may). A new password logs that user out everywhere.
    * @param {number} id
-   * @param {{ role?: string, password?: string }} [changes]
+   * @param {{ role?: string, password?: string, canDeleteFiles?: boolean }} [changes]
    */
-  function updateUser(id, { role, password } = {}) {
+  function updateUser(id, { role, password, canDeleteFiles } = {}) {
     const row = findUserOrThrow(id);
+    if (typeof canDeleteFiles === 'boolean') users.update(row.id, { canDeleteFiles });
     if (role !== undefined && role !== null && role !== row.role) {
       if (!isRole(role)) throw new Error('Choose a role: viewer, editor or admin');
       if (isEnvUser(row)) throw new Error(`${row.username} is the JUSTTPRINT_PASSWORD account and stays an admin`);
@@ -728,7 +736,10 @@ function createServerAuth({
       const guest = user ? null : guestFor(req);
       res.json(
         user
-          ? { authenticated: true, user: { id: user.id, username: user.username, role: user.role, roleLabel: ROLE_LABELS[user.role] } }
+          ? {
+              authenticated: true,
+              user: { id: user.id, username: user.username, role: user.role, roleLabel: ROLE_LABELS[user.role], canDeleteFiles: canDeleteFiles(user) }
+            }
           : guest
             ? { authenticated: true, guest: true, user: { id: 0, username: 'Guest', role: guest.role, roleLabel: 'Guest', guest: true } }
             : { authenticated: false }

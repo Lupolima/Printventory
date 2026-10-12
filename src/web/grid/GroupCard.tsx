@@ -21,12 +21,14 @@ export interface GroupCardHost {
   };
   groupPrintSummary(children: GridModel[]): { printedCount: number; label: string };
   groupTagNames(record: GroupRecord): Promise<string[]>;
-  /** Click on the card: expand (and show bundle details) or collapse. */
-  groupClick(record: GroupRecord, view: GridView, card: HTMLElement): void;
+  /** Click on the card: the group's page, expand or collapse a bundle; in Edit mode choose it. Shift: a range of cards. */
+  groupClick(record: GroupRecord, view: GridView, card: HTMLElement, shiftKey?: boolean): void;
   /** The chevron: expand or collapse only. */
   toggleGroup(record: GroupRecord): void;
   bindGroupMenu(card: HTMLElement, record: GroupRecord): void;
   isBundleDetailsGroup(groupKey: string): boolean;
+  /** Chosen in Edit mode. */
+  isGroupChosen(groupKey: string): boolean;
   openBundlePreview(record: GroupRecord): void;
   /** Rate or favorite every model in the group. */
   saveGroupField(filePaths: string[], field: 'rating' | 'favorite', value: number | boolean): Promise<boolean>;
@@ -133,6 +135,30 @@ export interface GroupCardProps {
   /** The JusttPrint 5 card (desktop grid view), sized like the model cards. */
 }
 
+/** The value most of the models have ('' counts as none). */
+function mostCommon(values: string[]): string {
+  const counts = new Map<string, number>();
+  for (const value of values) if (value) counts.set(value, (counts.get(value) || 0) + 1);
+  let best = '';
+  for (const [value, n] of counts) if (!best || n > (counts.get(best) || 0)) best = value;
+  return best;
+}
+
+/** How many of a group's models are printed, as a bar ("2 of 5 printed"). */
+function GroupProgress({ done, total }: { done: number; total: number }) {
+  const share = total ? Math.round((done / total) * 100) : 0;
+  return (
+    <span className={`jp-group-progress${done && done >= total ? ' is-complete' : ''}`} title={`${done} of ${total} printed`}>
+      <span className="jp-group-progress__bar">
+        <span style={{ width: `${share}%` }} />
+      </span>
+      <span className="jp-group-progress__text">
+        {total} models · {done} printed
+      </span>
+    </span>
+  );
+}
+
 /** A folder card's kit progress ("3 of 12 printed"), else its print summary. */
 function FolderKit({ folder, fallback, printed }: { folder: string; fallback: string; printed: boolean }) {
   const [summary, setSummary] = useState<{ done: number; total: number } | null>(null);
@@ -165,6 +191,9 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
   const bundleKind = kind === 'bundle' ? String(record.children[0]?.bundleKind || 'folder') : '';
   const isBundle = kind === 'bundle';
   const isFolder = kind === 'folder';
+  // Models sharing a Parent Model are a group: a stack that opens the group's page, never expands.
+  const isGroup = kind === 'parentModel';
+  const subcategory = mostCommon(record.children.map((child) => (typeof child.subcategory === 'string' ? child.subcategory : '')));
   const kindLabel = bundleKind === 'zip' ? 'zip archive' : isBundle ? 'folder' : '';
   const count = record.children.length;
   const print = host.groupPrintSummary(record.children);
@@ -190,7 +219,9 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
     view !== 'list' && 'file-item',
     view !== 'list' && `file-item-${view}`,
     tile && 'jp-model-card jp-group-card',
-    record.expanded && 'expanded',
+    record.expanded && !isGroup && 'expanded',
+    isGroup && 'jp-group-card--stack',
+    host.isGroupChosen(record.groupKey) && 'selected',
     host.isBundleDetailsGroup(record.groupKey) && 'bundle-details-active'
   ]
     .filter(Boolean)
@@ -228,20 +259,8 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
   );
   const titleRow = (
     <div className="parent-model-group-title-row">
-      {chevron}
-      <span
-        className={`parent-model-group-title${kind === 'parentModel' ? ' parent-model-filter-link' : ''}`}
-        title={label}
-        onClick={
-          kind === 'parentModel'
-            ? (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                host.filterBySelect('parent-select', label);
-              }
-            : undefined
-        }
-      >
+      {!isGroup && chevron}
+      <span className="parent-model-group-title" title={label}>
         {label}
       </span>
     </div>
@@ -254,9 +273,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
         <div
           className={`parent-model-group-corner-badge ${record.expanded ? 'is-expanded' : 'is-collapsed'}`}
           title={
-            isBundle
-              ? `${bundleKind === 'zip' ? 'ZIP bundle' : 'Folder bundle'} (${record.expanded ? 'expanded' : 'collapsed'})`
-              : `Parent model group (${record.expanded ? 'expanded' : 'collapsed'})`
+            isBundle ? `${bundleKind === 'zip' ? 'ZIP bundle' : 'Folder bundle'} (${record.expanded ? 'expanded' : 'collapsed'})` : `Group of ${count} models`
           }
         >
           <span />
@@ -314,7 +331,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
       return;
     event.preventDefault();
     event.stopPropagation();
-    host.groupClick(record, view, event.currentTarget);
+    host.groupClick(record, view, event.currentTarget, event.shiftKey);
   };
 
   const cell = (col: string, className: string, text: string, title?: string) => (
@@ -345,29 +362,31 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
         <div className="jp-model-card__body parent-model-group-details">
           {titleRow}
           <div className="parent-model-group-meta jp-model-card__byline" title={isBundle ? 'Right-click for Preview and more options' : undefined}>
-            {isFolder
-              ? `${count} file${count === 1 ? '' : 's'}`
-              : isBundle
-                ? `${count} part${count === 1 ? '' : 's'}`
-                : `${count} model${count === 1 ? '' : 's'}`}
+            {isFolder ? (
+              <FolderKit
+                folder={folderOf(record.children[0] || { filePath: '' })}
+                fallback={`${count} files · ${print.label}`}
+                printed={print.printedCount > 0}
+              />
+            ) : isBundle ? (
+              `${count} part${count === 1 ? '' : 's'} · ${print.label}`
+            ) : (
+              <GroupProgress done={print.printedCount} total={count} />
+            )}
           </div>
           <div className="jp-model-card__badges">
             <span
               className="jp-badge"
               title={
-                isFolder
-                  ? 'A folder shown as one model: click for its page'
-                  : isBundle
-                    ? `${kindLabel || 'folder'} bundle`
-                    : 'Models with the same parent model'
+                isFolder ? 'A folder shown as one model: click for its page' : isBundle ? `${kindLabel || 'folder'} bundle` : 'A group: click for its page'
               }
             >
               {kindBadge}
             </span>
-            {isFolder ? (
-              <FolderKit folder={folderOf(record.children[0] || { filePath: '' })} fallback={print.label} printed={print.printedCount > 0} />
-            ) : (
-              <span className={`jp-status jp-status--${print.printedCount > 0 ? 'success' : 'neutral'}`}>{print.label}</span>
+            {subcategory && (
+              <span className="jp-badge jp-model-card__category" title={`Subcategory: ${subcategory}`}>
+                {subcategory}
+              </span>
             )}
           </div>
         </div>
@@ -442,8 +461,9 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
       style={style}
       tabIndex={0}
       role="button"
-      aria-expanded={record.expanded}
-      title={`${record.expanded ? 'Collapse' : 'Expand'} ${label}`}
+      aria-expanded={isGroup ? undefined : record.expanded}
+      aria-pressed={host.isGroupChosen(record.groupKey) || undefined}
+      title={isGroup ? `Open the group ${label}` : `${record.expanded ? 'Collapse' : 'Expand'} ${label}`}
       data-group-key={record.groupKey}
       data-group-kind={kind}
       data-child-count={count}

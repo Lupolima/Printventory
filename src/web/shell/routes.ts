@@ -20,6 +20,7 @@ export const PAGES = [
   'settings',
   'help',
   'model',
+  'group',
   'folder'
 ] as const;
 export type PageId = (typeof PAGES)[number];

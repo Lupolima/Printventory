@@ -73,7 +73,7 @@ export function DescriptionSection({
 
 /**
  * The model page's Notes (in the sidebar): what you write about the model. Editors change them in
- * place; the whole model is saved (a save of some fields only would drop its tags).
+ * place.
  */
 export function NotesPanel({ filePath, notes, onSaved }: { filePath: string; notes: string | null | undefined; onSaved: () => void }) {
   const canEdit = useCan('editor');
@@ -88,12 +88,15 @@ export function NotesPanel({ filePath, notes, onSaved }: { filePath: string; not
   async function save() {
     setSaving(true);
     try {
-      const current = await modelApi.get<Record<string, unknown>>(filePath);
-      if (!current) throw new Error('This model is not in the library any more.');
-      const tags = (Array.isArray(current.tags) ? current.tags : []).map((tag) =>
-        typeof tag === 'string' ? tag : String((tag as { name?: string })?.name ?? '')
-      );
-      await callAction('save-model', { ...current, tags, notes: draft.trim(), _base: { notes: String(notes || '') } });
+      // The library's save: asks whose notes stay when someone else changed them meanwhile, and offers Undo.
+      if (window.detailsHost) {
+        await window.detailsHost.saveField(filePath, 'notes', draft.trim(), String(notes || ''));
+      } else {
+        const current = await modelApi.get<Record<string, unknown>>(filePath);
+        if (!current) throw new Error('This model is not in the library any more.');
+        // The whole model: a save of some fields only would drop its tags.
+        await callAction('save-model', { ...current, notes: draft.trim(), _base: { notes: String(notes || '') } });
+      }
       setEditing(false);
       onSaved();
     } catch (error) {
@@ -124,7 +127,7 @@ export function NotesPanel({ filePath, notes, onSaved }: { filePath: string; not
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="jp-model-page__notes-buttons">
-            <Button size="sm" onClick={() => setEditing(false)} disabled={saving}>
+            <Button size="sm" id="jp-model-notes-cancel" onClick={() => setEditing(false)} disabled={saving}>
               Cancel
             </Button>
             <Button size="sm" variant="primary" id="jp-model-notes-save" onClick={() => void save()} disabled={saving}>

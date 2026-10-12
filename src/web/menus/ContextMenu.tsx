@@ -49,14 +49,12 @@ interface Open {
   menu: ContextMenuData;
   x: number;
   y: number;
-  /** An × in the corner (the card's ⋯ button opens the menu without a pointer to click away with). */
-  showClose: boolean;
 }
 
 declare global {
   interface Window {
     /** The model menu: ask the server for the menu for one model, several, or a group, and show it at x, y. */
-    contextMenu?: { show: (target: unknown, x: number, y: number, options?: { showClose?: boolean }) => Promise<void> };
+    contextMenu?: { show: (target: unknown, x: number, y: number) => Promise<void> };
     JusttPrintSlicerProtocol?: { launchFromCommand: (command: unknown) => void };
   }
 }
@@ -119,12 +117,12 @@ export function ContextMenu() {
   useEffect(
     () =>
       exposeGlobal('contextMenu', {
-        show: async (target: unknown, x: number, y: number, options?: { showClose?: boolean }) => {
+        show: async (target: unknown, x: number, y: number) => {
           const menu = await callAction<ContextMenuData | null>('show-context-menu', target);
           if (menu?.type === 'html-menu') {
             setSubmenu(null);
             setPosition(null);
-            setOpen({ menu, x, y, showClose: !!options?.showClose });
+            setOpen({ menu, x, y });
           }
         }
       }),
@@ -190,21 +188,9 @@ export function ContextMenu() {
       <div
         id="html-context-menu"
         ref={ref}
-        className={`html-context-menu${open.showClose ? ' html-context-menu-with-close' : ''}`}
+        className="html-context-menu"
         style={{ left: position?.left ?? open.x, top: position?.top ?? open.y, visibility: position ? undefined : 'hidden' }}
       >
-        {open.showClose && (
-          <button
-            type="button"
-            className="html-context-menu-close"
-            onClick={(e) => {
-              e.stopPropagation();
-              close();
-            }}
-          >
-            x
-          </button>
-        )}
         {menu.items.map((item, index) => {
           if (item.type === 'separator') return <div key={index} className="html-context-menu-separator" />;
           const hasSubmenu = !!item.enabled && !!item.submenu?.length;
