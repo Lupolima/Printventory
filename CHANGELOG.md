@@ -2,7 +2,7 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.20.0] - 2026-10-12
 
 **Changes:**
 - **The model page, rearranged:**
