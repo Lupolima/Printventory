@@ -17,7 +17,9 @@ import {
   savedSearch,
   serverFilters,
   type FilterState,
-  type Labels
+  type Labels,
+  setCategoryClause,
+  categoryOf
 } from './query';
 
 const labels: Labels = {
@@ -252,5 +254,20 @@ describe('saved searches', () => {
     expect(back.printed).toBe(emptyFilterState().printed);
     expect(back.tokens).toEqual([]);
     expect(restoredState(emptyFilterState(), null).designer).toEqual([]);
+  });
+});
+
+describe('the Filter popover category', () => {
+  it('searches for one category, in place of the one before', () => {
+    const start = appendClause(emptyFilterState(), 'all', 'robot');
+    const art = setCategoryClause(start, 'Sculptures');
+    expect(categoryOf(art)).toBe('Sculptures');
+    expect(art.tokens.filter((t) => t.t === 'clause').length).toBe(2);
+    const toys = setCategoryClause(art, 'Puzzles');
+    expect(categoryOf(toys)).toBe('Puzzles');
+    expect(toys.tokens.length).toBe(art.tokens.length);
+    const none = setCategoryClause(toys, '');
+    expect(categoryOf(none)).toBe('');
+    expect(none.tokens).toEqual(start.tokens);
   });
 });

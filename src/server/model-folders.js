@@ -496,6 +496,157 @@ function moved(from, to) {
   db.prepare('UPDATE model_folder_sources SET folder = ? WHERE folder = ?').run(b, a);
 }
 
+/**
+ * Every record of the files under `from` follows them to `to` (a folder renamed or moved): the
+ * models (and the ZIP entries in it), their site downloads, folder notes and assembly, and the
+ * model folder's own records.
+ */
+function pathsMoved(from, to) {
+  const a = folderKey(from);
+  const b = folderKey(to);
+  const db = table();
+  const like = `${escapeLike(a)}${path.sep}%`;
+  const swap = (column, tableName) => {
+    try {
+      db.prepare(`UPDATE ${tableName} SET ${column} = ? || substr(${column}, ?) WHERE ${column} LIKE ? ESCAPE '\\'`).run(b, a.length + 1, like);
+    } catch (_) {
+      /* the table is not there yet */
+    }
+  };
+  db.transaction(() => {
+    swap('filePath', 'models');
+    swap('file_path', 'site_files');
+    for (const tableName of ['folder_info', 'folder_assembly']) {
+      try {
+        db.prepare(`UPDATE ${tableName} SET path = ? WHERE path = ?`).run(b, a);
+        swap('path', tableName);
+      } catch (_) {
+        /* the table is not there yet */
+      }
+    }
+    moved(a, b);
+  })();
+}
+
+/**
+ * Rename a model folder to `name` (a number added when taken) and move every record with it.
+ * Answers the new path.
+ */
+function renameFolder(dir, name) {
+  const folder = requireFolder(dir);
+  const { folderName } = require('../core/makerworld');
+  const base = folderName(String(name || '').trim());
+  if (!base) throw new Error('The folder needs a name');
+  const parent = path.dirname(folder);
+  if (path.basename(folder) === base) return folder;
+  /** @type {string | null} */
+  let target = null;
+  for (let n = 1; n < 1000 && !target; n++) {
+    const candidate = path.join(parent, n === 1 ? base : `${base} (${n})`);
+    // A change of case only is the same folder on macOS and Windows.
+    if (candidate.toLowerCase() === folder.toLowerCase() || !fs.existsSync(candidate)) target = candidate;
+  }
+  if (!target) throw new Error('Could not rename the folder');
+  fs.renameSync(folder, target);
+  pathsMoved(folder, target);
+  require('./events').broadcast('refresh-grid');
+  return target;
+}
+
+/** Media file names in a folder's image, video and document subfolders ("image/a.jpg"). */
+function mediaNames(dir) {
+  const names = [];
+  for (const kind of KIND_NAMES) {
+    try {
+      for (const entry of fs.readdirSync(path.join(dir, KINDS[kind].dir), { withFileTypes: true })) {
+        if (entry.isFile() && !entry.name.startsWith('.')) names.push(`${KINDS[kind].dir}/${entry.name}`);
+      }
+    } catch (_) {
+      /* no such subfolder */
+    }
+  }
+  return names;
+}
+
+const RELINK_MAX_DIRS = 20000;
+const RELINK_MATCH = 0.6;
+
+/**
+ * Model folders moved or renamed outside JusttPrint: a model folder that is gone is found again
+ * under `root` (where a scan looked) as a folder that is not a model folder and has the same
+ * name, or mostly the same pictures, videos and documents; its records (cover, YouTube links,
+ * what came from its site) move to it. Answers [{ from, to }].
+ */
+function relinkMoved(root) {
+  if (!database.db || !root) return [];
+  const gone = table()
+    .prepare('SELECT path FROM model_folders')
+    .all()
+    .map((row) => row.path)
+    .filter((dir) => !fs.existsSync(dir));
+  if (!gone.length) return [];
+  // Folders under the root with media subfolders that are not model folders yet.
+  const candidates = [];
+  const queue = [folderKey(root)];
+  let seen = 0;
+  while (queue.length && seen < RELINK_MAX_DIRS) {
+    const dir = /** @type {string} */ (queue.shift());
+    seen++;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_) {
+      continue;
+    }
+    const subdirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.'));
+    if (subdirs.some((e) => KIND_NAMES.some((kind) => KINDS[kind].dir === e.name)) && !isModelFolder(dir)) {
+      candidates.push({ dir, media: new Set(mediaNames(dir)) });
+    }
+    for (const e of subdirs) if (!KIND_NAMES.some((kind) => KINDS[kind].dir === e.name)) queue.push(path.join(dir, e.name));
+  }
+  const relinked = [];
+  for (const old of gone) {
+    const known = new Set(
+      table()
+        .prepare('SELECT file_name FROM model_folder_sources WHERE folder = ?')
+        .all(old)
+        .map((row) => row.file_name)
+    );
+    const cover = table().prepare('SELECT cover FROM model_folders WHERE path = ?').get(old)?.cover;
+    if (cover) known.add(`image/${cover}`);
+    /** @type {{ dir: string, media: Set<string> } | null} */
+    let best = null;
+    let bestScore = 0;
+    for (const candidate of candidates) {
+      const sameName = path.basename(candidate.dir) === path.basename(old);
+      const shared = [...candidate.media].filter((name) => known.has(name)).length;
+      const overlap = known.size && candidate.media.size ? shared / Math.max(known.size, candidate.media.size) : 0;
+      const score = (sameName ? 1 : 0) + overlap;
+      if ((sameName || overlap >= RELINK_MATCH) && score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    if (!best) continue;
+    moved(old, best.dir);
+    candidates.splice(candidates.indexOf(best), 1);
+    relinked.push({ from: old, to: best.dir });
+    console.log(`[Model folders] ${old} moved to ${best.dir}: its cover and links follow`);
+  }
+  return relinked;
+}
+
+/** Put every model folder's cover first again on its files (after a thumbnail job). */
+function reapplyAllCovers() {
+  if (!database.db) return 0;
+  let n = 0;
+  for (const row of table().prepare('SELECT path FROM model_folders WHERE cover_thumbnail IS NOT NULL').all()) {
+    reapplyCover(row.path);
+    n++;
+  }
+  return n;
+}
+
 module.exports = {
   KINDS,
   KIND_NAMES,
@@ -514,6 +665,10 @@ module.exports = {
   mediaPath,
   mediaTarget,
   moved,
+  pathsMoved,
+  reapplyAllCovers,
+  relinkMoved,
+  renameFolder,
   plainFileName,
   reapplyCover,
   register,

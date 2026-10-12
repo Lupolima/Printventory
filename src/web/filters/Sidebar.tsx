@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { fileTypes as fileTypeApi, libraryValues, settings, tags as tagApi } from '../api';
-import { SORT_OPTIONS, filterStrip, type ChipRemove, type Combine, type FilterState, type MultiKind, type StripItem } from './query';
+import { categories as categoryApi, fileTypes as fileTypeApi, libraryValues, settings, tags as tagApi } from '../api';
+import { SORT_OPTIONS, categoryOf, filterStrip, type ChipRemove, type Combine, type FilterState, type MultiKind, type StripItem } from './query';
 import { detailsAreOpen, useDetailsVisibility } from '../details/visibility';
 import { exposeGlobal } from '../page';
 import { applyFilterChange, getSearchStatus, labels, onReloadOptions, runSearch, subscribeSearchStatus } from './search';
@@ -30,6 +30,8 @@ interface Options {
   parents: string[];
   tags: { name: string; count: number }[];
   fileTypes: { value: string; label: string }[];
+  /** Each Category with its Subcategories' names. */
+  categories: { name: string; subcategories: string[] }[];
 }
 
 async function loadFileTypes(): Promise<{ value: string; label: string }[]> {
@@ -60,19 +62,23 @@ async function loadFileTypes(): Promise<{ value: string; label: string }[]> {
 
 async function loadOptions(): Promise<Options> {
   const clean = (list: (string | null)[]) => [...new Set(list.filter((v): v is string => !!v))];
-  const [designers, licenses, parents, allTags, fileTypes] = await Promise.all([
+  const [designers, licenses, parents, allTags, fileTypes, list] = await Promise.all([
     libraryValues.designers().catch(() => []),
     libraryValues.licenses().catch(() => []),
     libraryValues.parentModels().catch(() => []),
     tagApi.list().catch(() => []),
-    loadFileTypes()
+    loadFileTypes(),
+    categoryApi.list().catch(() => ({ categories: [], uncategorized: 0 }))
   ]);
   return {
     designers: clean(designers),
     licenses: clean(licenses),
     parents: clean(parents),
     tags: allTags.map((t) => ({ name: t.name, count: t.model_count })).sort((a, b) => a.name.localeCompare(b.name)),
-    fileTypes
+    fileTypes,
+    categories: list.categories
+      .filter((c) => !c.parent_id)
+      .map((main) => ({ name: main.name, subcategories: list.categories.filter((c) => c.parent_id === main.id).map((c) => c.name) }))
   };
 }
 
@@ -470,6 +476,34 @@ function FilterControls({ container, options }: { container: HTMLElement; option
       {valueSelect('designer', 'designer-select', 'Select Designer:', 'All Designers', options.designers, 'designer', 'Search existing designers')}
       {valueSelect('parentModel', 'parent-select', 'Select Parent Model:', 'All Parent Models', options.parents, 'parent', 'Search existing parent models')}
       {valueSelect('license', 'license-select', 'Select License:', 'All Licenses', options.licenses, 'license', 'Search existing licenses')}
+      <div className="form-group">
+        <label htmlFor="category-select">Select Category:</label>
+        <select
+          id="category-select"
+          value={categoryOf(state)}
+          disabled={loading}
+          className={disabledClass}
+          onChange={(e) => applyFilterChange(() => filterActions.setCategory(e.target.value))}
+        >
+          <option value="">All Categories</option>
+          <option value="none">No Subcategory yet</option>
+          {options.categories.map((main) => (
+            <optgroup key={main.name} label={main.name}>
+              <option value={main.name}>All of {main.name}</option>
+              {main.subcategories.map((sub) => (
+                <option key={sub} value={sub}>
+                  {main.name} › {sub}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+          {categoryOf(state) &&
+            categoryOf(state) !== 'none' &&
+            !options.categories.some((c) => c.name === categoryOf(state) || c.subcategories.includes(categoryOf(state))) && (
+              <option value={categoryOf(state)}>{categoryOf(state)}</option>
+            )}
+        </select>
+      </div>
       {single('printed', 'printed-select', 'Print Status:', [
         ['all', 'All Models'],
         ['unprinted', 'Unprinted'],
@@ -616,7 +650,7 @@ export function Sidebar() {
     filters: document.getElementById('sidebar-filters-slot'),
     stackToggle: document.getElementById('filter-stack-toggle-slot')
   }));
-  const [options, setOptions] = useState<Options>({ designers: [], licenses: [], parents: [], tags: [], fileTypes: [] });
+  const [options, setOptions] = useState<Options>({ designers: [], licenses: [], parents: [], tags: [], fileTypes: [], categories: [] });
   const { loading } = useSearchStatus();
   const state = useFilters();
 

@@ -36,10 +36,15 @@ ipcMain.handle('makerworld-add-files', async (event, request) => siteDetails.fin
  */
 ipcMain.handle('makerworld-download', async (event, request) => {
   try {
-    return await siteDetails.download(request || {}, {
-      event,
-      onProgress: (progress) => events.toCaller(event, 'makerworld-download-progress', progress)
-    });
+    return await require('../activity').track('download', 'Downloading from MakerWorld', { unit: 'bytes' }, (progressed) =>
+      siteDetails.download(request || {}, {
+        event,
+        onProgress: (progress) => {
+          progressed({ detail: progress.label || null, done: progress.received, total: progress.total || null });
+          events.toCaller(event, 'makerworld-download-progress', progress);
+        }
+      })
+    );
   } catch (error) {
     if (error.code === 'SIGN_IN') return { signIn: true, error: error.message };
     throw error;

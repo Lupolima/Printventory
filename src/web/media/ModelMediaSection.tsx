@@ -52,7 +52,7 @@ function YoutubeVideo({ id, onRemove }: { id: string; onRemove?: () => void }) {
  * cover (the picture the library shows). `folder` is the model's folder; `alone` says whether the
  * model is the only one in it (then an editor may make it the model's folder).
  */
-export function ModelMediaSection({ folder, alone }: { folder: string; alone: boolean }) {
+export function ModelMediaSection({ folder, alone, compact = false }: { folder: string; alone: boolean; compact?: boolean }) {
   const canEdit = useCan('editor');
   const [found, setFound] = useState<ModelMedia>(EMPTY_MEDIA);
   const [loaded, setLoaded] = useState(false);
@@ -139,7 +139,8 @@ export function ModelMediaSection({ folder, alone }: { folder: string; alone: bo
   if (!loaded) return null;
 
   if (!found.isModelFolder) {
-    if (!canEdit) return null;
+    // The details panel shows a model folder's media only (its page offers to make one).
+    if (!canEdit || compact) return null;
     return (
       <section className="jp-card jp-media" aria-labelledby="jp-media-title" id="jp-model-media">
         <h2 className="jp-panel-title" id="jp-media-title">
@@ -203,10 +204,21 @@ export function ModelMediaSection({ folder, alone }: { folder: string; alone: bo
   );
 
   return (
-    <section className="jp-card jp-media" aria-labelledby="jp-media-title" id="jp-model-media" data-folder={where}>
-      <h2 className="jp-panel-title" id="jp-media-title">
-        Pictures, Videos and Documents
-      </h2>
+    <section
+      className={compact ? 'jp-details__section jp-media is-compact' : 'jp-card jp-media'}
+      aria-labelledby={compact ? 'jp-details-media-title' : 'jp-media-title'}
+      id={compact ? 'jp-details-media' : 'jp-model-media'}
+      data-folder={where}
+    >
+      {compact ? (
+        <h3 className="jp-details__heading" id="jp-details-media-title">
+          Pictures, Videos and Documents
+        </h3>
+      ) : (
+        <h2 className="jp-panel-title" id="jp-media-title">
+          Pictures, Videos and Documents
+        </h2>
+      )}
       {busy && (
         <p className="jp-meta jp-media__busy" role="status">
           {busy}

@@ -611,9 +611,27 @@
   margin-top: auto;
   min-width: 0;
 }
+/* The model's Subcategory (a click shows its models). */
+.jp-model-card__category {
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  background: transparent;
+  font-family: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.jp-model-card__category:hover {
+  border-color: var(--jp-accent-border);
+  color: var(--jp-text);
+}
 .jp-model-card__badges .jp-badge {
   flex: none;
   text-transform: uppercase;
+}
+.jp-model-card__badges .jp-model-card__category {
+  flex: 0 1 auto;
+  text-transform: none;
 }
 .file-grid .jp-model-card .print-status.jp-status {
   all: unset;
@@ -1002,4 +1020,74 @@ body.jp-shell-on .file-grid .file-item-list .thumbnail-container {
 .file-grid .file-item-list .list-open-btn {
   flex: none;
   margin-left: var(--jp-space-2);
+}
+
+/* What runs in the background (scan/Progress.tsx): one row per job, above Library Storage. */
+.jp-jobs .jp-bgjobs {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.jp-bgjob {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.jp-bgjob + .jp-bgjob {
+  padding-top: var(--jp-space-2);
+  border-top: 1px solid var(--jp-border);
+}
+.jp-bgjob__title {
+  color: var(--jp-text);
+  font-size: var(--jp-text-meta);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.jp-bgjob__detail {
+  color: var(--jp-text-3);
+  font-weight: 400;
+}
+.jp-bgjob__track {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--jp-radius-pill);
+  background: var(--jp-surface-2);
+}
+.jp-bgjob__track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--jp-accent);
+  transition: width 0.4s ease;
+}
+/* Size not known yet: a band that moves. */
+.jp-bgjob__track.is-indeterminate > span {
+  position: absolute;
+  width: 35%;
+  animation: jp-bgjob-slide 1.4s ease-in-out infinite;
+}
+@keyframes jp-bgjob-slide {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jp-bgjob__track.is-indeterminate > span {
+    left: 0;
+    width: 100%;
+    opacity: 0.4;
+    animation: none;
+  }
+}
+.jp-bgjob__line {
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-small);
+}
+.jp-bgjob .progress-actions,
+.jp-bgjob .stop-button {
+  margin-top: 2px;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ClipboardPen, ExternalLink, List, ListChecks, Plus, Tags, X } from 'lucide-react';
-import { libraryValues, models, tags as tagApi } from '../api';
+import { callAction, categories as categoryApi, libraryValues, models, tags as tagApi } from '../api';
 import { askText, exposeGlobal, showMessage } from '../page';
 import { selection } from '../selection';
 import { STATUSES, STATUS_LABELS } from '../print/printStatus';
@@ -48,6 +48,8 @@ interface Options {
   parents: string[];
   licenses: string[];
   tags: string[];
+  /** Each Category with its Subcategories' names. */
+  categories: { name: string; subcategories: string[] }[];
 }
 
 interface OnSelected {
@@ -55,17 +57,21 @@ interface OnSelected {
 }
 
 async function loadOptions(): Promise<Options> {
-  const [designers, parents, licenses, allTags] = await Promise.all([
+  const [designers, parents, licenses, allTags, list] = await Promise.all([
     libraryValues.designers().catch(() => []),
     libraryValues.parentModels().catch(() => []),
     libraryValues.licenses().catch(() => []),
-    tagApi.list().catch(() => [])
+    tagApi.list().catch(() => []),
+    categoryApi.list().catch(() => ({ categories: [], uncategorized: 0 }))
   ]);
   return {
     designers: sortNames(designers),
     parents: sortNames(parents),
     licenses: sortNames(licenses),
-    tags: sortNames(allTags.map((t) => t.name))
+    tags: sortNames(allTags.map((t) => t.name)),
+    categories: list.categories
+      .filter((c) => !c.parent_id)
+      .map((main) => ({ name: main.name, subcategories: list.categories.filter((c) => c.parent_id === main.id).map((c) => c.name) }))
   };
 }
 
@@ -93,7 +99,7 @@ const PROMPTS: Record<'designer' | 'parentModel' | 'license', string> = {
 export function MultiEditPanel() {
   const [slot] = useState(() => document.getElementById('multi-edit-slot'));
   const [count, setCount] = useState(0);
-  const [options, setOptions] = useState<Options>({ designers: [], parents: [], licenses: [], tags: [] });
+  const [options, setOptions] = useState<Options>({ designers: [], parents: [], licenses: [], tags: [], categories: [] });
   const [onSelected, setOnSelected] = useState<OnSelected>({ tags: [] });
   const [source, setSource] = useState('');
   const [picked, setPicked] = useState({ designer: '', parentModel: '', license: '' });
@@ -160,6 +166,23 @@ export function MultiEditPanel() {
       reloadOptions();
       window.detailsFields?.reloadOptions();
       await window.detailsHost?.valuesChanged(field);
+    }
+  }
+
+  /** One Category › Subcategory for every selected model (it stays: Categorize Library and the AI leave it). */
+  async function setCategory(name: string) {
+    const paths = host?.selectedPaths() || [];
+    if (!name || !paths.length) return;
+    const answer = await showMessage(
+      'Category',
+      `Put ${paths.length} selected model${paths.length === 1 ? '' : 's'} in ${options.categories.find((c) => c.subcategories.includes(name))?.name ?? ''} › ${name}?`,
+      ['Yes', 'No']
+    );
+    if (answer !== 'Yes') return;
+    try {
+      await callAction('set-models-category', paths, name);
+    } catch (error) {
+      await showMessage('Category', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -322,6 +345,23 @@ export function MultiEditPanel() {
           {valueRow('designer', 'multi-designer', 'Designer', 'No change', options.designers, 'designer')}
           {valueRow('parentModel', 'multi-parent', 'Parent model', 'No change', options.parents, 'parent')}
           {valueRow('license', 'multi-license', 'License', 'No change', options.licenses, 'license')}
+          <div className="jp-multi__row">
+            <label htmlFor="multi-category">Category</label>
+            <div className="jp-multi__control">
+              <select id="multi-category" value="" onChange={(e) => void setCategory(e.target.value)}>
+                <option value="">No change</option>
+                {options.categories.map((main) => (
+                  <optgroup key={main.name} label={main.name}>
+                    {main.subcategories.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {main.name} › {sub}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </section>
 

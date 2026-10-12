@@ -32,6 +32,23 @@ ipcMain.handle('set-model-categories', async (event, filePath, names) => {
   return result;
 });
 
+/** Give many models one place (Multi-edit): `name` a Subcategory (or a Category). Answers { placed }. */
+ipcMain.handle('set-models-category', async (event, filePaths, name) => {
+  const byPath = database.db.prepare('SELECT id FROM models WHERE filePath = ?');
+  const ids = (Array.isArray(filePaths) ? filePaths : [])
+    .map((p) => byPath.get(String(p)))
+    .filter(Boolean)
+    .map((row) => row.id);
+  if (!categories.findCategory(name)) throw new Error(`Not a category: ${name}`);
+  const history = require('../model-versions');
+  await history.tracking(ids, event && event.user ? event.user.username : null, async () => {
+    for (const id of ids) categories.setModelPlace(id, name, 'manual');
+  });
+  changed();
+  events.broadcast('refresh-grid');
+  return { placed: ids.length };
+});
+
 /** Categorize Library: { useAi, again }. Answers the run, or { busy: true } while one is going. */
 ipcMain.handle('start-category-scan', async (event, options) => {
   const useAi = !!(options && options.useAi);

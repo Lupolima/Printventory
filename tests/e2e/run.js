@@ -1394,6 +1394,22 @@ async function browserChecks(base, wsUrl, session) {
             () => false
           );
         check('a Subcategory shows its models in the library', onlyCube);
+        // Multi-edit: one place for many models (it stays: a person chose it).
+        const many = await invoke(base, session, 'set-models-category', [[cubePath], 'Hand Tools']);
+        const placedByHand = ((await invoke(base, session, 'get-model', [cubePath])).result || {}).categories || [];
+        check(
+          'Multi-edit gives the selected models one Category and Subcategory',
+          many.result?.placed === 1 && placedByHand.join(' > ') === 'Tools > Hand Tools',
+          JSON.stringify({ many, placedByHand })
+        );
+        const listed =
+          ((await invoke(base, session, 'get-models-filtered', [{ searchTokens: [{ t: 'clause', field: 'category', value: 'Hand Tools' }] }])).result ||
+            [])[0] || {};
+        check(
+          'the grid gets the place of each model',
+          listed.subcategory === 'Hand Tools' && listed.category === 'Tools',
+          JSON.stringify(listed).slice(0, 200)
+        );
         await page.click('#jp-filter-strip .jp-filter-clear, button:has-text("Clear All Filters")').catch(() => {});
         await invoke(base, session, 'update-category', [puzzles.id || 0, { keywords: (puzzles.keywords || []).join(', ') }]);
         await page.evaluate(() => {
@@ -5128,6 +5144,12 @@ async function accountChecks(base, wsUrl, admin) {
   const piece = started.chunkBytes;
   const put = (session, offset, bytes) => api(session, 'PUT', `/api/upload/sessions/${started.id}?offset=${offset}`, bytes, 'application/octet-stream');
   check('the first piece arrives', (await put(editor, 0, cubeBytes.subarray(0, piece))).received === piece);
+  const running = ((await invoke(base, viewer, 'get-background-activity')).result || []).find((job) => job.kind === 'upload');
+  check(
+    'an upload shows in what runs in the background',
+    !!running && running.done === piece && running.total === cubeBytes.length && running.detail === 'Pieces.stl',
+    JSON.stringify(running)
+  );
   const wrong = await put(editor, 0, cubeBytes.subarray(0, piece));
   check('a piece at the wrong offset says where to continue', wrong.status === 409 && wrong.received === piece, JSON.stringify(wrong));
   check('another user cannot add to the upload', (await put(admin, piece, cubeBytes.subarray(piece, 2 * piece))).status === 403);
@@ -5141,6 +5163,10 @@ async function accountChecks(base, wsUrl, admin) {
   let offset = piece;
   while (offset < cubeBytes.length) offset = (await put(editor, offset, cubeBytes.subarray(offset, offset + piece))).received;
   const finished = await api(editor, 'POST', `/api/upload/sessions/${started.id}/finish`);
+  check(
+    'a finished upload leaves it',
+    !((await invoke(base, viewer, 'get-background-activity')).result || []).some((job) => job.kind === 'upload' && job.detail === 'Pieces.stl')
+  );
   check('the pieces make the file', finished.status === 200 && fs.readFileSync(path.join(folder, 'Pieces.stl')).equals(cubeBytes), JSON.stringify(finished));
   check('no temp file is left', !fs.readdirSync(folder).some((name) => name.endsWith('.justtprint-upload')));
   const cancelled = await api(editor, 'POST', '/api/upload/sessions', JSON.stringify({ folder, name: 'Cancelled.stl', size: 10 }));

@@ -179,6 +179,9 @@ async function main() {
   assert.deepStrictEqual(found('Household'), ['Vase.stl']);
   assert.deepStrictEqual(found('Decor'), ['Vase.stl']);
   assert.deepStrictEqual(found('Art'), [], 'a full name matches only that one');
+  const loose = add('/l/Loose.stl');
+  assert.deepStrictEqual(found('none'), ['Loose.stl'], 'category:none: no Subcategory yet');
+  database.db.prepare('DELETE FROM models WHERE id = ?').run(loose);
 
   // --- Categorize Library ---
   const scan = require('../src/server/category-scan');
@@ -225,7 +228,7 @@ async function main() {
   scan.start({ useAi: true }, { fetchImpl, ask });
   await scan._job().promise;
   done = scan.snapshot();
-  assert.deepStrictEqual(asked.sort(), ['/l/misc/0042.stl'], 'only models with a picture are asked');
+  assert.deepStrictEqual(asked.sort(), ['/l/misc/0042.stl', null], 'the folder once (no category: one by one), then only models with a picture');
   assert.strictEqual(done.noPicture, 4, 'the others have no picture (guesses keep their place)');
   assert.deepStrictEqual(categories.modelCategoryNames(forAi), ['Miniatures', 'Creatures'], 'saved straight away');
   assert.strictEqual(categories.modelPlace(forAi).source, 'ai');
@@ -251,6 +254,45 @@ async function main() {
   );
   assert.deepStrictEqual(categories.modelCategoryNames(noPicture), ['Tools', 'Hand Tools']);
   scan.dismiss();
+
+  // A kit (3 or more models in one folder) is asked about once; different models one by one.
+  const kit = ['tire_front', 'door', 'hood'].map((n) => add(`/l/Supra Kit/${n}.stl`, { thumbnail: picture }));
+  const mixed = ['dragon', 'wrench', 'vase'].map((n) => add(`/l/Downloads/${n}.stl`, { thumbnail: picture }));
+  const questions = [];
+  scan.start(
+    { useAi: true },
+    {
+      fetchImpl,
+      ask: async (b, options, filePath) => {
+        questions.push(filePath || options.customPrompt.match(/one folder, "([^"]+)"/)[1]);
+        if (/one folder, "Supra Kit"/.test(options.customPrompt)) {
+          assert.match(options.customPrompt, /"tire_front.stl"/);
+          return Object.assign([], { category: 'Hobby & DIY > Vehicles' });
+        }
+        if (/one folder/.test(options.customPrompt)) {
+          assert.ok(options.categoryChoices.includes('separate'));
+          return Object.assign([], { category: 'separate' });
+        }
+        return Object.assign([], { category: 'Tools > Hand Tools' });
+      }
+    }
+  );
+  await scan._job().promise;
+  assert.deepStrictEqual(
+    questions.sort(),
+    ['/l/Downloads/dragon.stl', '/l/Downloads/vase.stl', '/l/Downloads/wrench.stl', 'Downloads', 'Supra Kit'],
+    'one question for the kit; the folder of different models one by one'
+  );
+  for (const id of kit) assert.deepStrictEqual(categories.modelCategoryNames(id), ['Hobby & DIY', 'Vehicles'], 'every part of the kit');
+  for (const id of mixed) assert.deepStrictEqual(categories.modelCategoryNames(id), ['Tools', 'Hand Tools']);
+  scan.dismiss();
+
+  // A new part of a kit gets the place its other parts share (AI Tagging, without asking).
+  const newPart = add('/l/Supra Kit/mirror.stl', { thumbnail: picture });
+  assert.strictEqual(categories.aiCategoryChoices(newPart), null);
+  assert.deepStrictEqual(categories.modelCategoryNames(newPart), ['Hobby & DIY', 'Vehicles']);
+  const lonely = add('/l/Elsewhere/thing.stl');
+  assert.ok(categories.aiCategoryChoices(lonely), 'no siblings: the AI is asked');
 
   // The sort after an update runs once, without the AI.
   database.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('categoriesResort', '1')").run();

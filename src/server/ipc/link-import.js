@@ -30,16 +30,27 @@ ipcMain.handle('list-model-links', async (event, url, options) =>
 ipcMain.handle('import-model-link', async (event, url, options) => {
   const { download } = require('../site-details');
   const { downloadFiles } = require('../site-files');
-  const result = await importLink(
-    url,
-    { db: database.db, saveModel, saveThumbnail, download, downloadFiles },
-    {
-      downloadFolder: options && typeof options.downloadFolder === 'string' ? options.downloadFolder : null,
-      profileIds: options && Array.isArray(options.profileIds) ? options.profileIds.filter((id) => typeof id === 'string').slice(0, 200) : null,
-      fileIds: options && Array.isArray(options.fileIds) ? options.fileIds.filter((id) => typeof id === 'string').slice(0, 500) : null,
-      downloadOptions: { event, onProgress: (progress) => events.toCaller(event, 'makerworld-download-progress', progress) }
-    }
-  );
+  // Only downloads show above Library Storage (adding a link alone is quick).
+  const wantsDownload = !!(options && typeof options.downloadFolder === 'string' && options.downloadFolder);
+  /** @param {(changes: object) => void} progressed */
+  const run = (progressed) =>
+    importLink(
+      url,
+      { db: database.db, saveModel, saveThumbnail, download, downloadFiles },
+      {
+        downloadFolder: options && typeof options.downloadFolder === 'string' ? options.downloadFolder : null,
+        profileIds: options && Array.isArray(options.profileIds) ? options.profileIds.filter((id) => typeof id === 'string').slice(0, 200) : null,
+        fileIds: options && Array.isArray(options.fileIds) ? options.fileIds.filter((id) => typeof id === 'string').slice(0, 500) : null,
+        downloadOptions: {
+          event,
+          onProgress: (progress) => {
+            progressed({ detail: progress.label || null, done: progress.received, total: progress.total || null });
+            events.toCaller(event, 'makerworld-download-progress', progress);
+          }
+        }
+      }
+    );
+  const result = wantsDownload ? await require('../activity').track('download', 'Downloading from a model site', { unit: 'bytes' }, run) : await run(() => {});
   if (result.status === 'added' || result.status === 'downloaded') refreshSoon();
   return result;
 });
@@ -57,9 +68,16 @@ ipcMain.handle('list-site-files', async (event, url) => {
 /** Download a Printables or Thingiverse model's files from the details panel: { url, folder, fileIds }. */
 ipcMain.handle('site-download-files', async (event, request) => {
   const { url, folder, fileIds } = request || {};
-  return require('../site-files').downloadFiles(
-    { url, folder, fileIds: Array.isArray(fileIds) ? fileIds.filter((id) => typeof id === 'string').slice(0, 500) : null },
-    { onProgress: (progress) => events.toCaller(event, 'makerworld-download-progress', progress) }
+  return require('../activity').track('download', 'Downloading from a model site', { unit: 'bytes' }, (progressed) =>
+    require('../site-files').downloadFiles(
+      { url, folder, fileIds: Array.isArray(fileIds) ? fileIds.filter((id) => typeof id === 'string').slice(0, 500) : null },
+      {
+        onProgress: (progress) => {
+          progressed({ detail: progress.label || null, done: progress.received, total: progress.total || null });
+          events.toCaller(event, 'makerworld-download-progress', progress);
+        }
+      }
+    )
   );
 });
 

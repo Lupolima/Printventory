@@ -2,6 +2,21 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.19.0] - 2026-10-12
+
+**Changes:**
+- **Kits get one place:** Categorize Library asks the AI once about a folder (or ZIP file) with three or more models to sort, with its name, its file names and a picture, and every file in it gets that Category and Subcategory; the parts of a kit no longer scatter (a car kit's tire in Fashion › Rings, its logo in Art). A folder of different models is asked about one model at a time, as before. It is also far cheaper: one AI request for a kit instead of one per part.
+- **What runs in the background:** above Library Storage, a progress bar for each job while it runs, with how far it is ("117 of 130 models", "3.2 MB of 10 MB") and how long it should still take ("about 3 min left", from its pace so far): library scans (also the timed and folder-watching ones that take more than a moment), AI Tagging, Categorize Library, thumbnails, duplicate checks (fingerprints and shapes), downloads from MakerWorld, Printables and Thingiverse, uploads, backups (automatic and Create Backup), Organize Library and Tidy Into Model Folders. Every browser sees every job; the panel is gone when nothing runs. AI Tagging and thumbnails keep their Stop (and Review) buttons there.
+- **Category in Multi-edit:** select models and choose one Category › Subcategory for all of them (it stays, like a place chosen in the Edit dialog).
+- **Category filter:** the Filter popover has a Category choice: a Subcategory, all of a Category, or **No Subcategory yet** (the models Categorize Library has not placed; `category:none` in the search box).
+- **Cards show the Subcategory:** a small badge next to the file type, with the Category when you point at it; a click shows its models.
+- **Model folders follow renames and moves:** renaming the only model in a model folder (Edit) renames its folder too, with its pictures, videos and documents; a model folder moved or renamed outside JusttPrint is found again at the next scan (by its name, or its pictures and documents), and its cover and YouTube links follow it.
+- **The cover stays:** after a thumbnail job (Generate or Regenerate Thumbnails), each model folder's chosen cover is the picture the library shows again.
+- **Pictures, videos and documents in the details panel:** a model folder's media show in the sidebar too (view, play, add, remove, choose the cover), not only on the model's page.
+- **AI Tagging follows the kit:** a model whose folder's other models share a place gets that place without asking the AI.
+
+**Upgrading:** no changes needed. Reload open browser tabs after the update. Kits sorted part by part with 7.18 keep their places; to give each kit one place, run **Categorize Library** with the AI and **Sort every model again**.
+
 ## [7.18.0] - 2026-10-11
 
 **Changes:**

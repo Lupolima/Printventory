@@ -21,8 +21,18 @@ function setBroadcaster(fn, others) {
   otherSender = typeof others === 'function' ? others : null;
 }
 
-/** Send an event to every connected browser. */
+/** Send an event to every connected browser (jobs' progress events also feed activity.js). */
 function broadcast(channel, ...args) {
+  try {
+    require('./activity').fromEvent(channel, args[0]);
+  } catch (error) {
+    console.warn(`[Activity] ${channel}: ${error.message}`);
+  }
+  broadcastRaw(channel, ...args);
+}
+
+/** Send an event to every connected browser, as it is. */
+function broadcastRaw(channel, ...args) {
   if (sender) sender(channel, ...args);
 }
 
@@ -53,4 +63,4 @@ function toCaller(event, channel, ...args) {
   broadcast(channel, ...args);
 }
 
-module.exports = { setBroadcaster, broadcast, broadcastToOthers, sendTo, toCaller };
+module.exports = { setBroadcaster, broadcast, broadcastRaw, broadcastToOthers, sendTo, toCaller };

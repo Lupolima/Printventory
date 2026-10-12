@@ -12,6 +12,8 @@ import { useAdopt } from '../shell/adopt';
 import { loadSlicers, offerSlicerSettings, sendToSlicer, type Slicer } from '../slicer';
 import { useCan } from '../session';
 import { MakerWorldSection } from '../makerworld/MakerWorldSection';
+import { ModelMediaSection } from '../media/ModelMediaSection';
+import { folderOf } from '../media/media';
 import { CategoryPlace } from '../pages/CategoriesPage';
 import { NotesEnglish } from '../notes/NotesEnglish';
 
@@ -373,6 +375,10 @@ export function ModelDetailsPanel() {
       </section>
 
       <MakerWorldSection model={model} />
+
+      {model && !model.filePath.startsWith('url::') && !model.filePath.includes('::') && (
+        <ModelMediaSection key={`media:${model.filePath}`} folder={folderOf(model.filePath)} alone={false} compact />
+      )}
 
       <section className="jp-details__section">
         <h3 className="jp-details__heading">Notes</h3>
