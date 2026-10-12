@@ -17,7 +17,7 @@ const { buildModelFilterConditions } = require('../src/core/model-filters');
 
 const SCHEMA = `
   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
-  CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, license TEXT, parentModel TEXT, source TEXT, notes TEXT,
+  CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, license TEXT, parentModel TEXT, source TEXT, notes TEXT, description TEXT,
     rating INTEGER DEFAULT 0, favorite INTEGER DEFAULT 0, print_status TEXT DEFAULT 'unprinted', printed INTEGER, print_count INTEGER DEFAULT 0, last_printed_at TEXT,
     thumbnail TEXT, isNew INTEGER, dateAdded TEXT, size INTEGER, hash TEXT, modifiedDate TEXT, bundleKey TEXT, bundleLabel TEXT, bundleKind TEXT);
   CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE);

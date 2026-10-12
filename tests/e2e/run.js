@@ -4912,6 +4912,28 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   );
   const thumb = ((await invoke(base, viewer, 'get-model', [model.filePath])).result || {}).thumbnail || '';
   check('the cover is the first thumbnail', thumb.startsWith('data:image/'), thumb.slice(0, 40));
+  // The model page: the title is the model folder's name; each file shows its own picture, not the cover.
+  const asPage = (await invoke(base, viewer, 'get-model', [model.filePath])).result || {};
+  check(
+    'a model in a model folder is titled after the folder',
+    asPage.title === 'E2E Robot Mk 2' && asPage.modelFolder === robot,
+    JSON.stringify({ title: asPage.title })
+  );
+  const fileCards = (await invoke(base, viewer, 'get-folder-models', [model.filePath])).result || [];
+  check(
+    'file cards never show the cover photo',
+    fileCards.length === 1 && fileCards[0].image !== thumb.split('::')[0],
+    String(fileCards[0]?.image).slice(0, 40)
+  );
+  // A description, apart from your notes.
+  const full = (await invoke(base, editor, 'get-model', [model.filePath])).result || {};
+  await invoke(base, editor, 'save-model', [{ ...full, description: 'A robot arm with five joints.', notes: 'Print in PETG.' }]);
+  const described = (await invoke(base, viewer, 'get-model', [model.filePath])).result || {};
+  check(
+    'a description is kept apart from the notes',
+    described.description === 'A robot arm with five joints.' && described.notes === 'Print in PETG.',
+    JSON.stringify({ description: described.description, notes: described.notes })
+  );
 
   const mediaUrl = (filePath, query = '') => `${base}/api/media/${encodeURIComponent(filePath)}${query}`;
   const shown = await fetch(mediaUrl(picture.filePath), { headers: { cookie: viewer.cookie } });

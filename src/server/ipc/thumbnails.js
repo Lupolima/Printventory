@@ -349,10 +349,11 @@ ipcMain.handle('delete-thumbnail', async (event, filePath, index) => {
 // Add or update this function to get models without thumbnails
 ipcMain.handle('get-models-without-thumbnails', async () => {
   try {
+    // Also files whose only picture is their model folder's cover: they get a 3D render of their own.
     const modelsWithoutThumbnails = database.db
       .prepare(
         `
-      SELECT filePath FROM models WHERE thumbnail IS NULL OR thumbnail = '' OR thumbnail = '3d.png'
+      SELECT filePath FROM models WHERE thumbnail IS NULL OR thumbnail = '' OR thumbnail = '3d.png' ${require('../model-folders').onlyCoverSql()}
     `
       )
       .all();

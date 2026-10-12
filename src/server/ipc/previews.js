@@ -216,7 +216,7 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
             database.db
               .prepare(
                 `
-              INSERT INTO models (filePath, fileName, designer, parentModel, notes, license, dateAdded, isNew)
+              INSERT INTO models (filePath, fileName, designer, parentModel, description, license, dateAdded, isNew)
               VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `
               )
@@ -249,10 +249,10 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
               conditions.push('parentModel = ?');
             }
 
-            if (filteredMetadata.notes && (!existingModel.notes || existingModel.notes.trim() === '')) {
-              updates.notes = filteredMetadata.notes;
+            if (filteredMetadata.notes && (!existingModel.description || existingModel.description.trim() === '')) {
+              updates.description = filteredMetadata.notes;
               values.push(filteredMetadata.notes);
-              conditions.push('notes = ?');
+              conditions.push('description = ?');
             }
 
             if (filteredMetadata.license && (!existingModel.license || existingModel.license.trim() === '')) {

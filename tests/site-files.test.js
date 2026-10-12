@@ -21,7 +21,8 @@ async function main() {
   database.db.exec(`CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, license TEXT, source TEXT, notes TEXT,
       rating INTEGER DEFAULT 0, favorite INTEGER DEFAULT 0, print_status TEXT DEFAULT 'unprinted', printed INTEGER, print_count INTEGER DEFAULT 0, last_printed_at TEXT, thumbnail TEXT);
-    CREATE TABLE model_tags (model_id INTEGER, tag_id INTEGER, PRIMARY KEY (model_id, tag_id));`);
+    CREATE TABLE model_tags (model_id INTEGER, tag_id INTEGER, PRIMARY KEY (model_id, tag_id));
+    CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE);`);
   database.db.prepare("INSERT INTO settings (key, value) VALUES ('stlHomeDirectories', ?)").run(JSON.stringify([library]));
   require('../src/server/stl-home').scanUploadedFolder = async (folder) => {
     for (const name of fs.readdirSync(folder)) {
@@ -80,6 +81,7 @@ async function main() {
               license: { name: 'CC BY' },
               // The model's pictures and its PDF (saved into the model's folder).
               images: [{ filePath: 'media/prints/1839122/images/front_view.jpg' }],
+              tags: [{ name: 'laptop stand' }, { name: 'desk' }],
               pdfFilePath: 'media/prints/1839122/pdfs/stand.pdf'
             }
           }
@@ -156,6 +158,16 @@ async function main() {
   assert.deepStrictEqual(fs.readdirSync(path.join(folder, 'document')), ['stand.pdf']);
   assert.strictEqual(result.media, 2);
   assert.ok(require('../src/server/model-folders').isModelFolder(folder));
+  // The site's tags became the files' own tags, once.
+  const tagsOf = (filePath) =>
+    database.db
+      .prepare('SELECT t.name FROM model_tags mt JOIN tags t ON t.id = mt.tag_id JOIN models m ON m.id = mt.model_id WHERE m.filePath = ? ORDER BY t.name')
+      .all(filePath)
+      .map((r) => r.name);
+  assert.deepStrictEqual(tagsOf(path.join(folder, 'Main Parts.stl')), ['desk', 'laptop stand']);
+  database.db.prepare("DELETE FROM model_tags WHERE tag_id = (SELECT id FROM tags WHERE name = 'desk')").run();
+  await require('../src/server/site-details').getDetails(PRINTABLES, { fetchImpl: web });
+  assert.deepStrictEqual(tagsOf(path.join(folder, 'Main Parts.stl')), ['laptop stand'], 'a tag taken away does not come back');
   assert.ok(!database.db.prepare('SELECT 1 FROM models WHERE id = ?').get(online), 'the online model became the files');
   const part = database.db.prepare('SELECT designer, license, source, notes FROM models WHERE filePath = ?').get(path.join(folder, 'Main Parts.stl'));
   assert.deepStrictEqual({ ...part }, { designer: 'Shapr3D', license: 'CC BY', source: 'https://www.printables.com/model/1839122', notes: 'my notes' });

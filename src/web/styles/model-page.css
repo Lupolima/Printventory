@@ -90,6 +90,96 @@
   padding-top: 2px;
 }
 
+/* The gallery (media/ModelGallery.tsx): a click on the large picture shows it full size. As strong as
+   the page's button rules, which it has to undo. */
+:is(#model-details, .jp-model-page) .jp-gallery__open {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
+}
+.jp-gallery__open:focus-visible {
+  box-shadow: var(--jp-focus-ring);
+}
+.jp-gallery__open img,
+.jp-gallery__open .jp-media__loading,
+.jp-gallery__open .jp-media__broken {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.jp-gallery__cover {
+  top: var(--jp-space-3);
+  left: var(--jp-space-3);
+}
+.jp-gallery__tools {
+  position: absolute;
+  top: var(--jp-space-3);
+  right: var(--jp-space-3);
+  display: flex;
+  gap: 2px;
+  border-radius: var(--jp-radius-sm);
+  background: rgba(var(--jp-surface-1-rgb), 0.9);
+}
+:is(#model-details, .jp-model-page) .jp-gallery__full {
+  position: absolute;
+  right: var(--jp-space-3);
+  bottom: calc(var(--jp-space-3) + 40px);
+}
+.jp-gallery__row {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  min-width: 0;
+}
+.jp-gallery__row .jp-details__strip {
+  flex: 1;
+  min-width: 0;
+}
+.jp-gallery__row > .jp-btn {
+  flex: none;
+  width: auto;
+  margin: var(--jp-space-2) 0 0;
+}
+.jp-gallery__row .jp-details__thumb img,
+.jp-gallery__row .jp-details__thumb .jp-media__loading {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A panel's title with its edit button (Description, Notes). */
+.jp-model-page__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jp-space-2);
+}
+.jp-model-page__notes-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.jp-model-page__notes-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--jp-space-2);
+  margin-top: var(--jp-space-2);
+}
+.jp-model-page__notes-buttons .jp-btn {
+  width: auto;
+  margin: 0;
+}
+.jp-mw__download {
+  margin-top: var(--jp-space-3);
+}
+.jp-mw__download .jp-btn {
+  width: auto;
+}
+
 .jp-model-page__markdown {
   overflow-wrap: anywhere;
 }

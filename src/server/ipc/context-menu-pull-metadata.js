@@ -32,7 +32,7 @@ async function pullMetadataFromMenu(event, filePaths) {
         const hasData =
           (model.designer && model.designer.trim()) ||
           (model.parentModel && model.parentModel.trim()) ||
-          (model.notes && model.notes.trim()) ||
+          (model.description && model.description.trim()) ||
           (model.license && model.license.trim());
         if (hasData) {
           modelsWithData.push({
@@ -40,7 +40,7 @@ async function pullMetadataFromMenu(event, filePaths) {
             fileName: model.fileName || path.basename(filePath),
             designer: model.designer,
             parentModel: model.parentModel,
-            notes: model.notes,
+            description: model.description,
             license: model.license
           });
         }
@@ -51,7 +51,7 @@ async function pullMetadataFromMenu(event, filePaths) {
     if (modelsWithData.length > 0) {
       const message =
         modelsWithData.length === 1
-          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].parentModel ? `Parent Model: ${modelsWithData[0].parentModel}\n` : ''}${modelsWithData[0].notes ? `Notes: ${modelsWithData[0].notes.substring(0, 50)}${modelsWithData[0].notes.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
+          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].parentModel ? `Parent Model: ${modelsWithData[0].parentModel}\n` : ''}${modelsWithData[0].description ? `Description: ${modelsWithData[0].description.substring(0, 50)}${modelsWithData[0].description.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
           : `This will overwrite existing metadata for ${modelsWithData.length} model(s).\n\nContinue?`;
 
       const confirm = await clientDialogs.messageBox(event, {
@@ -94,7 +94,7 @@ async function pullMetadataFromMenu(event, filePaths) {
             database.db
               .prepare(
                 `
-              INSERT INTO models (filePath, fileName, designer, parentModel, notes, license, dateAdded, isNew)
+              INSERT INTO models (filePath, fileName, designer, parentModel, description, license, dateAdded, isNew)
               VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `
               )
@@ -116,7 +116,7 @@ async function pullMetadataFromMenu(event, filePaths) {
               .prepare(
                 `
               UPDATE models 
-              SET designer = ?, parentModel = ?, notes = ?, license = ?
+              SET designer = ?, parentModel = ?, description = ?, license = ?
               WHERE filePath = ?
             `
               )

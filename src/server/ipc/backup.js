@@ -147,7 +147,7 @@ function buildLibraryExportData() {
   const models = database.db
     .prepare(
       `
-    SELECT id, filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, parentModel, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite
+    SELECT id, filePath, fileName, designer, source, notes, description, printed, print_status, print_count, last_printed_at, parentModel, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite
     FROM models
   `
     )
@@ -339,6 +339,7 @@ function buildLibraryExportData() {
       designer: model.designer,
       source: model.source,
       notes: model.notes,
+      description: model.description || null,
       printed: model.printed,
       print_status: model.print_status || (model.printed ? 'printed' : 'unprinted'),
       print_count: model.print_count || 0,
@@ -400,6 +401,7 @@ ipcMain.handle('import-library', async (event, /** @type {{ json?: string } | nu
           designer: modelData.designer || null,
           source: modelData.source || null,
           notes: modelData.notes || null,
+          ...(modelData.description !== undefined ? { description: modelData.description || null } : {}),
           printed: modelData.printed || 0,
           parentModel: modelData.parentModel || null,
           license: modelData.license || null,

@@ -157,8 +157,68 @@ async function getDetails(url, options = {}) {
     const key = linkKey(parseModelLink(url));
     if (result.details) result.details = applyEdits(result.details, editsFor(key));
     result.downloads = downloadsFor(key);
+    if (result.details) {
+      try {
+        giveSiteTags(key, /** @type {any} */ (parseModelLink(url)), result.details);
+      } catch (error) {
+        console.warn(`[Site tags] ${error.message}`);
+      }
+    }
   }
   return result;
+}
+
+const MAX_SITE_TAG = 80;
+
+/**
+ * The site's tags become the library models' own tags (English when there is one), once for each
+ * model: a tag removed afterwards does not come back. The models are the site model's online model,
+ * its downloaded files and the files whose source is its link.
+ * @param {string} key
+ * @param {{ id: string }} link
+ * @param {any} details
+ */
+function giveSiteTags(key, link, details) {
+  const names = [
+    ...new Set((details.tags || []).map((tag) => String((tag && (tag.english || tag.name)) || '').trim()).filter((name) => name && name.length <= MAX_SITE_TAG))
+  ];
+  if (!names.length) return 0;
+  const db = database.db;
+  db.prepare('CREATE TABLE IF NOT EXISTS site_tags_given (model_id INTEGER NOT NULL, key TEXT NOT NULL, PRIMARY KEY (model_id, key))').run();
+  const ids = new Set(
+    db
+      .prepare('SELECT id, filePath, source FROM models WHERE filePath LIKE ? OR source LIKE ?')
+      .all(`url::%${link.id}%`, `%${link.id}%`)
+      .filter((row) => {
+        const found = parseModelLink(String(row.filePath).startsWith('url::') ? String(row.filePath).slice(5) : String(row.source || ''));
+        return found && linkKey(found) === key;
+      })
+      .map((row) => row.id)
+  );
+  for (const { filePath } of downloadsFor(key)) {
+    const row = db.prepare('SELECT id FROM models WHERE filePath = ?').get(filePath);
+    if (row) ids.add(row.id);
+  }
+  const given = db.prepare('SELECT 1 FROM site_tags_given WHERE model_id = ? AND key = ?');
+  const remember = db.prepare('INSERT OR IGNORE INTO site_tags_given (model_id, key) VALUES (?, ?)');
+  const makeTag = db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)');
+  const tagId = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE');
+  const link_ = db.prepare('INSERT OR IGNORE INTO model_tags (model_id, tag_id) VALUES (?, ?)');
+  let tagged = 0;
+  db.transaction(() => {
+    for (const id of ids) {
+      if (given.get(id, key)) continue;
+      for (const name of names) {
+        makeTag.run(name);
+        const tag = tagId.get(name);
+        if (tag) link_.run(id, tag.id);
+      }
+      remember.run(id, key);
+      tagged++;
+    }
+  })();
+  if (tagged) require('./events').broadcast('refresh-grid');
+  return tagged;
 }
 
 const EDIT_LIMITS = { title: 300, designer: 200, license: 200, description: 50000 };
@@ -848,8 +908,30 @@ const resetCaptchaPause = () => {
   captchaUntil = 0;
 };
 
+/**
+ * The title a model's page shows when it came from a site: the site's title (English when there
+ * is one, or one changed in the Edit dialog), from the kept details (no network). Null otherwise.
+ * @param {{ filePath?: string | null, source?: string | null }} model
+ */
+function siteTitleOf(model) {
+  const text = String((model && model.filePath) || '');
+  const link = parseModelLink(text.startsWith('url::') ? text.slice(5) : String((model && model.source) || ''));
+  if (!link) return null;
+  const key = linkKey(link);
+  const row = table().prepare('SELECT data FROM site_details WHERE key = ?').get(key);
+  if (!row) return null;
+  try {
+    const details = applyEdits(JSON.parse(row.data), editsFor(key));
+    return String(details.titleEnglish || details.title || '').trim() || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 module.exports = {
   DOWNLOAD_HOSTS,
+  siteTitleOf,
+  giveSiteTags,
   downloadsFor,
   renameOlderDownloads,
   earlierFolder,

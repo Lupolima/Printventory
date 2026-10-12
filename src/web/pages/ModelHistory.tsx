@@ -32,6 +32,7 @@ export const FIELD_LABELS: Record<string, string> = {
   parentModel: 'Parent model',
   license: 'License',
   notes: 'Notes',
+  description: 'Description',
   tags: 'Tags',
   rating: 'Rating',
   categories: 'Categories'
