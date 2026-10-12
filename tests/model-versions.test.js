@@ -81,6 +81,28 @@ async function main() {
   await history.tracking([id], null, async () => {}); // nothing changed: nothing written
   assert.strictEqual(history.listVersions(file).changes.length, 3);
 
+  // --- Every model's history (the History page) ---
+  fs.writeFileSync(uploaded, 'version three');
+  history.replaceWithUpload(file, uploaded, { by: 'ace' });
+  const all = history.listAll();
+  assert.strictEqual(all.entries.length, 4, 'three changes and one earlier file');
+  assert.strictEqual(all.entries[0].kind, 'version', 'newest first');
+  assert.deepStrictEqual(all.entries[0].model, { id, filePath: file, fileName: path.basename(file) });
+  assert.strictEqual(all.more, false);
+  const page = history.listAll({ limit: 2 });
+  assert.strictEqual(page.entries.length, 2);
+  assert.strictEqual(page.more, true);
+  assert.strictEqual(
+    history.listAll({ before: page.entries[1].at, limit: 10 }).entries.every((e) => e.at < page.entries[1].at),
+    true,
+    'older pages'
+  );
+  assert.deepStrictEqual(
+    history.listAll({ search: 'bob' }).entries.map((e) => e.field),
+    ['designer'],
+    'searched'
+  );
+
   // --- A model leaves the library: its history goes too ---
   fs.writeFileSync(uploaded, 'again');
   history.replaceWithUpload(file, uploaded);

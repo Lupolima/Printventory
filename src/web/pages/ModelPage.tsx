@@ -17,7 +17,7 @@ import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
 import { CategoryPlace } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
-import { ModelHistory } from './ModelHistory';
+import { UploadVersionButton } from './ModelHistory';
 import { ModelGallery } from '../media/ModelGallery';
 import { ModelMediaSection, YoutubeVideo } from '../media/ModelMediaSection';
 import { DescriptionSection, NotesPanel } from './ModelPageParts';
@@ -485,17 +485,20 @@ export function ModelPage({ filePath }: { filePath: string }) {
               Model Details
             </h2>
             <div className="jp-model-page__actions">
-              <SlicerButton filePath={model.filePath} slicers={slicers} />
-              {canEdit && (
-                <Button icon={ClipboardPen} onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}>
-                  Log Print
-                </Button>
-              )}
+              <div className="jp-model-page__slicer">
+                <SlicerButton filePath={model.filePath} slicers={slicers} />
+              </div>
               {canEdit && (
                 <Button icon={Pencil} id="jp-model-page-edit" onClick={() => window.openEditModel?.(model.filePath)}>
                   Edit
                 </Button>
               )}
+              {canEdit && (
+                <Button icon={ClipboardPen} onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}>
+                  Log Print
+                </Button>
+              )}
+              {!online && !model.filePath.includes('::') && <UploadVersionButton filePath={model.filePath} folder={folderOf(model.filePath)} />}
               <span className="jp-model-page__icons">
                 {canEdit && (
                   <IconButton
@@ -558,7 +561,8 @@ export function ModelPage({ filePath }: { filePath: string }) {
                   '—'
                 )}
               </Prop>
-              <Prop label="Category">{model.categories?.length ? <CategoryPlace names={model.categories} id="jp-model-page-categories" /> : '—'}</Prop>
+              <Prop label="Category">{model.categories?.[0] ? <CategoryPlace names={[model.categories[0]]} id="jp-model-page-categories" /> : '—'}</Prop>
+              <Prop label="Subcategory">{model.categories?.[1] ? <CategoryPlace names={[model.categories[1]]} id="jp-model-page-subcategory" /> : '—'}</Prop>
               <Prop label="Location" title={online ? undefined : model.filePath}>
                 {online ? 'Online model' : folderPath || '—'}
               </Prop>
@@ -590,13 +594,6 @@ export function ModelPage({ filePath }: { filePath: string }) {
           )}
 
           {!online && <KitChecklist target={model.filePath} />}
-
-          {!online && !model.filePath.includes('::') && (
-            <ModelHistory
-              filePath={model.filePath}
-              folder={model.filePath.slice(0, Math.max(model.filePath.lastIndexOf('/'), model.filePath.lastIndexOf('\\')))}
-            />
-          )}
 
           <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">
             <h2 className="jp-panel-title" id="jp-model-page-history">

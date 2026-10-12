@@ -434,25 +434,6 @@ function ProfilePart({
   );
 }
 
-/** The model page: Download to Library (more print profiles or files), without the file list. */
-function PageDownload({ details, profileId, downloads }: { details: MakerWorldDetails; profileId: string; downloads: ProfileDownload[] }) {
-  const canDownload = useCan('editor');
-  if (!canDownload) return null;
-  const makerWorld = details.site === 'makerworld';
-  if (makerWorld ? !details.profiles.length : !details.files.length) return null;
-  return (
-    <div className="jp-mw__download">
-      <Button
-        icon={Download}
-        id="jp-page-download"
-        onClick={() => (makerWorld ? window.openMakerWorldDownload?.(details, { profileId, downloads }) : window.openSiteFilesDownload?.(details, downloads))}
-      >
-        Download to Library…
-      </Button>
-    </div>
-  );
-}
-
 /** Printables and Thingiverse: the files, which ones are downloaded, and Download to Library. */
 function SiteFilesPart({ details, downloads }: { details: MakerWorldDetails; downloads: ProfileDownload[] }) {
   const canDownload = useCan('editor');
@@ -590,8 +571,8 @@ function FilesPart({ details, profileId, downloads }: { details: MakerWorldDetai
  */
 /**
  * A model's details on MakerWorld, Printables or Thingiverse. `page`: the model page's shorter
- * version (rating, remixes, the print profile's job, plates and filament, print settings, and
- * Download to Library); the details panel shows everything.
+ * version (rating, remixes, the print profile's job, plates and filament, print settings), without
+ * the site's name; the details panel shows everything (and Download to Library).
  */
 export function MakerWorldSection({ model, page = false }: { model: { filePath?: string | null; source?: unknown } | null; page?: boolean }) {
   const found = siteModelUrl(model);
@@ -641,11 +622,13 @@ export function MakerWorldSection({ model, page = false }: { model: { filePath?:
   const details = result?.details || null;
   return (
     <section className="jp-details__section jp-mw" id="jp-mw-section" aria-busy={loading}>
-      <div className="jp-mw__top">
-        <h3 className="jp-details__heading">{label}</h3>
-        <a className="jp-mw__open" href={details?.url || url} target="_blank" rel="noopener noreferrer">
-          Open <ExternalLink size={12} aria-hidden="true" />
-        </a>
+      <div className={page ? 'jp-mw__top is-page' : 'jp-mw__top'}>
+        {!page && <h3 className="jp-details__heading">{label}</h3>}
+        {!page && (
+          <a className="jp-mw__open" href={details?.url || url} target="_blank" rel="noopener noreferrer">
+            Open <ExternalLink size={12} aria-hidden="true" />
+          </a>
+        )}
         <IconButton
           icon={RefreshCw}
           size="sm"
@@ -681,7 +664,6 @@ export function MakerWorldSection({ model, page = false }: { model: { filePath?:
             />
           )}
           {details.printSettings && <PrintSettingsPart settings={details.printSettings} />}
-          <PageDownload details={details} profileId={profileId} downloads={result?.downloads || []} />
         </>
       )}
       {details && !page && (

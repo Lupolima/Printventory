@@ -190,26 +190,35 @@ export function ModelGallery({
                 <Picture item={item} />
               </button>
             ))}
+            {canAdd && (
+              <button
+                type="button"
+                className="jp-details__thumb jp-gallery__add"
+                id="jp-gallery-add"
+                title="Add photos"
+                aria-label="Add photos"
+                disabled={!!busy}
+                onClick={() => input.current?.click()}
+              >
+                <ImagePlus size={20} aria-hidden="true" />
+              </button>
+            )}
           </div>
           {canAdd && (
-            <>
-              <Button size="sm" icon={ImagePlus} id="jp-gallery-add" disabled={!!busy} onClick={() => input.current?.click()}>
-                {busy || 'Add Photos'}
-              </Button>
-              <input
-                ref={input}
-                type="file"
-                multiple
-                hidden
-                accept={(info.current?.mediaExtensions?.image || []).join(',')}
-                onChange={(event) => {
-                  const files = Array.from(event.target.files || []);
-                  event.target.value = '';
-                  if (files.length) void addPhotos(files);
-                }}
-              />
-            </>
+            <input
+              ref={input}
+              type="file"
+              multiple
+              hidden
+              accept={(info.current?.mediaExtensions?.image || []).join(',')}
+              onChange={(event) => {
+                const files = Array.from(event.target.files || []);
+                event.target.value = '';
+                if (files.length) void addPhotos(files);
+              }}
+            />
           )}
+          {busy && <span className="jp-meta jp-gallery__busy">{busy}</span>}
         </div>
       )}
 

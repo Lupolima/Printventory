@@ -208,6 +208,65 @@ function listVersions(filePath) {
   return { versions, changes };
 }
 
+/**
+ * Every model's history, newest first (the History page): the changes to their details and the
+ * earlier files kept, each with its model ({ id, filePath, fileName }). `before` (an ISO time)
+ * pages back; `search` keeps entries whose model's name or path, field or values contain it.
+ * Answers { entries: [{ kind: 'change' | 'version', id, at, by, model, ... }], more }.
+ * @param {{ before?: string | null, limit?: number, search?: string | null }} [options]
+ */
+function listAll({ before = null, limit = 100, search = null } = {}) {
+  const db = table();
+  const max = Math.max(1, Math.min(Number(limit) || 100, 500));
+  const term = search ? `%${String(search).toLowerCase()}%` : null;
+  const when = before ? String(before) : '9999';
+  const changes = db
+    .prepare(
+      `SELECT c.id, c.field, c.old_value AS oldValue, c.new_value AS newValue, c.changed_at AS at, c.changed_by AS by,
+        m.id AS modelId, m.filePath, m.fileName
+      FROM model_changes c JOIN models m ON m.id = c.model_id
+      WHERE c.changed_at < ? ${
+        term
+          ? "AND (LOWER(m.fileName) LIKE ? OR LOWER(m.filePath) LIKE ? OR LOWER(c.field) LIKE ? OR LOWER(COALESCE(c.old_value, '')) LIKE ? OR LOWER(COALESCE(c.new_value, '')) LIKE ?)"
+          : ''
+      }
+      ORDER BY c.changed_at DESC, c.id DESC LIMIT ?`
+    )
+    .all(when, ...(term ? [term, term, term, term, term] : []), max + 1);
+  const versions = db
+    .prepare(
+      `SELECT v.id, v.file_name AS fileName, v.size, v.created_at AS at, v.created_by AS by, v.note,
+        m.id AS modelId, m.filePath, m.fileName AS modelFileName
+      FROM model_versions v JOIN models m ON m.id = v.model_id
+      WHERE v.created_at < ? ${term ? 'AND (LOWER(m.fileName) LIKE ? OR LOWER(m.filePath) LIKE ? OR LOWER(v.file_name) LIKE ?)' : ''}
+      ORDER BY v.created_at DESC, v.id DESC LIMIT ?`
+    )
+    .all(when, ...(term ? [term, term, term] : []), max + 1);
+  const entries = [
+    ...changes.map((row) => ({
+      kind: 'change',
+      id: row.id,
+      at: row.at,
+      by: row.by,
+      field: row.field,
+      oldValue: row.oldValue,
+      newValue: row.newValue,
+      model: { id: row.modelId, filePath: row.filePath, fileName: row.fileName }
+    })),
+    ...versions.map((row) => ({
+      kind: 'version',
+      id: row.id,
+      at: row.at,
+      by: row.by,
+      fileName: row.fileName,
+      size: row.size,
+      note: row.note,
+      model: { id: row.modelId, filePath: row.filePath, fileName: row.modelFileName }
+    }))
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at)) || b.id - a.id);
+  return { entries: entries.slice(0, max), more: entries.length > max };
+}
+
 // ---- Changes to the details ----
 
 const tagList = (tags) =>
@@ -306,6 +365,7 @@ function changeToUndo(changeId) {
 }
 
 module.exports = {
+  listAll,
   TRACKED,
   changeToUndo,
   deleteVersion,

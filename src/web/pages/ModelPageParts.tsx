@@ -41,7 +41,6 @@ export function DescriptionSection({
   siteDescription?: string | null;
   siteDescriptionEnglish?: string | null;
 }) {
-  const canEdit = useCan('editor');
   const own = String(description || '').trim();
   const fromSite = !own && (siteDescriptionEnglish || siteDescription);
   const siteText =
@@ -54,7 +53,6 @@ export function DescriptionSection({
         <h2 className="jp-panel-title" id="jp-model-description-title">
           Description
         </h2>
-        {canEdit && <IconButton icon={Pencil} size="sm" label="Edit the description" onClick={() => window.openEditModel?.(filePath)} />}
       </div>
       {own ? (
         <>

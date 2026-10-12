@@ -20,6 +20,7 @@ describe('shell navigation', () => {
       'Library',
       'Collections',
       'Categories',
+      'History',
       'Queue',
       'Printers',
       'Statistics',
@@ -63,12 +64,13 @@ describe('roles', () => {
   const labels = (role: string) => navFor(role).flatMap((s) => s.items.map((i) => i.label));
 
   it('shows viewers the pages that only look, editors the library tools, admins everything', () => {
-    expect(labels('viewer')).toEqual(['Home', 'Library', 'Collections', 'Categories', 'Queue', 'Printers', 'Statistics', 'Settings', 'Help']);
+    expect(labels('viewer')).toEqual(['Home', 'Library', 'Collections', 'Categories', 'History', 'Queue', 'Printers', 'Statistics', 'Settings', 'Help']);
     expect(labels('editor')).toEqual([
       'Home',
       'Library',
       'Collections',
       'Categories',
+      'History',
       'Queue',
       'Printers',
       'Statistics',

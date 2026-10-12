@@ -151,6 +151,23 @@
   object-fit: cover;
 }
 
+/* The strip's last tile: add photos. */
+:is(#model-details, .jp-model-page) .jp-gallery__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  color: var(--jp-text-2);
+  background: transparent;
+}
+:is(#model-details, .jp-model-page) .jp-gallery__add:hover {
+  border-color: var(--jp-accent-border);
+  color: var(--jp-accent);
+}
+.jp-gallery__busy {
+  flex: none;
+}
+
 /* A panel's title with its edit button (Description, Notes). */
 .jp-model-page__panel-head {
   display: flex;
@@ -173,11 +190,8 @@
   width: auto;
   margin: 0;
 }
-.jp-mw__download {
-  margin-top: var(--jp-space-3);
-}
-.jp-mw__download .jp-btn {
-  width: auto;
+.jp-mw__top.is-page {
+  justify-content: flex-end;
 }
 
 .jp-model-page__markdown {
@@ -220,11 +234,15 @@
   height: 100%;
   object-fit: contain;
 }
+/* Centred without a transform: the page's button:hover rule takes transforms away (it jumped). */
 .jp-model-file__load {
   all: unset;
   position: absolute;
   top: var(--jp-space-2);
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
   display: inline-flex;
   align-items: center;
   gap: var(--jp-space-1);
@@ -235,7 +253,6 @@
   font: 600 var(--jp-text-badge) / 1.4 var(--jp-font);
   white-space: nowrap;
   cursor: pointer;
-  transform: translateX(-50%);
 }
 .jp-model-file__load:hover {
   background: rgba(var(--jp-bg-rgb), 0.95);
@@ -300,6 +317,10 @@
   align-items: center;
   gap: var(--jp-space-2);
   margin: var(--jp-space-3) 0 var(--jp-space-4);
+}
+.jp-model-page__slicer {
+  flex: 1 1 100%;
+  display: flex;
 }
 .jp-model-page__icons {
   display: inline-flex;
@@ -527,4 +548,55 @@ dialog.assembly-dialog {
 }
 .jp-notes-original summary {
   cursor: pointer;
+}
+
+/* History (pages/HistoryPage.tsx): every model's changes and earlier files. */
+.jp-history-page {
+  max-width: 980px;
+}
+.jp-history-page__search {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  margin-bottom: var(--jp-space-4);
+  color: var(--jp-text-3);
+}
+.jp-history-page__search .jp-input {
+  width: min(100%, 420px);
+}
+.jp-history-page__list {
+  margin: 0;
+  padding: var(--jp-space-2) var(--jp-space-4);
+  list-style: none;
+}
+.jp-history-page__day {
+  margin: var(--jp-space-4) 0 var(--jp-space-2);
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+  font-weight: 600;
+}
+.jp-history-page__entry:first-child .jp-history-page__day {
+  margin-top: var(--jp-space-2);
+}
+.jp-history-page__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--jp-space-3);
+  padding: var(--jp-space-2) 0;
+  border-top: 1px solid var(--jp-border);
+}
+.jp-history-page__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--jp-text-3);
+}
+.jp-history-page__row .jp-history__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.jp-history-page__more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--jp-space-4);
 }
