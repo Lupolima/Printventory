@@ -190,9 +190,6 @@
   width: auto;
   margin: 0;
 }
-.jp-mw__top.is-page {
-  justify-content: flex-end;
-}
 
 .jp-model-page__markdown {
   overflow-wrap: anywhere;

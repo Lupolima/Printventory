@@ -343,7 +343,7 @@ function ProfilePart({
   if (!profile) return null;
   return (
     <>
-      <h4 className="jp-mw__heading">Print profile</h4>
+      {!page && <h4 className="jp-mw__heading">Print profile</h4>}
       {shown.length > 1 && (
         <select className="jp-input jp-mw__select" value={profile.id} aria-label="Print profile" onChange={(event) => onChange(event.target.value)}>
           {shown.map((row) => (
@@ -622,22 +622,26 @@ export function MakerWorldSection({ model, page = false }: { model: { filePath?:
   const details = result?.details || null;
   return (
     <section className="jp-details__section jp-mw" id="jp-mw-section" aria-busy={loading}>
-      <div className={page ? 'jp-mw__top is-page' : 'jp-mw__top'}>
-        {!page && <h3 className="jp-details__heading">{label}</h3>}
-        {!page && (
+      {page ? (
+        <h2 className="jp-panel-title" id="jp-print-profile-title">
+          Print Profile
+        </h2>
+      ) : (
+        <div className="jp-mw__top">
+          <h3 className="jp-details__heading">{label}</h3>
           <a className="jp-mw__open" href={details?.url || url} target="_blank" rel="noopener noreferrer">
             Open <ExternalLink size={12} aria-hidden="true" />
           </a>
-        )}
-        <IconButton
-          icon={RefreshCw}
-          size="sm"
-          label={`Get the details from ${label} again`}
-          disabled={loading}
-          onClick={() => load(true)}
-          className={loading ? 'jp-mw__spinning' : undefined}
-        />
-      </div>
+          <IconButton
+            icon={RefreshCw}
+            size="sm"
+            label={`Get the details from ${label} again`}
+            disabled={loading}
+            onClick={() => load(true)}
+            className={loading ? 'jp-mw__spinning' : undefined}
+          />
+        </div>
+      )}
       {loading && !details && <p className="jp-meta">Getting the details from {label}…</p>}
       {error && (
         <p className="jp-meta jp-mw__note" role="alert">
