@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.22.0**
+**Version 7.22.1**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -111,6 +111,17 @@ docker run -d --name justtprint-server \
 ```
 
 On Windows, write the models path like `C:/Users/you/Models:/mnt/models:ro`.
+
+## Unraid
+
+JusttPrint has an Unraid template ([unraid/justtprint.xml](unraid/justtprint.xml)).
+
+1. In Unraid, open **Docker**, scroll to **Template Repositories**, add `https://github.com/ngolston/JusttPrint` and click **Save**.
+2. Click **Add Container** and choose **JusttPrint** under **Template**.
+3. Set **Models** to your models share (for example `/mnt/user/models`) and choose a **Password**. App Data goes to `/mnt/user/appdata/justtprint`.
+4. Click **Apply**, then **WebUI** in the container's menu, and log in as `admin`.
+
+Models is read-only; set it to Read/Write to allow delete, move and Organize Library. More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show more settings**; leave one empty to set it in the web UI instead. For NVIDIA thumbnails, see the template's description.
 
 ## Docker Compose options explained
 
