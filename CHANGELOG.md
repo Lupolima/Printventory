@@ -2,6 +2,24 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.20.0] - 2026-10-12
+
+**Changes:**
+- **The model page, rearranged:**
+  - **Title:** a model from MakerWorld, Printables or Thingiverse shows the site's title (English when there is one); a model in a model folder its folder's name.
+  - **Gallery:** every photo in the model folder's image folder (the cover first), then the file's 3D renders. Click the large picture to see it full size and step through them; editors add photos with the **+** tile at the end of the strip (a model alone in its folder gets a model folder for them), remove them and choose the cover right there.
+  - **Description** (under the gallery): what the model is: its own description (from its 3MF, or written in Edit), else what its site says, in English with the original folded away.
+  - **Notes** moved to the sidebar: what you write about the model, edited in place.
+  - **Print Profile** (the site's section): only what the page does not show elsewhere: the site's rating, what the model is a remix of, the print profile's job (plates, time, grams), plates and filament, and print settings (no site name or refresh button; Download to Library stays in the details panel).
+  - **Model Details:** Open in Slicer on its own row, then Edit, Log Print and **New Version** (Upload New Version) together; Category and Subcategory are rows of their own.
+  - **Videos** and **Documents** are sections of their own: the model folder's files plus the site's videos (YouTube) and its PDF, also for models not downloaded.
+  - **Files:** each file shows its own 3D render, never the cover photo; Generate Missing Thumbnails now renders files whose only picture was their folder's cover. **Load 3D** no longer jumps away when you point at it.
+- **History** (sidebar): every model's history in one list, newest first, by day: the changes to their details (put a value back) and the earlier files kept by New Version (download, put back, delete), each with a link to its model, and a search. It takes the place of the Version history panel on model pages.
+- **Description and Notes are separate:** every model has a Description (what the model is) apart from its Notes (what you write). A 3MF's description goes into Description; Edit has both; searching notes also searches descriptions; descriptions in another language are translated as notes were.
+- **Site tags become the model's tags:** a model from MakerWorld, Printables or Thingiverse gets the site's tags (English) as its own tags, once (a tag you remove does not come back).
+
+**Upgrading:** every model's current notes become its Description (they were mostly site and 3MF descriptions) and Notes start empty, once, when the update starts. Reload open browser tabs after the update.
+
 ## [7.19.0] - 2026-10-12
 
 **Changes:**

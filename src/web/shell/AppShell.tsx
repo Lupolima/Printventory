@@ -36,6 +36,7 @@ import { PrintersPage } from '../pages/PrintersPage';
 import { QueuePage } from '../pages/QueuePage';
 import { TagsPage } from '../pages/TagsPage';
 import { CategoriesPage } from '../pages/CategoriesPage';
+import { HistoryPage } from '../pages/HistoryPage';
 import { ModelPage } from '../pages/ModelPage';
 import { FolderPage } from '../pages/FolderPage';
 import { loadFolderMode } from '../library/folderMode';
@@ -432,6 +433,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   stats: 'Statistics',
   collections: 'Collections',
   categories: 'Categories',
+  history: 'History',
   model: 'Model',
   folder: 'Folder',
   tags: 'Tags',
@@ -569,6 +571,7 @@ export function AppShell() {
           {allowed && page === 'printers' && <PrintersPage section={section} />}
           {allowed && page === 'tags' && <TagsPage />}
           {allowed && page === 'categories' && <CategoriesPage />}
+          {allowed && page === 'history' && <HistoryPage />}
           {allowed && page === 'model' && <ModelPage key={section} filePath={section} />}
           {allowed && page === 'folder' && <FolderPage key={section} path={section} />}
           {allowed && page === 'duplicates' && <DuplicatesPage />}

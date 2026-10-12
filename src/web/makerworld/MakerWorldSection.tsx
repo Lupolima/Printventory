@@ -211,6 +211,42 @@ function ModelPart({ details }: { details: MakerWorldDetails }) {
   );
 }
 
+/**
+ * The model page's part of the site's details: what the page does not show elsewhere (the title,
+ * designer, license, categories, dates and popularity are the model's own details; its tags are the
+ * model's tags, its description the page's Description, its videos and PDF the Videos and
+ * Documents): the site's rating and what the model is a remix of.
+ */
+function PageModelPart({ details }: { details: MakerWorldDetails }) {
+  if (!details.stats?.rating && !details.remixedFrom?.length) return null;
+  return (
+    <div className="jp-props">
+      {!!details.stats?.rating && (
+        <Prop label="Rating">
+          {`★ ${details.stats.rating.toFixed(1)} of 5`}
+          {!!details.stats.ratings && (
+            <span className="jp-meta">{` (${details.stats.ratings.toLocaleString()} ${details.stats.ratings === 1 ? 'rating' : 'ratings'})`}</span>
+          )}
+        </Prop>
+      )}
+      {!!details.remixedFrom?.length && (
+        <Prop label="Remixed from">
+          <ul className="jp-mw__remixes">
+            {details.remixedFrom.map((source) => (
+              <li key={source.url}>
+                <a href={source.url} target="_blank" rel="noopener noreferrer">
+                  {source.title || source.url}
+                </a>
+                {source.designer && <span className="jp-meta"> by {source.designer}</span>}
+              </li>
+            ))}
+          </ul>
+        </Prop>
+      )}
+    </div>
+  );
+}
+
 /** Open one file in a slicer: the first slicer, or one picked from the arrow's list. */
 function SlicerButton({ filePath, label, slicers }: { filePath: string; label: string; slicers: Slicer[] }) {
   const send = (slicer?: Slicer) => (slicer ? sendToSlicer([filePath], slicer) : offerSlicerSettings());
@@ -291,20 +327,23 @@ function ProfilePart({
   profileId,
   onChange,
   downloads,
-  currentPath
+  currentPath,
+  page = false
 }: {
   details: MakerWorldDetails;
   profileId: string;
   onChange: (id: string) => void;
   downloads: ProfileDownload[];
   currentPath: string;
+  /** The model page: the job's size, plates and filament only. */
+  page?: boolean;
 }) {
   const shown = shownProfiles(details.profiles, downloads);
   const profile = (shown.find((row) => row.profile.id === profileId) || shown[0])?.profile;
   if (!profile) return null;
   return (
     <>
-      <h4 className="jp-mw__heading">Print profile</h4>
+      {!page && <h4 className="jp-mw__heading">Print profile</h4>}
       {shown.length > 1 && (
         <select className="jp-input jp-mw__select" value={profile.id} aria-label="Print profile" onChange={(event) => onChange(event.target.value)}>
           {shown.map((row) => (
@@ -313,19 +352,21 @@ function ProfilePart({
         </select>
       )}
       <div className="jp-props">
-        <Prop label="Name">
-          {profile.name || '—'}
-          {profile.nameEnglish && profile.nameEnglish !== profile.name && <span className="jp-mw__english">{profile.nameEnglish}</span>}
-        </Prop>
-        {profile.printer && (
+        {!page && (
+          <Prop label="Name">
+            {profile.name || '—'}
+            {profile.nameEnglish && profile.nameEnglish !== profile.name && <span className="jp-mw__english">{profile.nameEnglish}</span>}
+          </Prop>
+        )}
+        {!page && profile.printer && (
           <Prop label="Printer">
             {profile.printer}
             {profile.nozzle ? `, ${profile.nozzle} mm nozzle` : ''}
           </Prop>
         )}
         <Prop label="Size of the job">{`${profile.plates.length} ${profile.plates.length === 1 ? 'plate' : 'plates'} · ${formatGrams(profile.grams)} · about ${formatDuration(profile.seconds)}`}</Prop>
-        <Prop label="AMS">{profile.needAms ? 'Needed' : 'Not needed'}</Prop>
-        {profile.rating !== null && (
+        {!page && <Prop label="AMS">{profile.needAms ? 'Needed' : 'Not needed'}</Prop>}
+        {!page && profile.rating !== null && (
           <Prop label="Rating">{`${profile.rating} of 5 (${profile.ratingCount} ${profile.ratingCount === 1 ? 'rating' : 'ratings'})`}</Prop>
         )}
       </div>
@@ -388,7 +429,7 @@ function ProfilePart({
           </table>
         </>
       )}
-      <ProfileFiles details={details} downloads={downloads} currentPath={currentPath} />
+      {!page && <ProfileFiles details={details} downloads={downloads} currentPath={currentPath} />}
     </>
   );
 }
@@ -528,7 +569,12 @@ function FilesPart({ details, profileId, downloads }: { details: MakerWorldDetai
  * Printables or Thingiverse model: the model, its print profiles (MakerWorld) or print settings
  * (Printables), files and downloads, and its video.
  */
-export function MakerWorldSection({ model }: { model: { filePath?: string | null; source?: unknown } | null }) {
+/**
+ * A model's details on MakerWorld, Printables or Thingiverse. `page`: the model page's shorter
+ * version (rating, remixes, the print profile's job, plates and filament, print settings), without
+ * the site's name; the details panel shows everything (and Download to Library).
+ */
+export function MakerWorldSection({ model, page = false }: { model: { filePath?: string | null; source?: unknown } | null; page?: boolean }) {
   const found = siteModelUrl(model);
   const url = found?.url || null;
   const label = found ? SITE_LABELS[found.site] : '';
@@ -576,20 +622,26 @@ export function MakerWorldSection({ model }: { model: { filePath?: string | null
   const details = result?.details || null;
   return (
     <section className="jp-details__section jp-mw" id="jp-mw-section" aria-busy={loading}>
-      <div className="jp-mw__top">
-        <h3 className="jp-details__heading">{label}</h3>
-        <a className="jp-mw__open" href={details?.url || url} target="_blank" rel="noopener noreferrer">
-          Open <ExternalLink size={12} aria-hidden="true" />
-        </a>
-        <IconButton
-          icon={RefreshCw}
-          size="sm"
-          label={`Get the details from ${label} again`}
-          disabled={loading}
-          onClick={() => load(true)}
-          className={loading ? 'jp-mw__spinning' : undefined}
-        />
-      </div>
+      {page ? (
+        <h2 className="jp-panel-title" id="jp-print-profile-title">
+          Print Profile
+        </h2>
+      ) : (
+        <div className="jp-mw__top">
+          <h3 className="jp-details__heading">{label}</h3>
+          <a className="jp-mw__open" href={details?.url || url} target="_blank" rel="noopener noreferrer">
+            Open <ExternalLink size={12} aria-hidden="true" />
+          </a>
+          <IconButton
+            icon={RefreshCw}
+            size="sm"
+            label={`Get the details from ${label} again`}
+            disabled={loading}
+            onClick={() => load(true)}
+            className={loading ? 'jp-mw__spinning' : undefined}
+          />
+        </div>
+      )}
       {loading && !details && <p className="jp-meta">Getting the details from {label}…</p>}
       {error && (
         <p className="jp-meta jp-mw__note" role="alert">
@@ -602,7 +654,23 @@ export function MakerWorldSection({ model }: { model: { filePath?: string | null
           {label} could not be reached ({result.error}); these details are from {formatDay(result.fetchedAt)}.
         </p>
       )}
-      {details && (
+      {details && page && (
+        <>
+          <PageModelPart details={details} />
+          {details.site === 'makerworld' && (
+            <ProfilePart
+              details={details}
+              profileId={profileId}
+              onChange={setProfileId}
+              downloads={result?.downloads || []}
+              currentPath={model?.filePath || ''}
+              page
+            />
+          )}
+          {details.printSettings && <PrintSettingsPart settings={details.printSettings} />}
+        </>
+      )}
+      {details && !page && (
         <>
           <ModelPart details={details} />
           {details.site === 'makerworld' && (

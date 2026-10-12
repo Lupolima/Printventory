@@ -14,6 +14,9 @@ const changed = (filePath) => {
 /** { versions, changes } of a model. */
 ipcMain.handle('get-model-history', async (event, filePath) => history.listVersions(filePath));
 
+/** The History page: every model's changes and earlier files, newest first ({ before, limit, search }). */
+ipcMain.handle('get-all-history', async (event, options) => history.listAll(options || {}));
+
 /** Upload New Version: the uploaded file (in the model's folder) takes its place; the old one is kept. */
 ipcMain.handle('replace-model-file', async (event, filePath, uploadedPath, note) => {
   const result = history.replaceWithUpload(filePath, uploadedPath, { by: who(event), note: typeof note === 'string' ? note : null });

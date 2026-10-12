@@ -28,6 +28,7 @@ interface LibraryForm {
   license: string;
   tags: string;
   notes: string;
+  description: string;
   rating: string;
 }
 
@@ -52,6 +53,7 @@ function libraryForm(model: ModelRecord, stem: string): LibraryForm {
     license: text(model.license),
     tags: listText(tagNames(model.tags)),
     notes: text(model.notes),
+    description: text(model.description),
     rating: String(Number(model.rating) || 0)
   };
 }
@@ -337,6 +339,11 @@ export function EditModelDialog() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-group">
+            <label htmlFor="edit-model-description">Description</label>
+            <textarea id="edit-model-description" rows={6} value={form.description} onChange={set('description')} />
+            <p className="setting-description">What the model is: its site's or its 3MF's description. Markdown works.</p>
           </div>
           <div className="form-group">
             <label htmlFor="edit-model-notes">Notes</label>

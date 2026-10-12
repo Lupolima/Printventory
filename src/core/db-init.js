@@ -42,6 +42,7 @@ function initializeDatabase() {
           designer TEXT,
           source TEXT,
           notes TEXT,
+          description TEXT,
           printed INTEGER,
           print_status TEXT DEFAULT 'unprinted',
           print_count INTEGER DEFAULT 0,
@@ -138,6 +139,7 @@ function initializeDatabase() {
     migrateRatingFavoriteColumns();
     migrateBundleColumns();
     migratePrintLifecycleColumns();
+    migrateDescriptionColumn();
     clearFailurePlaceholderThumbnails();
 
     // Create index for dateAdded after migration (in case it was just added)
@@ -267,6 +269,39 @@ function migratePrintLifecycleColumns() {
 }
 
 /** Zip bundle columns for grouped browsing (folder siblings are not bundled). */
+/**
+ * A model's Description (what the model is: the site's or the 3MF's description), apart from its
+ * Notes (what you write about it). Once, every model's notes so far become its description (they
+ * were mostly descriptions), and the notes start empty.
+ */
+function migrateDescriptionColumn() {
+  try {
+    const names = new Set(
+      database.db
+        .prepare('PRAGMA table_info(models)')
+        .all()
+        .map((col) => col.name)
+    );
+    if (!names.has('description')) {
+      database.db.prepare('ALTER TABLE models ADD COLUMN description TEXT').run();
+      console.log('Added models.description');
+    }
+    const done = database.db.prepare("SELECT value FROM settings WHERE key = 'notesMovedToDescription'").get();
+    if (done && done.value === '1') return;
+    database.db.transaction(() => {
+      const moved = database.db
+        .prepare(
+          "UPDATE models SET description = CASE WHEN description IS NULL OR description = '' THEN notes ELSE description END, notes = NULL WHERE notes IS NOT NULL AND TRIM(notes) != ''"
+        )
+        .run().changes;
+      database.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('notesMovedToDescription', '1')").run();
+      if (moved) console.log(`Moved the notes of ${moved} model(s) to their description`);
+    })();
+  } catch (error) {
+    console.error('Description column migration failed:', error);
+  }
+}
+
 function migrateBundleColumns() {
   try {
     console.debug('Checking for bundle column migration...');

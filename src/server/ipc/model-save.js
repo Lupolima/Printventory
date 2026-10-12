@@ -106,8 +106,6 @@ async function updateModelsBatch(modelDataBatch) {
         const finalDesigner = designer !== undefined ? designer || null : existingModel.designer;
         const finalSource = source !== undefined ? source || null : existingModel.source;
         const finalNotes = notes !== undefined ? notes || null : existingModel.notes;
-        // Notes arriving for the first time (a 3MF's description, say): English for them in the background.
-        if (finalNotes && !existingModel.notes) notesArrived(existingModel.id, finalNotes);
         const printFields = printEvents.resolvePrintFieldsOnSave(existingModel, { printed, printStatus });
         const finalPrinted = printFields.printed;
         const finalPrintStatus = printFields.print_status;
@@ -163,6 +161,7 @@ async function updateModelsBatch(modelDataBatch) {
           filePath
         );
         console.debug(`[Batch ${i}] Update result:`, updateResult);
+        saveDescription(existingModel.id, modelData.description);
 
         // Replace the tags when a list is given; an empty list removes them all.
         if (Array.isArray(tags)) {
@@ -210,14 +209,26 @@ function sortedTagNames(tags) {
     .sort();
 }
 
-/** A model got notes for the first time: translated into English in the background when they need it (notes-translation.js). */
-function notesArrived(modelId, notes) {
+/** A model got a description for the first time: translated into English in the background when it needs it (notes-translation.js). */
+function descriptionArrived(modelId, description) {
   try {
     const translation = require('../notes-translation');
-    if (translation.notesNeedTranslation(notes)) translation.noteAdded(Number(modelId));
+    if (translation.notesNeedTranslation(description)) translation.noteAdded(Number(modelId));
   } catch (error) {
-    console.warn('[Notes] Could not queue a translation:', error.message);
+    console.warn('[Description] Could not queue a translation:', error.message);
   }
+}
+
+/**
+ * A model's Description (what the model is), kept apart from its Notes (what you write about it):
+ * set when `description` is given (null or '' clears it).
+ */
+function saveDescription(modelId, description) {
+  if (description === undefined || !modelId) return;
+  const before = database.db.prepare('SELECT description FROM models WHERE id = ?').get(modelId);
+  const text = description ? String(description) : null;
+  database.db.prepare('UPDATE models SET description = ? WHERE id = ?').run(text, modelId);
+  if (text && !(before && before.description)) descriptionArrived(Number(modelId), text);
 }
 
 // Add this function before the IPC handlers
@@ -323,7 +334,6 @@ async function saveModel(modelData) {
         const finalDesigner = designer !== undefined ? designer || null : existingModelData.designer;
         const finalSource = source !== undefined ? source || null : existingModelData.source;
         const finalNotes = notes !== undefined ? notes || null : existingModelData.notes;
-        if (finalNotes && !existingModelData.notes) notesArrived(existingModel.id, finalNotes);
         const printFields = printEvents.resolvePrintFieldsOnSave(existingModelData, { printed, printStatus });
         const finalPrinted = printFields.printed;
         const finalPrintStatus = printFields.print_status;
@@ -443,6 +453,7 @@ async function saveModel(modelData) {
       }
 
       console.debug(`Model saved with ID: ${modelId}`);
+      saveDescription(modelId, modelData.description);
     } catch (modelError) {
       console.error('Error saving model data:', modelError);
       throw modelError;
@@ -543,7 +554,6 @@ async function saveModel(modelData) {
 
     if (insertedNewModel) {
       scheduleBackgroundHashGeneration('save-model');
-      if (notes) notesArrived(Number(modelId), notes);
     }
     return { success: true, modelId };
   } catch (error) {

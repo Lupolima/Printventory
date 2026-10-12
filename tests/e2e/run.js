@@ -1560,29 +1560,38 @@ async function browserChecks(base, wsUrl, session) {
           );
         check('More like this compares the model with the library', compared);
 
-        // Version history on the model's page: the Edit dialog's changes above are listed; Upload New Version keeps the old file.
-        const historyShown = await page
-          .waitForFunction(() => /License/.test(document.getElementById('jp-history-changes')?.textContent || ''), null, { timeout: 15000 })
-          .then(
-            () => true,
-            () => false
-          );
+        // New Version on the model's page keeps the old file; History (sidebar) lists it with the Edit dialog's changes above.
         const original = fs.readFileSync(cardPath);
         const canUpload = await page.isVisible('#jp-upload-version');
         // The test library is inside the app's folder, where uploads are refused: the new file is put next to the model as an upload would.
         const uploadedCopy = path.join(folder, `e2e-new-version${path.extname(cardPath)}`);
         fs.writeFileSync(uploadedCopy, original);
         await invoke(base, session, 'replace-model-file', [cardPath, uploadedCopy]);
-        const versioned = await page.waitForSelector('#jp-history-versions li', { timeout: 15000 }).then(
-          () => true,
-          () => false
-        );
+        await page.evaluate(() => {
+          window.location.hash = '#/history';
+        });
+        const historyShown = await page
+          .waitForFunction(
+            () => {
+              const text = document.getElementById('jp-history-list')?.textContent || '';
+              return /License/.test(text) && /Earlier file/.test(text);
+            },
+            null,
+            { timeout: 15000 }
+          )
+          .then(
+            () => true,
+            () => false
+          );
         const kept = ((await invoke(base, session, 'get-model-history', [cardPath])).result || {}).versions || [];
         check(
-          'version history lists the changes and keeps the replaced file',
-          historyShown && canUpload && versioned && kept.length === 1 && fs.readFileSync(cardPath).equals(original) && !fs.existsSync(uploadedCopy),
-          JSON.stringify({ historyShown, canUpload, versioned, kept: kept.length })
+          'History lists the changes and keeps the replaced file',
+          historyShown && canUpload && kept.length === 1 && fs.readFileSync(cardPath).equals(original) && !fs.existsSync(uploadedCopy),
+          JSON.stringify({ historyShown, canUpload, kept: kept.length })
         );
+        await page.evaluate((file) => {
+          window.location.hash = `#/model/${encodeURIComponent(file)}`;
+        }, cardPath);
         for (const version of kept) await invoke(base, session, 'delete-model-version', [version.id]);
 
         // Assembly view: a folder's layout is kept.
@@ -4912,6 +4921,28 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   );
   const thumb = ((await invoke(base, viewer, 'get-model', [model.filePath])).result || {}).thumbnail || '';
   check('the cover is the first thumbnail', thumb.startsWith('data:image/'), thumb.slice(0, 40));
+  // The model page: the title is the model folder's name; each file shows its own picture, not the cover.
+  const asPage = (await invoke(base, viewer, 'get-model', [model.filePath])).result || {};
+  check(
+    'a model in a model folder is titled after the folder',
+    asPage.title === 'E2E Robot Mk 2' && asPage.modelFolder === robot,
+    JSON.stringify({ title: asPage.title })
+  );
+  const fileCards = (await invoke(base, viewer, 'get-folder-models', [model.filePath])).result || [];
+  check(
+    'file cards never show the cover photo',
+    fileCards.length === 1 && fileCards[0].image !== thumb.split('::')[0],
+    String(fileCards[0]?.image).slice(0, 40)
+  );
+  // A description, apart from your notes.
+  const full = (await invoke(base, editor, 'get-model', [model.filePath])).result || {};
+  await invoke(base, editor, 'save-model', [{ ...full, description: 'A robot arm with five joints.', notes: 'Print in PETG.' }]);
+  const described = (await invoke(base, viewer, 'get-model', [model.filePath])).result || {};
+  check(
+    'a description is kept apart from the notes',
+    described.description === 'A robot arm with five joints.' && described.notes === 'Print in PETG.',
+    JSON.stringify({ description: described.description, notes: described.notes })
+  );
 
   const mediaUrl = (filePath, query = '') => `${base}/api/media/${encodeURIComponent(filePath)}${query}`;
   const shown = await fetch(mediaUrl(picture.filePath), { headers: { cookie: viewer.cookie } });

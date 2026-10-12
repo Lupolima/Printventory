@@ -18,7 +18,7 @@ const ADD_LABELS: Record<MediaKind, string> = { image: 'Add Pictures', video: 'A
 type Viewing = { kind: 'image'; index: number } | { kind: 'document'; file: MediaFile };
 
 /** A YouTube video: its picture until played, then YouTube's player (no YouTube cookies before that). */
-function YoutubeVideo({ id, onRemove }: { id: string; onRemove?: () => void }) {
+export function YoutubeVideo({ id, onRemove }: { id: string; onRemove?: () => void }) {
   const [playing, setPlaying] = useState(false);
   return (
     <li className="jp-media__video">
@@ -52,7 +52,32 @@ function YoutubeVideo({ id, onRemove }: { id: string; onRemove?: () => void }) {
  * cover (the picture the library shows). `folder` is the model's folder; `alone` says whether the
  * model is the only one in it (then an editor may make it the model's folder).
  */
-export function ModelMediaSection({ folder, alone, compact = false }: { folder: string; alone: boolean; compact?: boolean }) {
+export function ModelMediaSection({
+  folder,
+  alone,
+  compact = false,
+  parts,
+  title,
+  sectionId,
+  siteVideos = [],
+  siteDocuments = []
+}: {
+  folder: string;
+  alone: boolean;
+  compact?: boolean;
+  /** Only these kinds (the model page shows Videos and Documents as sections of their own). */
+  parts?: MediaKind[];
+  /** The section's heading (else "Pictures, Videos and Documents"). */
+  title?: string;
+  sectionId?: string;
+  /** YouTube videos the model's site shows, also when they are not kept with the model. */
+  siteVideos?: string[];
+  /** Documents the model's site has (its PDF), shown as links when not kept with the model. */
+  siteDocuments?: { url: string; name: string }[];
+}) {
+  const show = (kind: MediaKind) => !parts || parts.includes(kind);
+  const single = !!parts && parts.length === 1;
+  const heading = title || 'Pictures, Videos and Documents';
   const canEdit = useCan('editor');
   const [found, setFound] = useState<ModelMedia>(EMPTY_MEDIA);
   const [loaded, setLoaded] = useState(false);
@@ -138,7 +163,15 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
 
   if (!loaded) return null;
 
-  if (!found.isModelFolder) {
+  // What the site has that is not kept with the model (the model page's Videos and Documents).
+  const extraVideos = show('video') ? siteVideos.filter((id) => !found.youtube.some((video) => video.id === id)) : [];
+  const keptNames = new Set(found.document.map((file) => file.name.toLowerCase()));
+  const extraDocuments = show('document') ? siteDocuments.filter((doc) => !keptNames.has(doc.name.toLowerCase())) : [];
+
+  if (!found.isModelFolder && parts) {
+    // Not a model folder: only what the site has (adding needs a model folder: the gallery offers one).
+    if (!extraVideos.length && !extraDocuments.length) return null;
+  } else if (!found.isModelFolder) {
     // The details panel shows a model folder's media only (its page offers to make one).
     if (!canEdit || compact) return null;
     return (
@@ -168,18 +201,23 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
 
   const where = found.folder || folder;
   const accept = (kind: MediaKind) => (info.current?.mediaExtensions?.[kind] || []).join(',');
-  const empty = !found.image.length && !found.video.length && !found.youtube.length && !found.document.length;
-  if (empty && !canEdit) return null;
+  // Adding needs a model folder.
+  const canAdd = canEdit && found.isModelFolder;
+  const empty =
+    (!show('image') || !found.image.length) &&
+    (!show('video') || (!found.video.length && !found.youtube.length && !extraVideos.length)) &&
+    (!show('document') || (!found.document.length && !extraDocuments.length));
+  if (empty && !canAdd) return null;
   const imageCount = found.image.length;
   const shownImage = viewing?.kind === 'image' ? found.image[Math.min(viewing.index, imageCount - 1)] : null;
 
   const header = (kind: MediaKind, title: string, count: number, extra?: React.ReactNode) => (
     <div className="jp-media__head">
       <h3 className="jp-media__title">
-        {title}
-        {count > 0 && <span className="jp-meta"> {count}</span>}
+        {single ? '' : title}
+        {count > 0 && <span className="jp-meta">{single ? `${count} ${count === 1 ? 'item' : 'items'}` : ` ${count}`}</span>}
       </h3>
-      {canEdit && (
+      {canAdd && (
         <span className="jp-media__add">
           {extra}
           <Button size="sm" icon={Plus} disabled={!!busy} id={`jp-media-add-${kind}`} onClick={() => inputs[kind].current?.click()}>
@@ -206,17 +244,17 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
   return (
     <section
       className={compact ? 'jp-details__section jp-media is-compact' : 'jp-card jp-media'}
-      aria-labelledby={compact ? 'jp-details-media-title' : 'jp-media-title'}
-      id={compact ? 'jp-details-media' : 'jp-model-media'}
+      aria-labelledby={`${sectionId || (compact ? 'jp-details-media' : 'jp-model-media')}-title`}
+      id={sectionId || (compact ? 'jp-details-media' : 'jp-model-media')}
       data-folder={where}
     >
       {compact ? (
-        <h3 className="jp-details__heading" id="jp-details-media-title">
-          Pictures, Videos and Documents
+        <h3 className="jp-details__heading" id={`${sectionId || 'jp-details-media'}-title`}>
+          {heading}
         </h3>
       ) : (
-        <h2 className="jp-panel-title" id="jp-media-title">
-          Pictures, Videos and Documents
+        <h2 className="jp-panel-title" id={`${sectionId || 'jp-model-media'}-title`}>
+          {heading}
         </h2>
       )}
       {busy && (
@@ -225,7 +263,7 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
         </p>
       )}
 
-      {(imageCount > 0 || canEdit) && (
+      {show('image') && (imageCount > 0 || canAdd) && (
         <div className="jp-media__group" id="jp-media-images">
           {header('image', 'Pictures', imageCount)}
           {imageCount === 0 ? (
@@ -262,17 +300,17 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
         </div>
       )}
 
-      {(found.video.length > 0 || found.youtube.length > 0 || canEdit) && (
+      {show('video') && (found.video.length > 0 || found.youtube.length > 0 || extraVideos.length > 0 || canAdd) && (
         <div className="jp-media__group" id="jp-media-videos">
           {header(
             'video',
             'Videos',
-            found.video.length + found.youtube.length,
+            found.video.length + found.youtube.length + extraVideos.length,
             <Button size="sm" icon={Link2} disabled={!!busy} id="jp-media-add-youtube" onClick={() => void addYoutube()}>
               Add YouTube Link
             </Button>
           )}
-          {found.video.length + found.youtube.length === 0 ? (
+          {found.video.length + found.youtube.length + extraVideos.length === 0 ? (
             <p className="jp-meta">No videos yet.</p>
           ) : (
             <ul className="jp-media__videos">
@@ -294,7 +332,7 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
                     <a className="jp-icon-link" href={mediaUrl(file.path, true)} download={file.name} aria-label={`Download ${file.name}`} title="Download">
                       <Download size={14} aria-hidden="true" />
                     </a>
-                    {canEdit && (
+                    {canAdd && (
                       <IconButton icon={Trash2} size="sm" label={`Remove ${file.name}`} disabled={!!busy} onClick={() => void remove('video', file)} />
                     )}
                   </div>
@@ -304,18 +342,21 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
                 <YoutubeVideo
                   key={video.id}
                   id={video.id}
-                  onRemove={canEdit ? () => void run('Removing…', () => mediaApi.removeYoutube(where, video.id)) : undefined}
+                  onRemove={canAdd ? () => void run('Removing…', () => mediaApi.removeYoutube(where, video.id)) : undefined}
                 />
+              ))}
+              {extraVideos.map((id) => (
+                <YoutubeVideo key={`site-${id}`} id={id} />
               ))}
             </ul>
           )}
         </div>
       )}
 
-      {(found.document.length > 0 || canEdit) && (
+      {show('document') && (found.document.length > 0 || extraDocuments.length > 0 || canAdd) && (
         <div className="jp-media__group" id="jp-media-documents">
-          {header('document', 'Documents', found.document.length)}
-          {found.document.length === 0 ? (
+          {header('document', 'Documents', found.document.length + extraDocuments.length)}
+          {found.document.length + extraDocuments.length === 0 ? (
             <p className="jp-meta">No documents yet: instructions, manuals, assembly guides, parts lists.</p>
           ) : (
             <ul className="jp-media__documents">
@@ -334,9 +375,19 @@ export function ModelMediaSection({ folder, alone, compact = false }: { folder: 
                   <a className="jp-icon-link" href={mediaUrl(file.path, true)} download={file.name} aria-label={`Download ${file.name}`} title="Download">
                     <Download size={14} aria-hidden="true" />
                   </a>
-                  {canEdit && (
+                  {canAdd && (
                     <IconButton icon={Trash2} size="sm" label={`Remove ${file.name}`} disabled={!!busy} onClick={() => void remove('document', file)} />
                   )}
+                </li>
+              ))}
+              {extraDocuments.map((doc) => (
+                <li key={doc.url} className="jp-media__document" data-name={doc.name}>
+                  <FileText size={18} aria-hidden="true" />
+                  <a className="jp-media__name" href={doc.url} target="_blank" rel="noopener noreferrer" title={`Open ${doc.name} on the site`}>
+                    {doc.name}
+                  </a>
+                  <span className="jp-meta">on the site</span>
+                  <ExternalLink size={14} aria-hidden="true" />
                 </li>
               ))}
             </ul>

@@ -636,6 +636,27 @@ function relinkMoved(root) {
   return relinked;
 }
 
+/**
+ * A model file's own pictures (its 3D renders and pictures it carries), without its model folder's
+ * cover: what shows it and not the whole model. `thumbnail` is its thumbnail column.
+ */
+function ownPictures(filePath, thumbnail) {
+  const { parseThumbnails } = require('../core/thumbnails');
+  const list = parseThumbnails(String(thumbnail || ''));
+  const folder = folderOfFile(filePath);
+  const row = folder ? table().prepare('SELECT cover_thumbnail FROM model_folders WHERE path = ?').get(folder) : null;
+  return row && row.cover_thumbnail ? list.filter((image) => image !== row.cover_thumbnail) : list;
+}
+
+/**
+ * SQL (with a leading OR) for models whose only picture is their model folder's cover: they still
+ * need a 3D render of their own (Generate Missing Thumbnails).
+ */
+function onlyCoverSql() {
+  table();
+  return 'OR thumbnail IN (SELECT cover_thumbnail FROM model_folders WHERE cover_thumbnail IS NOT NULL)';
+}
+
 /** Put every model folder's cover first again on its files (after a thumbnail job). */
 function reapplyAllCovers() {
   if (!database.db) return 0;
@@ -665,6 +686,8 @@ module.exports = {
   mediaPath,
   mediaTarget,
   moved,
+  onlyCoverSql,
+  ownPictures,
   pathsMoved,
   reapplyAllCovers,
   relinkMoved,

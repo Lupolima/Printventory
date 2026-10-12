@@ -10,6 +10,7 @@ export const PAGES = [
   'library',
   'collections',
   'categories',
+  'history',
   'queue',
   'printers',
   'stats',

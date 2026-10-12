@@ -68,10 +68,25 @@ ipcMain.handle('get-model', async (event, filePath) => {
       .all(model.id)
       .map((t) => t.name);
 
+    // The page's title: the site's title (a model from a link), else its model folder's name.
+    const modelFolders = require('../model-folders');
+    const folder = modelFolders.folderOfFile(model.filePath);
+    /** @type {string | null} */
+    let title = null;
+    try {
+      title = require('../site-details').siteTitleOf(model);
+    } catch (_) {
+      /* no site details kept */
+    }
+    if (!title && folder) title = require('path').basename(folder);
     return {
       ...model,
       tags: tags || [],
-      categories: require('../../core/categories').modelCategoryNames(model.id)
+      categories: require('../../core/categories').modelCategoryNames(model.id),
+      title,
+      modelFolder: folder,
+      // The file's own pictures (its 3D renders), without the model folder's cover.
+      renders: folder ? modelFolders.ownPictures(model.filePath, model.thumbnail) : null
     };
   } catch (error) {
     console.error('Error getting model:', error);
@@ -105,7 +120,14 @@ ipcMain.handle('get-folder-models', async (event, filePath) => {
   }
   return rows
     .sort((a, b) => String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true, sensitivity: 'base' }))
-    .map((row) => ({ ...row, image: gridThumbnails.gridImage(row.filePath, () => loadThumbnailForModel(row.filePath)) }));
+    .map((row) => {
+      // In a model folder each file shows its own 3D render, not the folder's cover photo.
+      const modelFolders = require('../model-folders');
+      if (modelFolders.folderOfFile(row.filePath)) {
+        return { ...row, image: modelFolders.ownPictures(row.filePath, loadThumbnailForModel(row.filePath))[0] || null };
+      }
+      return { ...row, image: gridThumbnails.gridImage(row.filePath, () => loadThumbnailForModel(row.filePath)) };
+    });
 });
 
 /** Tell the other open browsers which models changed, so they show the new values (core/edit-merge.js). */

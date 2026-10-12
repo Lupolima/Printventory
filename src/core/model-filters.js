@@ -76,9 +76,10 @@ const CATEGORY_MATCH_SQL = `EXISTS (SELECT 1 FROM model_categories mc INNER JOIN
 
 function appendAllFieldsSearchSql(params, term, includeNotes) {
   require('./categories').ensureTables();
-  const notesClause = includeNotes ? "LOWER(COALESCE(notes, '')) LIKE ? OR\n          " : '';
+  // Notes and the description (what the model is) count as notes.
+  const notesClause = includeNotes ? "LOWER(COALESCE(notes, '')) LIKE ? OR LOWER(COALESCE(description, '')) LIKE ? OR\n          " : '';
   if (includeNotes) {
-    params.push(term, term, term, term, term, term, term, term, term);
+    params.push(term, term, term, term, term, term, term, term, term, term);
   } else {
     params.push(term, term, term, term, term, term, term, term);
   }
@@ -107,8 +108,8 @@ function pushSearchClauseFragment(field, rawValue, params, filters) {
       params.push(term);
       return "LOWER(COALESCE(parentModel, '')) LIKE ?";
     case 'notes':
-      params.push(term);
-      return "LOWER(COALESCE(notes, '')) LIKE ?";
+      params.push(term, term);
+      return "(LOWER(COALESCE(notes, '')) LIKE ? OR LOWER(COALESCE(description, '')) LIKE ?)";
     case 'filePath':
       params.push(term);
       return "LOWER(COALESCE(filePath, '')) LIKE ?";

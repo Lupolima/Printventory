@@ -5,8 +5,12 @@ const printEvents = require('./print-events');
 const { applyThumbnailFlags, loadThumbnailForModel } = require('./thumbnails');
 const { repairModelTags } = require('./db-repair');
 
-const MODEL_DETAIL_COLUMNS =
+/** What lists of models carry (not the description: it can be long). */
+const MODEL_BASE_COLUMNS =
   'id, filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, parentModel, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite, bundleKey, bundleLabel, bundleKind';
+
+/** One model's details: also its description. */
+const MODEL_DETAIL_COLUMNS = `${MODEL_BASE_COLUMNS}, description`;
 
 /** List queries omit thumbnail blobs; these flags are computed without returning the column. */
 const MODEL_LIST_THUMB_FLAGS =
@@ -17,7 +21,7 @@ const MODEL_LIST_THUMB_FLAGS_QUALIFIED =
   "CASE WHEN models.thumbnail IS NOT NULL AND models.thumbnail != '' AND models.thumbnail != '3d.png' THEN 1 ELSE 0 END AS hasThumbnail, " +
   "CASE WHEN models.thumbnail IS NOT NULL AND INSTR(models.thumbnail, '::') > 0 THEN 1 ELSE 0 END AS hasMultipleThumbnails";
 
-const MODEL_LIST_COLUMNS = `${MODEL_DETAIL_COLUMNS}, ${MODEL_LIST_THUMB_FLAGS}`;
+const MODEL_LIST_COLUMNS = `${MODEL_BASE_COLUMNS}, ${MODEL_LIST_THUMB_FLAGS}`;
 
 const MODEL_LIST_COLUMNS_QUALIFIED = `models.id, models.filePath, models.fileName, models.designer, models.source, models.notes, models.printed, models.print_status, models.print_count, models.last_printed_at, models.parentModel, models.hash, models.size, models.license, models.modifiedDate, models.dateAdded, models.isNew, models.rating, models.favorite, models.bundleKey, models.bundleLabel, models.bundleKind, ${MODEL_LIST_THUMB_FLAGS_QUALIFIED}`;
 

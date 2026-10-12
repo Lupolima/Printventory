@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * English for notes in another language (a MakerWorld designer's description in Chinese, say),
+ * English for a model's description (the notes of older versions) in another language (a MakerWorld designer's description in Chinese, say),
  * with the translators chosen under Settings → MakerWorld, tried in their order (Google Cloud
  * Translation, the free MyMemory service, the AI service; none: off):
  *
@@ -157,7 +157,7 @@ async function translateText(text, deps = {}) {
 
 /** A model's notes in English, to show under them: { english, by, error } (english null when not needed). */
 async function englishForModel(filePath, deps = {}) {
-  const model = database.db.prepare('SELECT notes FROM models WHERE filePath = ?').get(String(filePath || ''));
+  const model = database.db.prepare('SELECT description AS notes FROM models WHERE filePath = ?').get(String(filePath || ''));
   if (!model) throw new Error('This model is not in the library');
   return translateText(originalPart(model.notes), deps);
 }
@@ -187,7 +187,7 @@ async function work(deps = {}) {
         break;
       }
       const id = queue.shift();
-      const model = database.db.prepare('SELECT id, notes FROM models WHERE id = ?').get(id);
+      const model = database.db.prepare('SELECT id, description AS notes FROM models WHERE id = ?').get(id);
       if (!model || !notesNeedTranslation(model.notes)) continue;
       const { english, error } = await translateText(model.notes, deps);
       if (error && /limit|quota|free translations/i.test(error)) {
@@ -197,7 +197,9 @@ async function work(deps = {}) {
       }
       if (!english) continue;
       // Only when the notes are still as they were (nobody changed them meanwhile).
-      database.db.prepare('UPDATE models SET notes = ? WHERE id = ? AND notes = ?').run(`${english}${ORIGINAL_MARK}${model.notes}`, model.id, model.notes);
+      database.db
+        .prepare('UPDATE models SET description = ? WHERE id = ? AND description = ?')
+        .run(`${english}${ORIGINAL_MARK}${model.notes}`, model.id, model.notes);
     }
   } finally {
     running = false;

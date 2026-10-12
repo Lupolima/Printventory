@@ -10,7 +10,7 @@ const notes = require('../src/server/notes-translation');
 async function main() {
   database.db = new Database(':memory:');
   database.db.exec(
-    "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, notes TEXT); INSERT INTO settings VALUES ('makerWorldTranslation', 'free')"
+    "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, notes TEXT, description TEXT); INSERT INTO settings VALUES ('makerWorldTranslation', 'free')"
   );
 
   // --- Which notes need English ---
@@ -65,16 +65,16 @@ async function main() {
   });
   assert.deepStrictEqual(ai, { english: 'The third note.', by: 'ai', error: null });
 
-  // --- A new model's notes: saved in English with the original under it ---
+  // --- A new model's description: saved in English with the original under it ---
   database.db.prepare("UPDATE settings SET value = 'free'").run();
-  database.db.prepare('INSERT INTO models (id, filePath, notes) VALUES (1, ?, ?), (2, ?, ?)').run('/l/a.3mf', chinese, '/l/b.3mf', 'Already English.');
+  database.db.prepare('INSERT INTO models (id, filePath, description) VALUES (1, ?, ?), (2, ?, ?)').run('/l/a.3mf', chinese, '/l/b.3mf', 'Already English.');
   notes._queue.push(1, 2);
   await notes.work({ fetchImpl });
   assert.strictEqual(
-    database.db.prepare('SELECT notes FROM models WHERE id = 1').get().notes,
+    database.db.prepare('SELECT description FROM models WHERE id = 1').get().description,
     `Grimlock is a popular character.\n\nPrint at 0.2 mm.${notes.ORIGINAL_MARK}${chinese}`
   );
-  assert.strictEqual(database.db.prepare('SELECT notes FROM models WHERE id = 2').get().notes, 'Already English.');
+  assert.strictEqual(database.db.prepare('SELECT description FROM models WHERE id = 2').get().description, 'Already English.');
   assert.deepStrictEqual(await notes.englishForModel('/l/a.3mf', { fetchImpl }), { english: null, by: null, error: null }, 'nothing more to show');
 
   console.log('notes-translation tests passed');

@@ -25,6 +25,7 @@ import {
   HardDrive,
   ExternalLink,
   HelpCircle,
+  History,
   Home,
   Image,
   Info,
@@ -104,7 +105,8 @@ export const NAV: NavSection[] = [
       { id: 'home', label: 'Home', icon: Home, page: 'home' },
       { id: 'library', label: 'Library', icon: Library, page: 'library' },
       { id: 'collections', label: 'Collections', icon: FolderHeart, page: 'collections' },
-      { id: 'categories', label: 'Categories', icon: Shapes, page: 'categories' }
+      { id: 'categories', label: 'Categories', icon: Shapes, page: 'categories' },
+      { id: 'history', label: 'History', icon: History, page: 'history' }
     ]
   },
   {

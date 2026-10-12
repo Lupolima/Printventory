@@ -9,8 +9,6 @@ import { filterActions } from '../filters/store';
 import { cardTitle, displayFileName, formatOf } from '../grid/ModelCard';
 import { directoryLabel, folderFilterFor, formatFileSize } from '../library/paths';
 import { MakerWorldSection } from '../makerworld/MakerWorldSection';
-import { siteModelUrl } from '../makerworld/makerworld';
-import { render as renderMarkdown } from '../notes/markdown';
 import { onServerEvent } from '../page';
 import { effectiveStatus, formatPrintDate, OUTCOME_LABELS, STATUS_LABELS, type PrintModel, type PrintStatus } from '../print/printStatus';
 import { isPreviewablePath } from '../preview/studio';
@@ -19,9 +17,11 @@ import { loadSlicers, type Slicer } from '../slicer';
 import { navigate } from '../shell/routes';
 import { CategoryPlace } from './CategoriesPage';
 import { KitChecklist } from '../kits/KitChecklist';
-import { ModelHistory } from './ModelHistory';
-import { NotesEnglish } from '../notes/NotesEnglish';
-import { ModelMediaSection } from '../media/ModelMediaSection';
+import { UploadVersionButton } from './ModelHistory';
+import { ModelGallery } from '../media/ModelGallery';
+import { ModelMediaSection, YoutubeVideo } from '../media/ModelMediaSection';
+import { DescriptionSection, NotesPanel } from './ModelPageParts';
+import { getSiteDetails, siteModelUrl, type MakerWorldDetails } from '../makerworld/makerworld';
 import { folderOf } from '../media/media';
 
 /** What the page shows of a model (get-model). */
@@ -29,9 +29,17 @@ type PageModel = PanelModel &
   PrintModel & {
     id?: number;
     notes?: string | null;
+    /** What the model is (its site's or its 3MF's description), apart from your notes. */
+    description?: string | null;
     license?: string | null;
     parentModel?: string | null;
     tags?: unknown[];
+    /** The page's title: the site's title, else its model folder's name (null: the file's name). */
+    title?: string | null;
+    /** Its model folder, when it is in one. */
+    modelFolder?: string | null;
+    /** In a model folder: the file's own pictures (its 3D renders), without the cover. */
+    renders?: string[] | null;
   };
 
 /** A library file next to the model (get-folder-models). */
@@ -56,45 +64,33 @@ function showInLibrary(change: () => void) {
   });
 }
 
-/** The pictures: a large one and the strip under it. */
-function Gallery({ model, online }: { model: PageModel; online: boolean }) {
-  const images = panelImages(model);
-  const [index, setIndex] = useState(0);
-  const shown = images[index < images.length ? index : 0];
+/** An online model (no file): the videos and the PDF its site has. */
+function SiteOnlyMedia({ videos, pdfUrl }: { videos: string[]; pdfUrl: string | null }) {
   return (
-    <div className="jp-model-page__gallery">
-      <div className="jp-model-page__stage">
-        <img src={shown} alt="" draggable={false} />
-        {!online && (
-          <button
-            type="button"
-            className="jp-details__overlay-btn jp-model-page__3d"
-            title="Open the 3D preview"
-            onClick={() => void window.openPreview?.(model.filePath)}
-          >
-            <Box size={16} aria-hidden="true" />
-            <span>3D</span>
-          </button>
-        )}
-      </div>
-      {images.length > 1 && (
-        <div className="jp-details__strip" role="listbox" aria-label="Images" aria-orientation="horizontal">
-          {images.map((src, i) => (
-            <button
-              key={i}
-              type="button"
-              role="option"
-              aria-selected={i === index}
-              aria-label={`Image ${i + 1} of ${images.length}`}
-              className={cx('jp-details__thumb', i === index && 'is-selected')}
-              onClick={() => setIndex(i)}
-            >
-              <img src={src} alt="" draggable={false} />
-            </button>
-          ))}
-        </div>
+    <>
+      {videos.length > 0 && (
+        <section className="jp-card jp-media" id="jp-model-videos" aria-labelledby="jp-model-videos-title">
+          <h2 className="jp-panel-title" id="jp-model-videos-title">
+            Videos
+          </h2>
+          <ul className="jp-media__videos">
+            {videos.map((id) => (
+              <YoutubeVideo key={id} id={id} />
+            ))}
+          </ul>
+        </section>
       )}
-    </div>
+      {pdfUrl && (
+        <section className="jp-card jp-media" id="jp-model-documents" aria-labelledby="jp-model-documents-title">
+          <h2 className="jp-panel-title" id="jp-model-documents-title">
+            Documents
+          </h2>
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+            {decodeURIComponent(pdfUrl.split('/').pop() || 'Model PDF')} (on the site)
+          </a>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -300,12 +296,21 @@ export function ModelPage({ filePath }: { filePath: string }) {
   const [files, setFiles] = useState<FolderFile[]>([]);
   const [events, setEvents] = useState<PrintEvent[]>([]);
   const [slicers, setSlicers] = useState<Slicer[]>([]);
+  /** The model's site's details (its description, videos and PDF), when it came from one. */
+  const [site, setSite] = useState<MakerWorldDetails | null>(null);
 
   const load = useCallback(async () => {
     const next = await modelApi.get<PageModel>(filePath).catch(() => null);
     setModel(next);
     if (!next) return;
     callAction<FolderFile[]>('get-folder-models', filePath).then(setFiles, () => setFiles([]));
+    const link = siteModelUrl(next);
+    if (link)
+      getSiteDetails(link.url).then(
+        (found) => setSite(found?.details || null),
+        () => setSite(null)
+      );
+    else setSite(null);
     if (next.id) prints.events(next.id).then(setEvents, () => setEvents([]));
   }, [filePath]);
 
@@ -313,6 +318,7 @@ export function ModelPage({ filePath }: { filePath: string }) {
     setModel(undefined);
     setFiles([]);
     setEvents([]);
+    setSite(null);
     void load();
     loadSlicers().then(setSlicers, () => {});
     window.scrollTo(0, 0);
@@ -383,12 +389,12 @@ export function ModelPage({ filePath }: { filePath: string }) {
           </>
         )}
         <span aria-hidden="true">/</span>
-        <span className="jp-model-page__crumb-here">{cardTitle(model)}</span>
+        <span className="jp-model-page__crumb-here">{model.title || cardTitle(model)}</span>
       </nav>
 
       <header className="jp-model-page__header">
         <h1 className="jp-page-title" id="jp-model-page-title">
-          {cardTitle(model)}
+          {model.title || cardTitle(model)}
         </h1>
         {designer && (
           <p className="jp-model-page__byline">
@@ -401,38 +407,51 @@ export function ModelPage({ filePath }: { filePath: string }) {
 
       <div className="jp-model-page__grid">
         <div className="jp-model-page__main">
-          <Gallery key={model.filePath} model={model} online={online} />
+          <ModelGallery
+            key={`gallery:${model.filePath}`}
+            filePath={model.filePath}
+            folder={online || model.filePath.includes('::') ? null : model.modelFolder || folderOf(model.filePath)}
+            renders={(model.renders ?? panelImages(model)).filter((src) => src !== '3d.png')}
+            online={online}
+            alone={files.length <= 1}
+          />
 
-          {model.notes && String(model.notes).trim() && (
-            <section className="jp-card jp-model-page__notes">
-              <h2 className="jp-panel-title">Notes</h2>
-              {(() => {
-                // Notes saved in English keep the original under "Original:": folded away.
-                const [english, original] = String(model.notes).split('\n\n---\n\nOriginal:\n\n');
-                return (
-                  <>
-                    <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(english) }} />
-                    {original !== undefined && (
-                      <details className="jp-notes-original">
-                        <summary>Original</summary>
-                        <div className="jp-model-page__markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(original) }} />
-                      </details>
-                    )}
-                  </>
-                );
-              })()}
-              <NotesEnglish filePath={model.filePath} notes={model.notes} />
-            </section>
-          )}
+          <DescriptionSection
+            filePath={model.filePath}
+            description={model.description}
+            siteDescription={site?.description}
+            siteDescriptionEnglish={site?.descriptionEnglish}
+          />
 
           {fromSite && (
             <div className="jp-card jp-model-page__site">
-              <MakerWorldSection model={model} />
+              <MakerWorldSection model={model} page />
             </div>
           )}
 
-          {!online && !model.filePath.includes('::') && (
-            <ModelMediaSection key={`media:${model.filePath}`} folder={folderOf(model.filePath)} alone={files.length <= 1} />
+          {!online && !model.filePath.includes('::') ? (
+            <>
+              <ModelMediaSection
+                key={`videos:${model.filePath}`}
+                folder={folderOf(model.filePath)}
+                alone={files.length <= 1}
+                parts={['video']}
+                title="Videos"
+                sectionId="jp-model-videos"
+                siteVideos={site?.videos || []}
+              />
+              <ModelMediaSection
+                key={`documents:${model.filePath}`}
+                folder={folderOf(model.filePath)}
+                alone={files.length <= 1}
+                parts={['document']}
+                title="Documents"
+                sectionId="jp-model-documents"
+                siteDocuments={site?.pdfUrl ? [{ url: site.pdfUrl, name: decodeURIComponent(site.pdfUrl.split('/').pop() || 'Model PDF') }] : []}
+              />
+            </>
+          ) : (
+            <SiteOnlyMedia videos={site?.videos || []} pdfUrl={site?.pdfUrl || null} />
           )}
 
           <section className="jp-model-page__files" aria-labelledby="jp-model-page-files">
@@ -466,17 +485,20 @@ export function ModelPage({ filePath }: { filePath: string }) {
               Model Details
             </h2>
             <div className="jp-model-page__actions">
-              <SlicerButton filePath={model.filePath} slicers={slicers} />
-              {canEdit && (
-                <Button icon={ClipboardPen} onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}>
-                  Log Print
-                </Button>
-              )}
+              <div className="jp-model-page__slicer">
+                <SlicerButton filePath={model.filePath} slicers={slicers} />
+              </div>
               {canEdit && (
                 <Button icon={Pencil} id="jp-model-page-edit" onClick={() => window.openEditModel?.(model.filePath)}>
                   Edit
                 </Button>
               )}
+              {canEdit && (
+                <Button icon={ClipboardPen} onClick={() => void window.PrintHistory?.openLogDialog({ filePaths: [model.filePath] })}>
+                  Log Print
+                </Button>
+              )}
+              {!online && !model.filePath.includes('::') && <UploadVersionButton filePath={model.filePath} folder={folderOf(model.filePath)} />}
               <span className="jp-model-page__icons">
                 {canEdit && (
                   <IconButton
@@ -539,13 +561,16 @@ export function ModelPage({ filePath }: { filePath: string }) {
                   '—'
                 )}
               </Prop>
-              <Prop label="Category">{model.categories?.length ? <CategoryPlace names={model.categories} id="jp-model-page-categories" /> : '—'}</Prop>
+              <Prop label="Category">{model.categories?.[0] ? <CategoryPlace names={[model.categories[0]]} id="jp-model-page-categories" /> : '—'}</Prop>
+              <Prop label="Subcategory">{model.categories?.[1] ? <CategoryPlace names={[model.categories[1]]} id="jp-model-page-subcategory" /> : '—'}</Prop>
               <Prop label="Location" title={online ? undefined : model.filePath}>
                 {online ? 'Online model' : folderPath || '—'}
               </Prop>
               <Prop label="Added">{formatAdded(model.dateAdded) || '—'}</Prop>
             </div>
           </section>
+
+          <NotesPanel filePath={model.filePath} notes={model.notes} onSaved={() => void load()} />
 
           {files.length > 1 && (
             <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-file-list">
@@ -569,13 +594,6 @@ export function ModelPage({ filePath }: { filePath: string }) {
           )}
 
           {!online && <KitChecklist target={model.filePath} />}
-
-          {!online && !model.filePath.includes('::') && (
-            <ModelHistory
-              filePath={model.filePath}
-              folder={model.filePath.slice(0, Math.max(model.filePath.lastIndexOf('/'), model.filePath.lastIndexOf('\\')))}
-            />
-          )}
 
           <section className="jp-card jp-model-page__panel" aria-labelledby="jp-model-page-history">
             <h2 className="jp-panel-title" id="jp-model-page-history">

@@ -251,7 +251,7 @@ function getMcpToolContext() {
         rating: existing.rating,
         favorite: existing.favorite
       };
-      for (const key of ['designer', 'source', 'notes', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
+      for (const key of ['designer', 'source', 'notes', 'description', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
         if (args[key] !== undefined) payload[key] = args[key];
       }
       await saveModel(payload);
@@ -473,7 +473,7 @@ function getMcpToolContext() {
         const hasData =
           (model.designer && String(model.designer).trim()) ||
           (model.parentModel && String(model.parentModel).trim()) ||
-          (model.notes && String(model.notes).trim()) ||
+          (model.description && String(model.description).trim()) ||
           (model.license && String(model.license).trim());
         if (hasData) {
           modelsWithData.push({ filePath, fileName: model.fileName, designer: model.designer, parentModel: model.parentModel, license: model.license });
@@ -505,7 +505,7 @@ function getMcpToolContext() {
             database.db
               .prepare(
                 `
-              UPDATE models SET designer = ?, parentModel = ?, notes = ?, license = ? WHERE filePath = ?
+              UPDATE models SET designer = ?, parentModel = ?, description = ?, license = ? WHERE filePath = ?
             `
               )
               .run(
@@ -552,7 +552,7 @@ function getMcpToolContext() {
       const batch = models.map((item) => {
         const existing = resolveModelForMcp(item);
         const payload = { filePath: existing.filePath };
-        for (const key of ['designer', 'source', 'notes', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
+        for (const key of ['designer', 'source', 'notes', 'description', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
           if (item[key] !== undefined) payload[key] = item[key];
         }
         return payload;
