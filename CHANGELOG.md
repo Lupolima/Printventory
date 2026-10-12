@@ -2,7 +2,7 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.19.0] - 2026-10-12
 
 **Changes:**
 - **Kits get one place:** Categorize Library asks the AI once about a folder (or ZIP file) with three or more models to sort, with its name, its file names and a picture, and every file in it gets that Category and Subcategory; the parts of a kit no longer scatter (a car kit's tire in Fashion › Rings, its logo in Art). A folder of different models is asked about one model at a time, as before. It is also far cheaper: one AI request for a kit instead of one per part.
@@ -14,6 +14,8 @@ All notable changes contributed via pull request are documented in this file.
 - **The cover stays:** after a thumbnail job (Generate or Regenerate Thumbnails), each model folder's chosen cover is the picture the library shows again.
 - **Pictures, videos and documents in the details panel:** a model folder's media show in the sidebar too (view, play, add, remove, choose the cover), not only on the model's page.
 - **AI Tagging follows the kit:** a model whose folder's other models share a place gets that place without asking the AI.
+
+**Upgrading:** no changes needed. Reload open browser tabs after the update. Kits sorted part by part with 7.18 keep their places; to give each kit one place, run **Categorize Library** with the AI and **Sort every model again**.
 
 ## [7.18.0] - 2026-10-11
 
