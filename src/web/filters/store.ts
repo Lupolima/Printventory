@@ -20,6 +20,7 @@ import {
   normalizeTokens,
   removeToken,
   restoredState,
+  setCategoryClause,
   type AtomKind,
   type ChipRemove,
   type Combine,
@@ -150,6 +151,11 @@ export const filterActions = {
     const joined: SearchToken[] = before.length ? [...before, { t: 'op', op: 'AND' }, { t: 'open' }, ...tokens, { t: 'close' }] : tokens;
     userChange({ ...state, tokens: normalizeTokens(joined), awaiting: false, inverted: { ...state.inverted, search: false } });
     return error;
+  },
+
+  /** Search for one category instead of the one searched for ('' for none). */
+  setCategory(value: string) {
+    userChange(setCategoryClause(state, value));
   },
 
   /** Add the search box text to the query. */

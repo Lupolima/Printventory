@@ -426,7 +426,11 @@ export function filterStrip(state: FilterState, labels: Labels): FilterStrip {
       chain.push({
         kind: 'chip',
         className: 'filter-pill-search-clause',
-        text: all ? `Search: "${tok.value}"` : `Search (${SEARCH_FIELD_LABELS[tok.field] || tok.field}): "${tok.value}"`,
+        text: all
+          ? `Search: "${tok.value}"`
+          : tok.field === 'category' && tok.value.trim().toLowerCase() === 'none'
+            ? 'No Subcategory yet'
+            : `Search (${SEARCH_FIELD_LABELS[tok.field] || tok.field}): "${tok.value}"`,
         notesOff: all && !state.includeNotes,
         inverted: state.inverted.search,
         remove
@@ -548,6 +552,21 @@ export function appendClause(state: FilterState, field: string, raw: string): Fi
   tokens.push({ t: 'clause', field: field || 'all', value });
   collapseAdjacentOps(tokens);
   return { ...state, tokens, awaiting: false };
+}
+
+/** The category the query searches for (the Filter popover's Category), or '' (none, or several). */
+export function categoryOf(state: FilterState): string {
+  const found = state.tokens.filter((tok): tok is Extract<SearchToken, { t: 'clause' }> => tok.t === 'clause' && tok.field === 'category');
+  return found.length === 1 ? found[0].value : '';
+}
+
+/** Search for one category (the Filter popover's Category): it takes the place of the one searched for; '' takes it away. */
+export function setCategoryClause(state: FilterState, value: string): FilterState {
+  const index = state.tokens.findIndex((tok) => tok.t === 'clause' && tok.field === 'category');
+  if (index < 0) return value ? appendClause(state, 'category', value) : state;
+  if (value) return { ...state, tokens: state.tokens.map((tok, i) => (i === index ? { t: 'clause', field: 'category', value } : tok)), awaiting: false };
+  const removed = removeToken(state, index);
+  return { ...removed, tokens: normalizeTokens(removed.tokens) };
 }
 
 /** AND / OR from the search logic toolbar. */

@@ -17,6 +17,7 @@ import { Heart, MoreHorizontal } from 'lucide-react';
 import { navigate } from '../shell/routes';
 import { TONE_ICONS, printStatusInfo } from '../components/Badge';
 import { cx } from '../components/Button';
+import { showCategory } from '../pages/CategoriesPage';
 import { badgeTitle, effectiveStatus, type PrintModel } from '../print/printStatus';
 
 /** Card and preview height of a JusttPrint 5 card, as CSS variables (library.css). */
@@ -897,6 +898,17 @@ function ModelTile({ host, model, common, images, current, setRenderSlot }: Tile
             <span className="jp-badge" title="File type">
               {format}
             </span>
+          )}
+          {typeof model.subcategory === 'string' && model.subcategory && (
+            <button
+              type="button"
+              tabIndex={-1}
+              className="jp-badge jp-model-card__category"
+              title={`${model.category ? `${String(model.category)} › ` : ''}${model.subcategory}: show its models`}
+              onClick={stop(() => showCategory(String(model.subcategory)))}
+            >
+              {model.subcategory}
+            </button>
           )}
           <CardPrintStatus model={model} />
         </div>

@@ -211,6 +211,7 @@ const NETWORK_IPC_PATH_RULES = {
   'trash-file': [[0, 'file']],
   'rename-model': [[0, 'file']],
   'set-model-categories': [[0, 'file']],
+  'set-models-category': [[0, 'files']],
   'get-folder-models': [[0, 'file']],
   'look-alike-models': [[0, 'file']],
   'translate-notes': [[0, 'file']],

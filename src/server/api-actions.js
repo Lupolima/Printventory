@@ -142,6 +142,7 @@ const ACTIONS = {
   // Categories (ipc/categories.js)
   'get-categories': [],
   'update-category': ['number', 'object'],
+  'set-models-category': ['array', 'string'],
   'set-model-categories': ['string', 'array'],
   'start-category-scan': ['object?'],
   'get-category-scan': [],
@@ -398,6 +399,7 @@ const EDITOR_ACTIONS = new Set([
   'undo-model-change',
   'set-kit-part',
   'update-category',
+  'set-models-category',
   'set-model-categories',
   'start-category-scan',
   'get-category-scan',

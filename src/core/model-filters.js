@@ -124,6 +124,10 @@ function pushSearchClauseFragment(field, rawValue, params, filters) {
     case 'category': {
       require('./categories').ensureTables();
       const exact = String(rawValue).trim().toLowerCase();
+      // category:none: the models without a Subcategory yet (none, or a Category alone).
+      if (exact === 'none') {
+        return 'NOT EXISTS (SELECT 1 FROM model_categories mc INNER JOIN categories c ON c.id = mc.category_id WHERE mc.model_id = models.id AND c.parent_id IS NOT NULL)';
+      }
       params.push(exact, exact, term);
       return CATEGORY_MATCH_SQL;
     }

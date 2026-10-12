@@ -419,7 +419,12 @@ function saveAiCategory(modelId, answer) {
   return sub.name;
 }
 
+/** Columns for model lists (the grid's cards): a model's Subcategory and its Category, or null. */
+const PLACE_COLUMNS = `(SELECT c.name FROM model_categories mc JOIN categories c ON c.id = mc.category_id WHERE mc.model_id = models.id AND c.parent_id IS NOT NULL LIMIT 1) AS subcategory,
+  (SELECT c.name FROM model_categories mc JOIN categories c ON c.id = mc.category_id WHERE mc.model_id = models.id AND c.parent_id IS NULL LIMIT 1) AS category`;
+
 module.exports = {
+  PLACE_COLUMNS,
   aiCategoryChoices,
   placeLikeSiblings,
   saveAiCategory,

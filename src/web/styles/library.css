@@ -611,9 +611,27 @@
   margin-top: auto;
   min-width: 0;
 }
+/* The model's Subcategory (a click shows its models). */
+.jp-model-card__category {
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  background: transparent;
+  font-family: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.jp-model-card__category:hover {
+  border-color: var(--jp-accent-border);
+  color: var(--jp-text);
+}
 .jp-model-card__badges .jp-badge {
   flex: none;
   text-transform: uppercase;
+}
+.jp-model-card__badges .jp-model-card__category {
+  flex: 0 1 auto;
+  text-transform: none;
 }
 .file-grid .jp-model-card .print-status.jp-status {
   all: unset;

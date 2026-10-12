@@ -234,7 +234,10 @@ const getAllModelsHandler = async (event, sortOption, limit = 0) => {
         break;
     }
 
-    const selectCols = MODEL_LIST_COLUMNS;
+    // With each model's Category and Subcategory (the cards show them).
+    const categories = require('../../core/categories');
+    categories.ensureTables();
+    const selectCols = `${MODEL_LIST_COLUMNS}, ${categories.PLACE_COLUMNS}`;
 
     let models;
     if (limit === 0) {
@@ -333,7 +336,9 @@ const getModelsFilteredHandler = async (event, filters) => {
         break;
     }
 
-    const selectCols = MODEL_LIST_COLUMNS_QUALIFIED;
+    const categories = require('../../core/categories');
+    categories.ensureTables();
+    const selectCols = `${MODEL_LIST_COLUMNS_QUALIFIED}, ${categories.PLACE_COLUMNS}`;
 
     // Execute query (optional limit/offset for progressive load when clearing filters in Server/Docker)
     // SQLite requires LIMIT when using OFFSET; use a large limit when only offset is set

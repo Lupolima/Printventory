@@ -179,6 +179,9 @@ async function main() {
   assert.deepStrictEqual(found('Household'), ['Vase.stl']);
   assert.deepStrictEqual(found('Decor'), ['Vase.stl']);
   assert.deepStrictEqual(found('Art'), [], 'a full name matches only that one');
+  const loose = add('/l/Loose.stl');
+  assert.deepStrictEqual(found('none'), ['Loose.stl'], 'category:none: no Subcategory yet');
+  database.db.prepare('DELETE FROM models WHERE id = ?').run(loose);
 
   // --- Categorize Library ---
   const scan = require('../src/server/category-scan');
