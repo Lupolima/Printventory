@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.22.1] - 2026-10-12
+
+**Changes:**
+- **Unraid template** ([unraid/justtprint.xml](unraid/justtprint.xml)): add `https://github.com/ngolston/JusttPrint` under Docker → Template Repositories, then Add Container → JusttPrint. App Data in `/mnt/user/appdata/justtprint`, the models share read-only at `/mnt/models`, PUID 99 and PGID 100, the WebUI link, and the other settings under Show more settings. README: a new **Unraid** section.
+
 ## [7.22.0] - 2026-10-12
 
 **Changes:**

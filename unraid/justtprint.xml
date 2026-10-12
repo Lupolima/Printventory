@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>JusttPrint</Name>
+  <Repository>ace2123/justtprint:latest</Repository>
+  <Registry>https://hub.docker.com/r/ace2123/justtprint</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/ngolston/JusttPrint/issues</Support>
+  <Project>https://github.com/ngolston/JusttPrint</Project>
+  <Overview>A self-hosted library for your 3D printing models (STL, 3MF, OBJ, STEP, ZIP and more), used from any browser on your network. It scans your model folders, renders thumbnails, and keeps tags, designers, licenses, categories, collections, print history, printers and kits in one place, with accounts for family or a makerspace.[br][br]
+Set [b]Models[/b] to your models share and choose a [b]Password[/b] (user name [i]admin[/i]). Leave it empty and a random password is printed once in the container log. Then open the WebUI.[br][br]
+[b]Models[/b] is read-only by default; switch it to Read/Write to allow delete, move and Organize Library. Add more folders with "Add another Path" and list them in [b]STL Home[/b] (comma separated).[br][br]
+Settings given here win over the web UI on every start; leave one empty to set it in the web UI instead.[br][br]
+[b]NVIDIA GPU (optional, faster thumbnails):[/b] with the Nvidia Driver plugin, add --runtime=nvidia to Extra Parameters and the variables NVIDIA_VISIBLE_DEVICES=all and NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility.</Overview>
+  <Category>Tools: MediaServer:Other Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:5000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/ngolston/JusttPrint/main/unraid/justtprint.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/ngolston/JusttPrint/main/assets/pwa-icon-512.png</Icon>
+  <ExtraParams>--memory=8g --memory-reservation=1g</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="5000" Default="5000" Mode="tcp" Description="Port for the web interface." Type="Port" Display="always" Required="true" Mask="false">5000</Config>
+  <Config Name="App Data" Target="/root/.config/justtprint" Default="/mnt/user/appdata/justtprint" Mode="rw" Description="Database, thumbnails, settings and backups. Keep this folder: it holds your library." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/justtprint</Config>
+  <Config Name="Models" Target="/mnt/models" Default="/mnt/user/models" Mode="ro" Description="Your models folder, seen inside the container as /mnt/models. Read-only by default; set Read/Write to allow delete, move and Organize Library." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/models</Config>
+  <Config Name="Password" Target="JUSTTPRINT_PASSWORD" Default="" Mode="" Description="Password of the admin account, applied on every start (also how to reset a forgotten one). Empty: a random password is printed once in the container log." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="User Name" Target="JUSTTPRINT_USERNAME" Default="admin" Mode="" Description="User name of the admin account. Other accounts are added under Settings, Authentication, Users." Type="Variable" Display="always" Required="false" Mask="false">admin</Config>
+  <Config Name="STL Home" Target="STL_HOME" Default="/mnt/models" Mode="" Description="Folders to scan, as container paths. Several: /mnt/models,/mnt/archive." Type="Variable" Display="always" Required="true" Mask="false">/mnt/models</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User the app runs as (99 is Unraid's nobody). Files it writes get this owner." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group the app runs as (100 is Unraid's users)." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+  <Config Name="Scan ZIP Files" Target="JUSTTPRINT_ENABLE_ZIP" Default="" Mode="" Description="true or false: also scan the models inside ZIP files. Empty: set it in the web UI." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Extra File Types" Target="JUSTTPRINT_FILE_TYPES" Default="" Mode="" Description="Extra file types to scan, for example obj,step,ply,gcode." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Skip Folders" Target="STL_HOME_EXCLUDE" Default="" Mode="" Description="Folders inside STL Home to skip, for example /mnt/models/cache." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Guest Access" Target="JUSTTPRINT_GUEST_ACCESS" Default="" Mode="" Description="true: people who open JusttPrint without logging in can browse like a Viewer. Empty: set it in the web UI." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Automatic Backups" Target="JUSTTPRINT_AUTO_BACKUP" Default="" Mode="" Description="true or false: back up the database automatically (into backups in App Data). Empty: set it in the web UI." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Backups to Keep" Target="JUSTTPRINT_BACKUP_KEEP" Default="" Mode="" Description="How many automatic backups to keep (default 7). Empty: set it in the web UI." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="AI Service" Target="JUSTTPRINT_AI_SERVICE" Default="" Mode="" Description="For AI tagging: openai, claude, gemini, puter or custom. Can also be set in the web UI." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="AI API Key" Target="JUSTTPRINT_AI_API_KEY" Default="" Mode="" Description="API key for the AI service (never written to the log)." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="AI Model" Target="JUSTTPRINT_AI_MODEL" Default="" Mode="" Description="AI model name, for example gpt-5-nano." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="AI Endpoint" Target="JUSTTPRINT_AI_ENDPOINT" Default="" Mode="" Description="Address of the AI service for custom, for example a local Ollama server." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Allowed Origins" Target="JUSTTPRINT_ALLOWED_ORIGINS" Default="" Mode="" Description="Your public address when behind a reverse proxy (SWAG, Nginx Proxy Manager), for example https://library.example.com." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Trust Proxy" Target="JUSTTPRINT_TRUST_PROXY" Default="" Mode="" Description="Number of reverse proxies in front (usually 1). Leave empty without a proxy." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Thumbnail Rendering" Target="JUSTTPRINT_GPU" Default="auto|nvidia|swiftshader" Mode="" Description="auto uses an NVIDIA GPU when one is passed in, else the CPU (swiftshader)." Type="Variable" Display="advanced" Required="false" Mask="false">auto</Config>
+  <Config Name="Log Level" Target="JUSTTPRINT_LOG_LEVEL" Default="info|warn|error|debug" Mode="" Description="How much the container log shows." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+</Container>
