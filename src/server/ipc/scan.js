@@ -298,6 +298,29 @@ function stlHomeExcludeDirectoriesForScan(directoryPath, options) {
  * options.rememberDirectory: false keeps the folder out of the scanned-directories list.
  */
 async function scanDirectoryHandler(event, directoryPath, options = {}) {
+  // The progress bars above Library Storage (activity.js) follow what the scan tells its browser.
+  const activity = require('../activity');
+  const id = activity.start('scan', 'Scanning the library', { unit: 'files', detail: path.basename(String(directoryPath || '')) || null });
+  const sender = event && event.sender;
+  const followed = {
+    ...event,
+    sender: {
+      ...(sender || {}),
+      send: (channel, payload) => {
+        if (channel === 'scan-progress' && payload) activity.update(id, { done: payload.processed });
+        if (channel === 'db-progress' && payload) activity.update(id, { label: 'Adding models to the library', done: payload.processed, total: null });
+        if (sender && typeof sender.send === 'function') sender.send(channel, payload);
+      }
+    }
+  };
+  try {
+    return await scanDirectoryInner(followed, directoryPath, options);
+  } finally {
+    activity.finish(id);
+  }
+}
+
+async function scanDirectoryInner(event, directoryPath, options = {}) {
   try {
     // Validate UNC path in server mode
     try {

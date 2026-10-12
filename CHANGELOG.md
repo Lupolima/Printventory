@@ -6,6 +6,7 @@ All notable changes contributed via pull request are documented in this file.
 
 **Changes:**
 - **Kits get one place:** Categorize Library asks the AI once about a folder (or ZIP file) with three or more models to sort, with its name, its file names and a picture, and every file in it gets that Category and Subcategory; the parts of a kit no longer scatter (a car kit's tire in Fashion › Rings, its logo in Art). A folder of different models is asked about one model at a time, as before. It is also far cheaper: one AI request for a kit instead of one per part.
+- **What runs in the background:** above Library Storage, a progress bar for each job while it runs, with how far it is ("117 of 130 models", "3.2 MB of 10 MB") and how long it should still take ("about 3 min left", from its pace so far): library scans (also the timed and folder-watching ones that take more than a moment), AI Tagging, Categorize Library, thumbnails, duplicate checks (fingerprints and shapes), downloads from MakerWorld, Printables and Thingiverse, uploads, backups (automatic and Create Backup), Organize Library and Tidy Into Model Folders. Every browser sees every job; the panel is gone when nothing runs. AI Tagging and thumbnails keep their Stop (and Review) buttons there.
 - **AI Tagging follows the kit:** a model whose folder's other models share a place gets that place without asking the AI.
 
 ## [7.18.0] - 2026-10-11

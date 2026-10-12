@@ -18,7 +18,7 @@ ipcMain.handle('backup-database', async () => {
     const backupPath = downloadFiles.newDownloadPath('backup', 'db');
 
     // SQLite's online backup: the database stays open, so other requests keep working.
-    await database.db.backup(backupPath);
+    await require('../activity').backupDatabase(database.db, backupPath, 'Making a backup');
 
     return { success: true, filePath: backupPath };
   } catch (error) {

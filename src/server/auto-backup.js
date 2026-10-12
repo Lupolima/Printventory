@@ -177,7 +177,7 @@ function runBackup(reason = 'manual') {
       const target = path.join(config.directory, name);
       const partial = target + PARTIAL_SUFFIX;
       try {
-        await database.db.backup(partial);
+        await require('./activity').backupDatabase(database.db, partial, 'Backing up the library');
         checkBackupFile(partial);
         await fs.promises.rename(partial, target);
       } catch (error) {

@@ -209,8 +209,12 @@ async function apply({ under = null, only = null, covers = false, roots = null }
   const updatePath = database.db.prepare('UPDATE models SET filePath = ?, fileName = ? WHERE filePath = ?');
   const siteFiles = require('./site-details').siteFilesTable();
   const updateSite = siteFiles.prepare('UPDATE site_files SET file_path = ? WHERE file_path = ?');
-  for (const group of groups) {
-    if (wanted && !wanted.has(group.id)) continue;
+  const todo = groups.filter((group) => !wanted || wanted.has(group.id));
+  const activity = require('./activity');
+  const jobId = activity.start('move', 'Tidying into model folders', { unit: 'models', total: todo.length });
+  let doneCount = 0;
+  for (const group of todo) {
+    activity.update(jobId, { done: doneCount++, detail: group.name });
     try {
       const target = group.action === 'move' ? modelFolders.makeFolder(group.folder, group.name) : modelFolders.register(group.folder);
       if (group.action === 'move') {
@@ -241,6 +245,7 @@ async function apply({ under = null, only = null, covers = false, roots = null }
       result.failed.push({ name: group.name, error: error.message });
     }
   }
+  activity.finish(jobId);
   const events = require('./events');
   events.broadcast('refresh-grid');
   console.log(`[Tidy] ${result.moved} model(s) moved into folders of their own, ${result.registered} kept where they are, ${result.failed.length} failed`);

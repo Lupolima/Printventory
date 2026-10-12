@@ -162,6 +162,11 @@ function publicOrganizePreview(plan) {
 
 /** The progress dialog goes to the browser that started Organize; the grid refresh to every browser. */
 function sendOrganizeEvent(event, channel, data) {
+  // Also a progress bar above Library Storage (activity.js).
+  const activity = require('../activity');
+  if (channel === 'show-progress-dialog') activity.start('move', 'Organizing the library', { id: 'organize', unit: 'models', total: data && data.total });
+  else if (channel === 'update-progress' && data) activity.update('organize', { done: data.current, total: data.total, detail: data.message || null });
+  else if (channel === 'close-progress-dialog') activity.finish('organize');
   if (channel === 'refresh-grid') events.broadcast(channel);
   else events.toCaller(event, channel, data);
 }

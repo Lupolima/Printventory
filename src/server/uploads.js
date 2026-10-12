@@ -267,6 +267,19 @@ async function handleUpload(req, res) {
 }
 
 /**
+ * An upload in pieces as a progress bar above Library Storage (activity.js); a session resumed
+ * after a lost connection starts again from what has arrived. Dropped when nothing arrives for a
+ * few minutes (a paused upload).
+ */
+function uploadActivity(id, name, size, received) {
+  const activity = require('./activity');
+  const key = `upload-${id}`;
+  activity.start('upload', 'Uploading', { id: key, unit: 'bytes', total: size, detail: name });
+  activity.update(key, { done: received });
+  activity.markIdleEnds(key);
+}
+
+/**
  * Mount the upload route. Call after requireAuth and before any body parser.
  * @param {object} deps
  * @param {(role: string) => Function} deps.requireRole
@@ -311,6 +324,7 @@ function registerUploadRoutes(expressApp, { requireRole }) {
       }
       const session = uploadSessions().start({ user: req.user, folder, name, size: Number(body.size), maxBytes: maxUploadBytes() });
       console.log(`[Upload] ${req.user.username} started ${path.join(folder, name)} (${session.size} bytes)`);
+      uploadActivity(session.id, name, session.size, session.received);
       return { ...session, chunkBytes: uploadChunkBytes() };
     })
   );
@@ -324,9 +338,13 @@ function registerUploadRoutes(expressApp, { requireRole }) {
   expressApp.put(
     '/api/upload/sessions/:id',
     editor,
-    step((req) =>
-      uploadSessions().writePiece(req.params.id, req.user, Number(req.query.offset), req, { maxPieceBytes: Math.max(MAX_PIECE_BYTES, uploadChunkBytes()) })
-    )
+    step(async (req) => {
+      const result = await uploadSessions().writePiece(req.params.id, req.user, Number(req.query.offset), req, {
+        maxPieceBytes: Math.max(MAX_PIECE_BYTES, uploadChunkBytes())
+      });
+      require('./activity').update(`upload-${req.params.id}`, { done: result.received });
+      return result;
+    })
   );
 
   expressApp.post(
@@ -334,6 +352,7 @@ function registerUploadRoutes(expressApp, { requireRole }) {
     editor,
     step((req) => {
       const result = uploadSessions().finish(req.params.id, req.user);
+      require('./activity').finish(`upload-${req.params.id}`);
       console.log(`[Upload] ${req.user.username} uploaded ${result.filePath} (${result.size} bytes)`);
       return { success: true, ...result };
     })
@@ -342,7 +361,10 @@ function registerUploadRoutes(expressApp, { requireRole }) {
   expressApp.delete(
     '/api/upload/sessions/:id',
     editor,
-    step((req) => uploadSessions().abort(req.params.id, req.user))
+    step((req) => {
+      require('./activity').finish(`upload-${req.params.id}`);
+      return uploadSessions().abort(req.params.id, req.user);
+    })
   );
 
   expressApp.post('/api/upload', editor, (req, res) => {

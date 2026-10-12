@@ -1,82 +1,112 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { jobActions, useThumbnailJob, type Job } from '../thumbnails/jobs';
-import { useScanProgress } from './scan';
-import { percentOf as aiPercent, progressText as aiText, stopAiTagJob, useAiTagJob } from '../tags/aiJob';
+import { progressText as aiText, stopAiTagJob, useAiTagJob } from '../tags/aiJob';
+import { amountText, etaText, percentOf as activityPercent, shown as shownActivity, useActivity, type Activity } from '../activity/activity';
 import { useCan, useCurrentUser } from '../session';
 
 const percentOf = (job: Job) => (job.total > 0 ? Math.min(100, Math.floor((job.processed / job.total) * 100)) : 0);
 
+/** Re-render every second while there are jobs (a job shows once it has run for a moment). */
+function useTick(active: boolean) {
+  const [, setNow] = useState(0);
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+}
+
+/** One job's bar: what it is, how far, and how long it should still take. */
+function ActivityRow({ job, children }: { job: Activity; children?: ReactNode }) {
+  const percent = activityPercent(job);
+  const ids =
+    job.kind === 'ai-tagging'
+      ? { box: 'ai-tag-progress-container', text: 'ai-tag-progress-text' }
+      : job.kind === 'thumbnails'
+        ? { box: 'render-progress-container', text: 'render-progress-text' }
+        : { box: undefined, text: undefined };
+  // AI Tagging keeps its own words ("AI tagging: 3/12"), which other parts of the app look for.
+  const title = job.kind === 'ai-tagging' ? `AI tagging: ${job.done}/${job.total ?? '?'}` : job.label;
+  const line = [job.kind === 'ai-tagging' ? '' : amountText(job), etaText(job.etaMs)].filter(Boolean).join(' · ');
+  return (
+    <div className="jp-bgjob" id={ids.box} data-kind={job.kind}>
+      <div className="jp-bgjob__title" id={ids.text}>
+        {title}
+        {job.detail && <span className="jp-bgjob__detail"> · {job.detail}</span>}
+      </div>
+      <div
+        className={`jp-bgjob__track${percent == null ? ' is-indeterminate' : ''}`}
+        role="progressbar"
+        aria-label={job.label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent ?? undefined}
+      >
+        <span style={percent == null ? undefined : { width: `${percent}%` }} />
+      </div>
+      {line && <div className="jp-bgjob__line">{line}</div>}
+      {children}
+    </div>
+  );
+}
+
 /**
- * The sidebar's progress: the running scan, a thumbnail job sent to the background, and AI
- * tagging (anyone's while it runs; a finished run only for whoever started it, until reviewed).
+ * The sidebar's progress, above Library Storage: everything running in the background on the
+ * server (src/server/activity.js: library scans, AI Tagging, Categorize Library, thumbnails,
+ * duplicate checks, site downloads, uploads, backups and moves), each with how far it is and how
+ * long it should still take; nothing when nothing runs. A finished AI Tagging run stays for
+ * whoever started it until its tags are reviewed.
  */
 export function SidebarProgress() {
   const [slot] = useState(() => document.getElementById('sidebar-progress-slot'));
-  const scan = useScanProgress();
-  const job = useThumbnailJob();
+  const all = useActivity();
+  useTick(all.length > 0);
+  const jobs = shownActivity(all);
+  const thumbs = useThumbnailJob();
   const ai = useAiTagJob();
   const me = useCurrentUser();
   const canEdit = useCan('editor');
-  const background = job && job.background && !job.done ? job : null;
   const mine = !!ai.job && (!ai.job.by || ai.job.by === me?.username);
-  const tagging = ai.job && (ai.job.running || (mine && !ai.reviewing)) ? ai.job : null;
-  if (!slot || (!scan && !background && !tagging)) return null;
-  const jobText =
-    background &&
-    (background.stopping
-      ? 'Stopping...'
-      : background.total > 0
-        ? `${background.title}: ${background.processed}/${background.total} (${percentOf(background)}%)`
-        : background.phase || `${background.title}: running in the background...`);
+  // A finished run waiting for its review (only for whoever started it).
+  const toReview = ai.job && !ai.job.running && mine && !ai.reviewing ? ai.job : null;
+  if (!slot || (!jobs.length && !toReview)) return null;
   return createPortal(
-    <div className="progress-section" id="progress-section">
-      {scan && (
-        <div className="progress-container" id="scan-progress-container">
-          <div className="progress-bar" id="scan-progress-bar" style={{ width: `${scan.percent ?? 100}%` }} />
-          <div className="progress-text" id="scan-progress-text">
-            {scan.text}
+    <div className="progress-section jp-bgjobs" id="progress-section" aria-label="Running in the background">
+      {jobs.map((job) => (
+        <ActivityRow key={job.id} job={job}>
+          {job.kind === 'ai-tagging' && ai.job?.running && (mine || canEdit) && (
+            <div className="progress-actions">
+              {mine && !ai.reviewing && (
+                <button type="button" id="ai-tag-review" className="jp-job-button" onClick={() => window.openAiTagReview?.()}>
+                  Review
+                </button>
+              )}
+              {canEdit && (
+                <button type="button" id="ai-tag-stop" className="stop-button" disabled={ai.job.stopping} onClick={() => stopAiTagJob()}>
+                  Stop
+                </button>
+              )}
+            </div>
+          )}
+          {job.kind === 'thumbnails' && canEdit && thumbs && !thumbs.done && (
+            <button id="stop-thumbnail-generation" className="stop-button" disabled={thumbs.stopping} onClick={jobActions.stop}>
+              {thumbs.stopping ? 'Stopping…' : 'Stop'}
+            </button>
+          )}
+        </ActivityRow>
+      ))}
+      {toReview && (
+        <div className="jp-bgjob" id="ai-tag-progress-container" data-kind="ai-tagging">
+          <div className="jp-bgjob__title" id="ai-tag-progress-text">
+            {aiText(toReview)}
           </div>
-        </div>
-      )}
-      {background && (
-        <div className="progress-container" id="render-progress-container">
-          <div className="progress-bar" id="render-progress-bar" style={{ width: `${percentOf(background)}%` }} />
-          <div className="progress-text" id="render-progress-text">
-            {jobText}
-          </div>
-        </div>
-      )}
-      {background && (
-        <button id="stop-thumbnail-generation" className="stop-button" disabled={background.stopping} onClick={jobActions.stop}>
-          Stop Processing
-        </button>
-      )}
-      {tagging && (
-        <div className="progress-container" id="ai-tag-progress-container">
-          <div className="progress-bar" id="ai-tag-progress-bar" style={{ width: `${tagging.running ? aiPercent(tagging) : 100}%` }} />
-          <div className="progress-text" id="ai-tag-progress-text">
-            {aiText(tagging)}
-            {!mine && tagging.by ? ` (${tagging.by})` : ''}
-          </div>
-        </div>
-      )}
-      {tagging && (mine || (canEdit && tagging.running)) && (
-        <div className="progress-actions">
-          {mine && !ai.reviewing && (
+          <div className="progress-actions">
             <button type="button" id="ai-tag-review" className="jp-job-button" onClick={() => window.openAiTagReview?.()}>
               Review
             </button>
-          )}
-          {tagging.running && canEdit && (
-            <button type="button" id="ai-tag-stop" className="stop-button" disabled={tagging.stopping} onClick={() => stopAiTagJob()}>
-              Stop
-            </button>
-          )}
+          </div>
         </div>
-      )}
-      {(scan || background) && (
-        <div className="performance-notice">{scan ? 'Scanning may impact performance.' : 'Thumbnails are rendered on the JusttPrint backend.'}</div>
       )}
     </div>,
     slot
