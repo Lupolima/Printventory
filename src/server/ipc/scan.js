@@ -314,7 +314,15 @@ async function scanDirectoryHandler(event, directoryPath, options = {}) {
     }
   };
   try {
-    return await scanDirectoryInner(followed, directoryPath, options);
+    const result = await scanDirectoryInner(followed, directoryPath, options);
+    // Model folders moved or renamed outside JusttPrint keep their cover and links (model-folders.js).
+    try {
+      const modelFolders = require('../model-folders');
+      for (const { to } of modelFolders.relinkMoved(directoryPath)) modelFolders.reapplyCover(to);
+    } catch (error) {
+      console.warn(`[Model folders] Could not look for moved folders: ${error.message}`);
+    }
+    return result;
   } finally {
     activity.finish(id);
   }

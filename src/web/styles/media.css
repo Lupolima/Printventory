@@ -322,3 +322,17 @@
 .jp-organize__card + .jp-organize__card {
   margin-top: var(--jp-space-4);
 }
+
+/* In the details panel: narrower. */
+.jp-media.is-compact {
+  gap: var(--jp-space-3);
+}
+.jp-media.is-compact .jp-media__images {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+.jp-media.is-compact .jp-media__videos {
+  grid-template-columns: minmax(0, 1fr);
+}
+.jp-media.is-compact .jp-media__title {
+  font-size: var(--jp-text-meta);
+}

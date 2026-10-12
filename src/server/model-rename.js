@@ -57,6 +57,23 @@ function renameModel(filePath, name) {
     database.db.prepare('UPDATE models SET filePath = ?, fileName = ? WHERE id = ?').run(target, fileName, model.id);
     require('./site-details').fileRenamed(filePath, target);
   })();
+  // The only model in its model folder: the folder takes the new name too (its pictures, videos and documents go with it).
+  const modelFolders = require('./model-folders');
+  const folder = path.dirname(target);
+  if (modelFolders.isModelFolder(folder)) {
+    const inFolder = database.db
+      .prepare("SELECT filePath FROM models WHERE filePath LIKE ? ESCAPE '\\' AND filePath NOT LIKE '%::%'")
+      .all(`${folder.replace(/[\\%_]/g, (c) => `\\${c}`)}${path.sep}%`)
+      .filter((row) => path.dirname(row.filePath) === folder);
+    if (inFolder.length === 1) {
+      try {
+        const renamedFolder = modelFolders.renameFolder(folder, stem);
+        return { filePath: path.join(renamedFolder, fileName), fileName };
+      } catch (error) {
+        console.warn(`[Rename] The model folder kept its name: ${error.message}`);
+      }
+    }
+  }
   return { filePath: target, fileName };
 }
 

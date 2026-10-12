@@ -127,6 +127,12 @@ ipcMain.handle('report-server-thumbnail-complete', async (_event, result) => {
   }
   startedByPerson = false;
   serverThumbnailJob = { status: 'idle', mode: null, cancelRequested: false };
+  // A model folder's chosen cover stays the picture the library shows.
+  try {
+    require('../model-folders').reapplyAllCovers();
+  } catch (error) {
+    console.warn(`[Server thumbnails] Could not put the covers back: ${error.message}`);
+  }
   broadcastThumbnailJobEvent('thumbnail-job-complete', result || {});
   events.broadcast('refresh-grid');
   return true;

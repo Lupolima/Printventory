@@ -175,6 +175,54 @@ async function main() {
   mf.moved(robot, renamed);
   assert.ok(mf.isModelFolder(renamed) && !mf.isModelFolder(robot));
 
+  // --- Renaming: the only model renames its folder; the records follow ---
+  const shelf = mf.makeFolder(lib, 'Shelf');
+  const shelfFile = path.join(shelf, 'Shelf.stl');
+  fs.writeFileSync(shelfFile, 'x');
+  database.db.prepare('INSERT INTO models (filePath, fileName, thumbnail) VALUES (?, ?, ?)').run(shelfFile, 'Shelf.stl', '');
+  fs.mkdirSync(path.join(shelf, 'image'));
+  fs.writeFileSync(path.join(shelf, 'image', 'shelf.png'), PNG);
+  await mf.setCover(shelf, 'shelf.png', { resize: noResize });
+  mf.addYoutube(shelf, 'dQw4w9WgXcQ');
+  const { renameModel } = require('../src/server/model-rename');
+  const renamedShelf = renameModel(shelfFile, 'Wall Shelf');
+  assert.strictEqual(renamedShelf.filePath, path.join(lib, 'Wall Shelf', 'Wall Shelf.stl'), 'the folder takes the name too');
+  assert.ok(fs.existsSync(path.join(lib, 'Wall Shelf', 'image', 'shelf.png')) && !fs.existsSync(shelf));
+  assert.ok(database.db.prepare('SELECT 1 FROM models WHERE filePath = ?').get(renamedShelf.filePath));
+  let shelfMedia = mf.getMedia(path.join(lib, 'Wall Shelf'));
+  assert.ok(shelfMedia.isModelFolder && shelfMedia.cover === 'shelf.png' && shelfMedia.youtube.length === 1, JSON.stringify(shelfMedia));
+  // Several models in the folder: it keeps its name.
+  const second = path.join(lib, 'Wall Shelf', 'Bracket.stl');
+  fs.writeFileSync(second, 'x');
+  database.db.prepare('INSERT INTO models (filePath, fileName) VALUES (?, ?)').run(second, 'Bracket.stl');
+  assert.strictEqual(renameModel(second, 'Big Bracket').filePath, path.join(lib, 'Wall Shelf', 'Big Bracket.stl'));
+
+  // A thumbnail job put another picture first: the cover goes first again.
+  database.db.prepare('UPDATE models SET thumbnail = ? WHERE filePath = ?').run('data:image/png;base64,RENDER', renamedShelf.filePath);
+  mf.reapplyAllCovers();
+  assert.ok(
+    database.db
+      .prepare('SELECT thumbnail FROM models WHERE filePath = ?')
+      .get(renamedShelf.filePath)
+      .thumbnail.startsWith(`data:image/png;base64,${PNG.toString('base64').slice(0, 10)}`)
+  );
+
+  // --- Moved outside JusttPrint: found again by its name or its pictures ---
+  const elsewhere = path.join(lib, 'Moved');
+  fs.mkdirSync(elsewhere);
+  fs.renameSync(path.join(lib, 'Wall Shelf'), path.join(elsewhere, 'Wall Shelf'));
+  const relinked = mf.relinkMoved(lib);
+  assert.deepStrictEqual(relinked, [{ from: path.join(lib, 'Wall Shelf'), to: path.join(elsewhere, 'Wall Shelf') }]);
+  shelfMedia = mf.getMedia(path.join(elsewhere, 'Wall Shelf'));
+  assert.ok(shelfMedia.isModelFolder && shelfMedia.cover === 'shelf.png' && shelfMedia.youtube.length === 1, 'its cover and links follow');
+  // Renamed and moved: its pictures tell.
+  fs.renameSync(path.join(elsewhere, 'Wall Shelf'), path.join(lib, 'Shelf Two'));
+  assert.deepStrictEqual(
+    mf.relinkMoved(lib).map((r) => r.to),
+    [path.join(lib, 'Shelf Two')]
+  );
+  assert.deepStrictEqual(mf.relinkMoved(lib), [], 'nothing gone: nothing to do');
+
   database.db.close();
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('model-folders tests passed');

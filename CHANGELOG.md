@@ -10,6 +10,9 @@ All notable changes contributed via pull request are documented in this file.
 - **Category in Multi-edit:** select models and choose one Category › Subcategory for all of them (it stays, like a place chosen in the Edit dialog).
 - **Category filter:** the Filter popover has a Category choice: a Subcategory, all of a Category, or **No Subcategory yet** (the models Categorize Library has not placed; `category:none` in the search box).
 - **Cards show the Subcategory:** a small badge next to the file type, with the Category when you point at it; a click shows its models.
+- **Model folders follow renames and moves:** renaming the only model in a model folder (Edit) renames its folder too, with its pictures, videos and documents; a model folder moved or renamed outside JusttPrint is found again at the next scan (by its name, or its pictures and documents), and its cover and YouTube links follow it.
+- **The cover stays:** after a thumbnail job (Generate or Regenerate Thumbnails), each model folder's chosen cover is the picture the library shows again.
+- **Pictures, videos and documents in the details panel:** a model folder's media show in the sidebar too (view, play, add, remove, choose the cover), not only on the model's page.
 - **AI Tagging follows the kit:** a model whose folder's other models share a place gets that place without asking the AI.
 
 ## [7.18.0] - 2026-10-11
