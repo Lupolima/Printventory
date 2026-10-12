@@ -132,6 +132,21 @@ async function main() {
   assert.deepStrictEqual(await kits.summaries([kitDir, path.join(kitDir, 'extras')]), { [kitDir]: { done: 3, total: 4 } }, 'a one-part folder has no kit');
   assert.throws(() => kits.setPart('/nope.stl', 0, true), /not in the library/);
 
+  // Continue your kits: started and not finished, as a folder or as a file with plates.
+  assert.deepStrictEqual(
+    (await kits.inProgress({ folders: true })).map((k) => [k.kind, k.target, k.name, k.done, k.total]),
+    [['folder', kitDir, 'Voltron', 3, 4]]
+  );
+  assert.deepStrictEqual(await kits.inProgress({ folders: false }), [], 'every plate of the 3MF is ticked');
+  kits.setPart(threeMf, 3, false);
+  assert.deepStrictEqual(
+    (await kits.inProgress({ folders: false })).map((k) => [k.kind, k.target, k.name, k.done, k.total]),
+    [['file', threeMf, 'Voltron', 2, 3]]
+  );
+  kits.setPart(path.join(kitDir, 'Sword.stl'), 0, true);
+  kits.setPart(threeMf, 3, true);
+  assert.deepStrictEqual(await kits.inProgress({ folders: true }), [], 'a finished kit is not shown');
+
   // The plates are read once per version of the file.
   assert.ok(database.db.prepare('SELECT 1 FROM model_plates WHERE model_id = ?').get(kitId));
   database.db.prepare('DELETE FROM models WHERE id = ?').run(kitId);

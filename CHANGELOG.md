@@ -2,6 +2,19 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.22.0] - 2026-10-12
+
+**Changes:**
+- **Home** has four new sections:
+  - **Continue your kits:** kits with some parts printed and some not, the last ticked first, each with its progress bar; a click opens its page. With **Folders as models** on, a folder of two files or more is one kit; otherwise 3MF projects with several plates are.
+  - **Needs attention** (editors and admins): automatic backups that failed or are late (admins), printers with maintenance due, sets of identical files, and models without a category, tags, a license or a thumbnail. Each opens where it is fixed: the library showing just those models, the Duplicates page, Printers, Backup settings, or Generate Missing Thumbnails. "All caught up" when nothing is left.
+  - **Favorites** and **Collections** (the most recently changed), as cards with **View all**.
+  - **Browse by category:** the Categories your models are in, the fullest first, with how many models each has.
+  - Each is left out when it has nothing to show.
+
+**Fixes:**
+- The tag filter's **None** finds the models without tags (it found nothing), and its chip says "No tags".
+
 ## [7.21.0] - 2026-10-12
 
 **Changes:**

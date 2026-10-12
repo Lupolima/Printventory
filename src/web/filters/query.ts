@@ -289,7 +289,7 @@ export function describePayload(f: ServerFilters | null | undefined, labels: Lab
   const parents = listOf(f.parentModels, f.parentModel);
   if (parents.length) parts.push(`Parent: ${parents.join(', ')}`);
   const tags = Array.isArray(f.tags) ? f.tags.map(String) : f.tag ? [String(f.tag)] : [];
-  if (tags.length) parts.push(`Tag: ${tags.join(', ')}`);
+  if (tags.length) parts.push(`Tag: ${tags.map((t) => (t === '__none__' ? 'none' : t)).join(', ')}`);
   if (f.printed && f.printed !== 'all') parts.push(labels.printed(String(f.printed)));
   if (f.isNew === 'new') parts.push('New');
   if (f.isNew === 'not-new') parts.push('Not new');
@@ -453,7 +453,7 @@ export function filterStrip(state: FilterState, labels: Labels): FilterStrip {
       chain.push({
         kind: 'chip',
         className: 'filter-pill-search-clause filter-pill-tag-chip',
-        text: `Tag: ${tag}`,
+        text: tag === '__none__' ? 'No tags' : `Tag: ${tag}`,
         inverted: state.inverted.tag,
         remove: { type: 'tag', value: tag }
       });

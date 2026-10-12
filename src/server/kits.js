@@ -166,4 +166,60 @@ async function summaries(folders) {
   return out;
 }
 
-module.exports = { getKit, markPrinted, platesOf, setPart, summaries };
+/**
+ * Kits started but not finished (Home's Continue your kits), the last ticked first:
+ * [{ kind, target, name, coverPath, done, total, lastDoneAt }]. With `folders` (Folders as models),
+ * a folder of two files or more is one kit; otherwise only files with several plates are kits.
+ * @param {{ folders?: boolean, limit?: number }} [options]
+ */
+async function inProgress({ folders = false, limit = 6 } = {}) {
+  const max = Math.max(1, Math.min(24, Math.floor(Number(limit) || 6)));
+  const ticked = table()
+    .prepare(
+      `SELECT m.id, m.filePath, m.fileName, MAX(k.done_at) AS lastDoneAt
+    FROM kit_done k INNER JOIN models m ON m.id = k.model_id
+    WHERE instr(m.filePath, '::') = 0
+    GROUP BY m.id ORDER BY lastDoneAt DESC LIMIT 500`
+    )
+    .all();
+  const out = [];
+  const seenFolders = new Set();
+  for (const model of ticked) {
+    if (out.length >= max) break;
+    const dir = path.dirname(model.filePath);
+    if (seenFolders.has(dir)) continue;
+    if (folders) {
+      const kit = await getKit(dir);
+      if (kit.kind === 'folder' && new Set(kit.parts.map((p) => p.modelId)).size > 1) {
+        seenFolders.add(dir);
+        if (kit.done > 0 && kit.done < kit.total) {
+          out.push({
+            kind: 'folder',
+            target: dir,
+            name: path.basename(dir),
+            coverPath: model.filePath,
+            done: kit.done,
+            total: kit.total,
+            lastDoneAt: model.lastDoneAt
+          });
+        }
+        continue;
+      }
+    }
+    const kit = await getKit(model.filePath);
+    if (kit.total > 1 && kit.done < kit.total) {
+      out.push({
+        kind: 'file',
+        target: model.filePath,
+        name: title(model),
+        coverPath: model.filePath,
+        done: kit.done,
+        total: kit.total,
+        lastDoneAt: model.lastDoneAt
+      });
+    }
+  }
+  return out;
+}
+
+module.exports = { getKit, inProgress, markPrinted, platesOf, setPart, summaries };

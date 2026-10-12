@@ -45,6 +45,12 @@ On a touch screen, buttons that appear on hover with a mouse (a card's heart and
 
 Home greets you with your library's figures (models, printed, in queue, printers; click one to open it), a render of the model you printed last, **Recent Activity** (logged prints and newly added models), **Your Printers** with maintenance reminders that are due, and the models added most recently.
 
+Below them, when there is something to show:
+
+- **Continue your kits:** kits with some parts printed and some not, with their progress; a click opens the kit. With **Folders as models** on, a folder of two files or more is a kit; otherwise a 3MF with several plates is.
+- **Needs attention** (editors and admins): automatic backups that failed or are late, printers with maintenance due, identical files, and models without a category, tags, a license or a thumbnail. Click one to go where it is fixed, such as the library showing just those models.
+- **Favorites**, your **Collections** (the most recently changed) and **Browse by category** (a click shows that category's models).
+
 ## Library
 
 The library shows your models as cards: preview, name, designer (or folder), file type and print status. Hover a card for **Favorite**, **More** (the model menu) and the star rating.

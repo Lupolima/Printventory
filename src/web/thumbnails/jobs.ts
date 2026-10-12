@@ -152,7 +152,8 @@ async function regenerate() {
   if (answer === 'Yes') await startThumbnailJob('all');
 }
 
-async function generateMissing() {
+/** Generate Missing Thumbnails: asks first, with how many models have none. */
+export async function generateMissing() {
   const missing = await callAction<unknown[]>('get-models-without-thumbnails').catch(() => []);
   if (!missing.length) return void showMessage('Information', 'All models already have thumbnails. Nothing to generate.');
   const answer = await showMessage('Generate Missing Thumbnails', `${missing.length} models are missing thumbnails. Would you like to generate them now?`, [

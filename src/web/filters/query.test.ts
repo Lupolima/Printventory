@@ -206,6 +206,11 @@ describe('filterStrip', () => {
     expect(strip.chips.map((i) => (i.kind === 'chip' ? i.text : ''))).toEqual(['Designer: No designer', 'Rating: 1 star', 'Directory: /m']);
   });
 
+  it('calls the tag None "No tags"', () => {
+    const strip = filterStrip(state({ tags: ['__none__'] }), labels);
+    expect(strip.chain.map((i) => (i.kind === 'chip' ? i.text : i.kind))).toEqual(['No tags']);
+  });
+
   it('labels filters moved into the query and marks inverted ones', () => {
     const strip = filterStrip(
       state({

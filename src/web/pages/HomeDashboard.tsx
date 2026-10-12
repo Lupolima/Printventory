@@ -15,18 +15,14 @@ import {
 } from 'lucide-react';
 import { callAction, library, printers as printerApi, type ActivityItem, type LibraryCounts, type Printer } from '../api';
 import { Button } from '../components/Button';
-import { StatusBadge, printStatusInfo } from '../components/Badge';
+import { StatusBadge } from '../components/Badge';
 import { EmptyState, Panel, Skeleton, StatCard } from '../components/Panel';
 import { applyFilterChange } from '../filters/search';
 import { filterActions } from '../filters/store';
-import { cardTitle, formatOf } from '../grid/ModelCard';
-import { effectiveStatus, type PrintModel } from '../print/printStatus';
-import { fetchPrimaryThumbnail } from '../thumbnails/cache';
+import { cardTitle } from '../grid/ModelCard';
 import type { GridModel } from '../grid/layout';
 import { greeting, timeAgo } from '../home/format';
-import { showModelDetails } from '../library/details';
-import { tabInfo, type LibraryTab } from '../library/tabs';
-import { selection } from '../selection';
+import { CategoryTiles, CollectionsRow, ContinueKits, FavoritesRow, NeedsAttention, RecentCard, openModel, showTab } from '../home/HomeSections';
 import { useLibraryData } from '../shell/libraryData';
 import { NAV } from '../shell/nav';
 import { navigate } from '../shell/routes';
@@ -34,19 +30,6 @@ import { EditOnly } from '../components/EditOnly';
 
 const loadActivity = () => library.activity(8);
 const loadPrinters = () => printerApi.list();
-
-/** Show one model in the library with its details. */
-function openModel(filePath: string) {
-  navigate('library');
-  selection.set([filePath]);
-  void showModelDetails(filePath);
-}
-
-function showTab(tab: LibraryTab) {
-  const info = tabInfo(tab);
-  navigate('library');
-  applyFilterChange(() => filterActions.setTab(info.printed, info.favorite));
-}
 
 const scanLibrary = () =>
   NAV.flatMap((section) => section.items)
@@ -376,7 +359,8 @@ function YourPrinters({ list }: { list: Printer[] | null }) {
 
 /**
  * The Home dashboard above "Your Library" (spec §10-§14): greeting, four figures and a cyan
- * render of a library model; Recent Activity; Your Printers. Real data only (docs/redesign-5.md).
+ * render of a library model; Recent Activity; Your Printers; Continue your kits and Needs
+ * attention (home/HomeSections.tsx). Real data only (docs/redesign-5.md).
  */
 export function HomeDashboard() {
   const counts = useLibraryData<LibraryCounts>(library.counts);
@@ -389,6 +373,10 @@ export function HomeDashboard() {
         <RecentActivity activity={activity} />
         <YourPrinters list={list} />
       </div>
+      <div className="jp-home__panels jp-home__panels--extra">
+        <ContinueKits />
+        <NeedsAttention printers={list} />
+      </div>
     </div>
   );
 }
@@ -396,44 +384,6 @@ export function HomeDashboard() {
 // ---- Your Library: the latest additions (spec §15, §41 "What did I recently add?") ----------
 
 const loadRecent = () => callAction<GridModel[]>('get-models-filtered', { sortOption: 'dateadded-desc', limit: 8 });
-
-function RecentCard({ model }: { model: GridModel }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    fetchPrimaryThumbnail(model.filePath).then(
-      (thumb) => {
-        if (live) setSrc(thumb);
-      },
-      () => {}
-    );
-    return () => {
-      live = false;
-    };
-  }, [model.filePath]);
-  const designer = typeof model.designer === 'string' ? model.designer : '';
-  const format = formatOf(model);
-  const status = printStatusInfo(effectiveStatus(model as PrintModel));
-  return (
-    <li>
-      <button type="button" className="jp-recent-card" data-filepath={model.filePath} onClick={() => openModel(model.filePath)}>
-        <span className="jp-recent-card__image">
-          <img src={src || 'assets/3d.png'} alt="" loading="lazy" />
-        </span>
-        <span className="jp-recent-card__body">
-          <span className="jp-recent-card__title">{cardTitle(model)}</span>
-          <span className="jp-recent-card__byline">{designer || '\u00a0'}</span>
-          <span className="jp-model-card__badges">
-            {format && <span className="jp-badge">{format}</span>}
-            <StatusBadge tone={status.tone} icon={status.icon}>
-              {status.label}
-            </StatusBadge>
-          </span>
-        </span>
-      </button>
-    </li>
-  );
-}
 
 function RecentModels() {
   const recent = useLibraryData<GridModel[]>(loadRecent);
@@ -481,12 +431,18 @@ function RecentModels() {
   );
 }
 
-/** Home (spec §10-§15): the dashboard, then the latest additions to the library. Scrolls as one page. */
+/**
+ * Home (spec §10-§15): the dashboard, the latest additions to the library, then Favorites,
+ * Collections and Browse by category (each left out when empty). Scrolls as one page.
+ */
 export function HomePage() {
   return (
     <div className="jp-page__inner jp-home-page">
       <HomeDashboard />
       <RecentModels />
+      <FavoritesRow />
+      <CollectionsRow />
+      <CategoryTiles />
     </div>
   );
 }

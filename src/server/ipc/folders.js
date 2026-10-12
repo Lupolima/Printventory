@@ -33,6 +33,8 @@ ipcMain.handle('set-kit-part', async (event, filePath, plate, done) => {
   return result;
 });
 ipcMain.handle('get-kit-summaries', async (event, folders) => kits.summaries(folders));
+// Home's Continue your kits.
+ipcMain.handle('get-kits-in-progress', async (event, options) => kits.inProgress(options || {}));
 
 // Assembly view: a folder's parts in one scene, as they were laid out.
 ipcMain.handle('get-assembly', async (event, dir) => folders.getAssembly(database.db, dir));

@@ -430,7 +430,16 @@ function pushTagListSQL(conditions, params, filters) {
   const combine = filters.tagCombine === 'AND' ? 'AND' : 'OR';
   const inverted = !!filters.tagInverted;
   let inner;
-  if (combine === 'OR') {
+  // "None" (__none__): the models without any tag.
+  const NO_TAGS = 'NOT EXISTS (SELECT 1 FROM model_tags mt WHERE mt.model_id = models.id)';
+  if (tagNames.includes('__none__')) {
+    const named = tagNames.filter((tn) => tn !== '__none__');
+    const ph = named.map(() => '?').join(', ');
+    params.push(...named);
+    inner = named.length
+      ? `(${NO_TAGS} ${combine} EXISTS (SELECT 1 FROM model_tags mt INNER JOIN tags t ON t.id = mt.tag_id WHERE mt.model_id = models.id AND t.name IN (${ph})))`
+      : NO_TAGS;
+  } else if (combine === 'OR') {
     const ph = tagNames.map(() => '?').join(', ');
     inner = `EXISTS (SELECT 1 FROM model_tags mt INNER JOIN tags t ON t.id = mt.tag_id WHERE mt.model_id = models.id AND t.name IN (${ph}))`;
     params.push(...tagNames);

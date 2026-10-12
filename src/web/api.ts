@@ -482,6 +482,17 @@ export interface LibraryStorage {
   volume: { path: string; totalBytes: number; usedBytes: number; freeBytes: number } | null;
 }
 
+/** Home's Needs attention (src/core/library-attention.js). `backup` is for admins only. */
+export interface LibraryAttention {
+  untagged: number;
+  unlicensed: number;
+  uncategorized: number;
+  noThumbnail: number;
+  /** Sets of identical files (the Duplicates page). */
+  duplicateSets: number;
+  backup: { kind: 'failed'; message: string } | { kind: 'late'; since: string } | null;
+}
+
 /** Queue badge and dashboard figures (src/core/library-counts.js). */
 export interface LibraryCounts {
   models: number;
@@ -494,6 +505,7 @@ export interface LibraryCounts {
 export const library = {
   stats: () => callAction<LibraryStats>('get-stats'),
   storage: () => callAction<LibraryStorage>('get-library-storage'),
+  attention: () => callAction<LibraryAttention>('get-library-attention'),
   counts: () => callAction<LibraryCounts>('get-library-counts'),
   activity: (limit?: number) => callAction<ActivityItem[]>('get-recent-activity', ...(limit == null ? [] : [limit])),
   /** Logged prints, newest first; only one outcome when given. */
