@@ -1063,6 +1063,23 @@ async function browserChecks(base, wsUrl, session) {
         () => false
       )) && (await page.isVisible('#jp-home-library-title'))
     );
+    // Needs attention (home/HomeSections.tsx): the library's loose ends, as get-library-attention counts them.
+    const attention = (await invoke(base, session, 'get-library-attention')).result || {};
+    const untaggedModels = (await invoke(base, session, 'get-models-filtered', [{ tags: ['__none__'] }])).result || [];
+    check(
+      'the tag filter None finds the models without tags',
+      untaggedModels.length === attention.untagged,
+      `${untaggedModels.length} vs ${attention.untagged}`
+    );
+    check(
+      'Needs attention says how many models have no tags',
+      attention.untagged > 0 &&
+        (await page.waitForSelector(`#jp-home-attention [data-attention="untagged"]:has-text("${attention.untagged} model")`, { timeout: 10000 }).then(
+          () => true,
+          () => false
+        )),
+      JSON.stringify(attention)
+    );
     await page.click('.jp-sidebar .jp-nav__row:has-text("Library")');
     check(
       'Library shows the library without the dashboard',

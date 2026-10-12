@@ -28,6 +28,22 @@ export interface Kit {
 export const getKit = (target: string) => callAction<Kit>('get-kit', target);
 export const setKitPart = (filePath: string, plate: number, done: boolean) => callAction<{ done: boolean }>('set-kit-part', filePath, plate, done);
 
+/** A kit started and not finished (Home's Continue your kits). */
+export interface KitInProgress {
+  kind: 'file' | 'folder';
+  /** The file, or the folder. */
+  target: string;
+  name: string;
+  /** A file of the kit, for the picture. */
+  coverPath: string;
+  done: number;
+  total: number;
+  lastDoneAt: string;
+}
+
+/** Kits started and not finished, the last ticked first; folders as kits with Folders as models. */
+export const kitsInProgress = (folders: boolean, limit = 6) => callAction<KitInProgress[]>('get-kits-in-progress', { folders, limit });
+
 /** "3 of 12 printed". */
 export const progressText = (done: number, total: number) => `${done} of ${total} printed`;
 

@@ -62,6 +62,14 @@ test('NOT in a query keeps models with an empty designer', () => {
   assert.deepStrictEqual(names(createDb(), { searchTokens: tokens }), ['box.3mf', 'cone.stl']);
 });
 
+test('the tag "None" finds the models without tags', () => {
+  const db = createDb();
+  db.exec("INSERT INTO tags (name) VALUES ('robot'); INSERT INTO model_tags VALUES (2, 1);");
+  assert.deepStrictEqual(names(db, { tags: ['__none__'] }), ['box.3mf', 'cone.stl']);
+  assert.deepStrictEqual(names(db, { tags: ['__none__', 'robot'] }), ['box.3mf', 'cube.stl', 'cone.stl']);
+  assert.deepStrictEqual(names(db, { tags: ['__none__'], tagInverted: true }), ['cube.stl']);
+});
+
 test('a file type not in the list filters by its extension instead of failing', () => {
   const db = createDb();
   db.prepare("INSERT INTO models (filePath, fileName) VALUES ('/lib/gear.f3d', 'gear.f3d')").run();

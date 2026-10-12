@@ -13,6 +13,25 @@ ipcMain.handle('get-library-storage', async () => {
   return libraryStorage({ db: database.db, roots: readStlHomeDirectories() });
 });
 
+// Home's Needs attention (src/core/library-attention.js); the backups only for admins.
+ipcMain.handle('get-library-attention', async (event) => {
+  const { libraryAttention, backupProblem } = require('../../core/library-attention');
+  const found = libraryAttention(database.db, { coverSql: require('../model-folders').onlyCoverSql() });
+  const uncategorized = require('../../core/categories').uncategorizedCount();
+  const user = event && event.user;
+  const admin = !user || user.role === 'admin';
+  /** @type {ReturnType<typeof backupProblem>} */
+  let backup = null;
+  if (admin) {
+    try {
+      backup = backupProblem(require('../auto-backup').status());
+    } catch (error) {
+      console.warn('[Home] Could not read the backup status:', error.message);
+    }
+  }
+  return { ...found, uncategorized, backup };
+});
+
 // Queue badge and dashboard figures (src/core/library-counts.js).
 ipcMain.handle('get-library-counts', async () => require('../../core/library-counts').libraryCounts(database.db));
 // Dashboard Recent Activity (src/core/recent-activity.js).
