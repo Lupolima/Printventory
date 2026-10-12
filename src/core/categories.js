@@ -362,10 +362,52 @@ function aiMayPlace(modelId, { again = false } = {}) {
  */
 function aiCategoryChoices(modelId, { again = false } = {}) {
   if (!aiMayPlace(modelId, { again })) return null;
+  // A part of a kit whose other parts share a place gets it without asking.
+  if (placeLikeSiblings(modelId)) return null;
   const list = listCategories();
   const place = modelPlace(modelId);
   const main = place.category && !place.subcategory ? findCategory(place.category, list) : null;
   return aiChoices(list, main);
+}
+
+/** Kit parts that must have a place before the others follow them, and the share that must agree. */
+const SIBLINGS_MIN = 2;
+const SIBLINGS_AGREE = 0.6;
+
+/**
+ * Give a model the place most of the other models in its folder (or ZIP file) have, when at least
+ * two have one and most of them agree (the parts of one kit). Answers the Subcategory's name, or null.
+ */
+function placeLikeSiblings(modelId) {
+  const db = ensureTables();
+  const row = db.prepare('SELECT filePath FROM models WHERE id = ?').get(modelId);
+  if (!row || String(row.filePath).startsWith('url::')) return null;
+  const filePath = String(row.filePath);
+  const zip = filePath.includes('::') ? filePath.split('::')[0] : null;
+  const sep = filePath.includes('\\') && !filePath.includes('/') ? '\\' : '/';
+  const folder = zip || filePath.slice(0, filePath.lastIndexOf(sep));
+  const like = `${folder.replace(/[\\%_]/g, (c) => `\\${c}`)}${zip ? '::' : sep}%`;
+  const places = db
+    .prepare(
+      `SELECT m.filePath, c.name FROM models m JOIN model_categories mc ON mc.model_id = m.id JOIN categories c ON c.id = mc.category_id
+      WHERE m.id != ? AND c.parent_id IS NOT NULL AND m.filePath LIKE ? ESCAPE '\\'`
+    )
+    .all(modelId, like)
+    // Only the folder's own files (not its subfolders'); in a ZIP file, all of it.
+    .filter(
+      (r) =>
+        zip ||
+        !String(r.filePath)
+          .slice(folder.length + 1)
+          .includes(sep)
+    );
+  if (places.length < SIBLINGS_MIN) return null;
+  const counts = new Map();
+  for (const place of places) counts.set(place.name, (counts.get(place.name) || 0) + 1);
+  const [name, count] = [...counts].sort((a, b) => b[1] - a[1])[0];
+  if (count / places.length < SIBLINGS_AGREE) return null;
+  setModelPlace(modelId, name, 'ai');
+  return name;
 }
 
 /** Save the AI's answer as the model's place (source 'ai'). Answers the Subcategory's name, or null when it named none. */
@@ -379,6 +421,7 @@ function saveAiCategory(modelId, answer) {
 
 module.exports = {
   aiCategoryChoices,
+  placeLikeSiblings,
   saveAiCategory,
   CATEGORY_LIST,
   GUESSES,

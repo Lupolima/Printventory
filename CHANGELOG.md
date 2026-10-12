@@ -2,6 +2,12 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [Unreleased]
+
+**Changes:**
+- **Kits get one place:** Categorize Library asks the AI once about a folder (or ZIP file) with three or more models to sort, with its name, its file names and a picture, and every file in it gets that Category and Subcategory; the parts of a kit no longer scatter (a car kit's tire in Fashion › Rings, its logo in Art). A folder of different models is asked about one model at a time, as before. It is also far cheaper: one AI request for a kit instead of one per part.
+- **AI Tagging follows the kit:** a model whose folder's other models share a place gets that place without asking the AI.
+
 ## [7.18.0] - 2026-10-11
 
 **Changes:**

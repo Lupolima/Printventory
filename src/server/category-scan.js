@@ -11,6 +11,7 @@
  * at a time; every open page follows its progress.
  */
 
+const path = require('path');
 const events = require('./events');
 const database = require('../core/database');
 const categories = require('../core/categories');
@@ -141,6 +142,52 @@ async function freeStep(models, list, fetchImpl) {
 const AI_PROMPT =
   'You are sorting 3D printable models in a library. Look at this picture of a model and name what it is in one or two words in the "tags" list. ';
 
+/** A folder (or ZIP file) with at least this many models to sort is asked about once, as one kit. */
+const KIT_MIN = 3;
+/** Kit files named in the question (the rest are counted). */
+const KIT_NAMES = 15;
+/** The AI's answer when a folder's files are different models, not one kit. */
+const SEPARATE = 'separate';
+
+/** The folder a model is in (its ZIP file for a ZIP entry): the files of one kit share it. */
+function kitKey(filePath) {
+  return filePath.includes('::') ? filePath.split('::')[0] : path.dirname(filePath);
+}
+
+/**
+ * The models in kits and alone: [{ key, members }]. A folder with KIT_MIN or more models to sort
+ * (all with the same Category a person chose, or none) is one kit; the rest are asked about one
+ * by one.
+ */
+function kitsOf(models) {
+  const byKey = new Map();
+  for (const model of models) {
+    const key = model.filePath.startsWith('url::') ? `model:${model.id}` : kitKey(model.filePath);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(model);
+  }
+  const out = [];
+  for (const [key, members] of byKey) {
+    const mains = new Set(members.map((m) => (m.main ? m.main.id : null)));
+    if (members.length >= KIT_MIN && mains.size === 1 && !key.startsWith('model:')) out.push({ key, members });
+    else for (const model of members) out.push({ key: null, members: [model] });
+  }
+  return out;
+}
+
+const kitPrompt = (key, members) => {
+  const folder = path.basename(key);
+  const parent = path.basename(path.dirname(key));
+  const names = members.slice(0, KIT_NAMES).map((m) => `"${m.fileName || path.basename(m.filePath)}"`);
+  const more = members.length > KIT_NAMES ? ` and ${members.length - KIT_NAMES} more` : '';
+  return (
+    `You are sorting 3D printable models in a library. These ${members.length} files are in one folder, "${folder}"` +
+    `${parent && parent !== '.' && parent !== '/' ? ` (inside "${parent}")` : ''}: ${names.join(', ')}${more}. The picture shows one of them. ` +
+    `If the files are the parts of one model or kit, sort the whole model (not just the part in the picture) and name what the model is in one or two words in the "tags" list. ` +
+    `If they are clearly different, unrelated models, answer the category "${SEPARATE}". `
+  );
+};
+
 async function aiStep(models, list, event, ask) {
   const settings = require('./ipc/ai').getAISettings();
   const aitagging = require('../core/aitagging');
@@ -153,48 +200,101 @@ async function aiStep(models, list, event, ask) {
   }
   const byId = new Map(list.map((c) => [c.id, c]));
   const concurrency = Math.max(1, Math.min(Number(settings.aiTagConcurrency) || 3, 10));
-  await eachLimited(models, concurrency, async (model) => {
-    if (job.error) return;
+
+  /** Save the AI's place for these models; answers whether it named one. */
+  const place = (members, answer) => {
+    const main = members[0].main;
+    const sub = categories.matchAiCategory(answer && answer.category, list);
+    if (!sub || (main && sub.parent_id !== main.id)) return false;
+    for (const model of members) {
+      categories.setModelPlace(model.id, sub.name, 'ai');
+      job.placed.ai = (job.placed.ai || 0) + 1;
+      if (job.aiPlaced.length < MAX_LISTED) {
+        job.aiPlaced.push({
+          filePath: model.filePath,
+          fileName: model.fileName || model.filePath.split(/[\\/]/).pop(),
+          category: byId.get(sub.parent_id).name,
+          subcategory: sub.name
+        });
+      }
+    }
+    return true;
+  };
+  const pictureOf = (model) => {
     const full = getModelByFilePath(model.filePath, { includeThumbnail: true });
     const picture = full && full.thumbnail ? getThumbnailImagePayload(full.thumbnail) : null;
-    if (!picture) {
+    return picture ? { picture, notes: full.notes || '' } : null;
+  };
+  const askAbout = async (prompt, found, choices, filePath) =>
+    ask(
+      found.picture.base64,
+      {
+        customPrompt: prompt,
+        maxTags: 2,
+        useJsonResponse: true,
+        mimeType: found.picture.mimeType,
+        folderLevels: filePath ? settings.aiTagFolderLevels : 0,
+        notes: found.notes,
+        categoryChoices: choices
+      },
+      filePath
+    );
+  const failed = (error, what) => {
+    // A rate limit or a failed sign-in stops the AI step; what was placed so far stays.
+    if (/rate limit|authentication|api key/i.test(error.message || '')) job.error = error.message;
+    else console.warn(`[Categories] AI could not categorize ${what}: ${error.message}`);
+  };
+
+  const one = async (model) => {
+    const found = pictureOf(model);
+    if (!found) {
       job.noPicture++;
     } else {
       try {
-        const answer = await ask(
-          picture.base64,
-          {
-            customPrompt: AI_PROMPT,
-            maxTags: 2,
-            useJsonResponse: true,
-            mimeType: picture.mimeType,
-            folderLevels: settings.aiTagFolderLevels,
-            notes: full.notes || '',
-            categoryChoices: categories.aiChoices(list, model.main)
-          },
-          model.filePath
-        );
-        const sub = categories.matchAiCategory(answer && answer.category, list);
-        if (sub && (!model.main || sub.parent_id === model.main.id)) {
-          categories.setModelPlace(model.id, sub.name, 'ai');
-          job.placed.ai = (job.placed.ai || 0) + 1;
-          if (job.aiPlaced.length < MAX_LISTED) {
-            job.aiPlaced.push({
-              filePath: model.filePath,
-              fileName: model.fileName || model.filePath.split(/[\\/]/).pop(),
-              category: byId.get(sub.parent_id).name,
-              subcategory: sub.name
-            });
-          }
-        }
+        place([model], await askAbout(AI_PROMPT, found, categories.aiChoices(list, model.main), model.filePath));
       } catch (error) {
-        // A rate limit or a failed sign-in stops the AI step; what was placed so far stays.
-        if (/rate limit|authentication|api key/i.test(error.message || '')) job.error = error.message;
-        else console.warn(`[Categories] AI could not categorize ${model.filePath}: ${error.message}`);
+        failed(error, model.filePath);
       }
     }
     job.aiDone++;
     announce();
+  };
+
+  await eachLimited(kitsOf(models), concurrency, async (kit) => {
+    if (job.error) return;
+    if (!kit.key) {
+      await one(kit.members[0]);
+      return;
+    }
+    // A kit: one question about the folder, with the picture of a part (the one named like the folder, else the first with a picture).
+    const folderName = path.basename(kit.key).toLowerCase();
+    const ordered = [...kit.members].sort(
+      (a, b) => Number(path.basename(b.filePath).toLowerCase().includes(folderName)) - Number(path.basename(a.filePath).toLowerCase().includes(folderName))
+    );
+    /** @type {{ picture: { base64: string, mimeType: string }, notes: string } | null} */
+    let found = null;
+    for (const model of ordered) if (!found) found = pictureOf(model);
+    let placed = false;
+    if (found) {
+      try {
+        placed = place(
+          kit.members,
+          await askAbout(kitPrompt(kit.key, kit.members), found, [...categories.aiChoices(list, kit.members[0].main), SEPARATE], null)
+        );
+      } catch (error) {
+        failed(error, kit.key);
+      }
+    }
+    if (placed) {
+      job.aiDone += kit.members.length;
+      announce();
+      return;
+    }
+    // Different models (or no answer): one by one.
+    for (const model of kit.members) {
+      if (job.error || job.stopping) break;
+      await one(model);
+    }
   });
 }
 
