@@ -7,7 +7,8 @@ import { settings } from '../api';
 import { runSearch } from '../filters/search';
 import { loadSavedFilterSettings } from '../filters/store';
 import { loadCurrentUser } from '../session';
-import { checkTerms } from './FirstRun';
+import { checkTerms, setFoldersAfterWelcome } from './FirstRun';
+import { needsFolderSetup, openFolderSetup } from './FolderSetup';
 import { applyColorScheme, applyTheme } from './theme';
 import { checkForUpdatesOnStartup } from './updates';
 
@@ -50,10 +51,13 @@ async function start() {
   // Guests keep no settings: the terms and the welcome are for accounts.
   const guest = !!(await loadCurrentUser())?.guest;
   if (!guest && !(await checkTerms())) return;
+  // No model folders yet: an admin chooses them (after the welcome on a first run).
+  const chooseFolders = !guest && (await needsFolderSetup());
   if (!guest && !(await settings.get<string | null>('hasRunBefore').catch(() => 'true'))) {
+    setFoldersAfterWelcome(chooseFolders);
     window.showWelcome?.();
     settings.save('hasRunBefore', 'true').catch(() => {});
-  }
+  } else if (chooseFolders) openFolderSetup();
   document.querySelector('.file-grid')?.classList.remove('hidden');
   await Promise.all([loadRenderSettings(), loadSavedFilterSettings()]);
   await runSearch();

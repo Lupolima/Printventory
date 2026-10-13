@@ -2,7 +2,7 @@
 
 const database = require('./database');
 const { settingsFromEnv, SECRET_ENV } = require('./env-settings');
-const { dedupePathList, excludeDirectoriesSettingIsEmpty, parseExcludePathList } = require('./library-paths');
+const { dedupePathList, excludeDirectoriesSettingIsEmpty, parseExcludePathList, readStlHomeDirectories } = require('./library-paths');
 const { ADDITIONAL_FILE_TYPES_CATALOG } = require('./model-filters');
 
 /**
@@ -53,39 +53,66 @@ function stlHomeDirectoriesAreUnset() {
   return !String(legacy || '').trim();
 }
 
+const pathKey = (p) =>
+  String(p || '')
+    .trim()
+    .replace(/[\\/]+$/, '')
+    .toLowerCase();
+
+function saveStlHomeDirectories(paths) {
+  const upsert = database.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  upsert.run('stlHomeDirectories', JSON.stringify(paths));
+  upsert.run('stlHome', paths[0] || '');
+}
+
 /**
- * Seed STL Home directories from STL_HOME.
- * One path or several (comma, semicolon, newline, or a JSON array). The stored
- * list default is "[]", which is unset. A saved list — or a legacy stlHome path —
- * is left alone unless JUSTTPRINT_ENV_OVERRIDES_SETTINGS=1.
+ * STL Home directories from STL_HOME (one path or several: comma, semicolon, newline, or a JSON
+ * array). The first time, they become the list. After that the list follows changes to STL_HOME:
+ * folders added to it are added, folders taken out of it are removed, and folders chosen in the
+ * web UI stay. What STL_HOME held last is kept in stlHomeFromEnv; without it (an install from
+ * before 7.23.0) the current value is only recorded. JUSTTPRINT_ENV_OVERRIDES_SETTINGS=1 makes
+ * STL_HOME the whole list on every start.
  */
 function applyStlHomeEnvIfNeeded(envValue) {
-  if (!database.db || !envValue || !String(envValue).trim()) return;
+  if (!database.db) return;
   const paths = dedupePathList(parseExcludePathList(envValue));
-  if (!paths.length) return;
   const force = process.env.JUSTTPRINT_ENV_OVERRIDES_SETTINGS === '1' || process.env.JUSTTPRINT_ENV_OVERRIDES_SETTINGS === 'true';
   try {
-    if (!force && !stlHomeDirectoriesAreUnset()) return;
-    const json = JSON.stringify(paths);
-    database.db
-      .prepare(
-        `
-      INSERT INTO settings (key, value)
-      VALUES ('stlHomeDirectories', ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `
-      )
-      .run(json);
-    database.db
-      .prepare(
-        `
-      INSERT INTO settings (key, value)
-      VALUES ('stlHome', ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `
-      )
-      .run(paths[0]);
-    console.log('Startup env applied setting stlHomeDirectories:', json, force ? '(JUSTTPRINT_ENV_OVERRIDES_SETTINGS)' : '');
+    const setting = (key) => database.db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value;
+    const remember = () =>
+      database.db
+        .prepare("INSERT INTO settings (key, value) VALUES ('stlHomeFromEnv', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .run(JSON.stringify(paths));
+    const lastRaw = setting('stlHomeFromEnv');
+
+    if ((force && paths.length) || (paths.length && stlHomeDirectoriesAreUnset())) {
+      saveStlHomeDirectories(paths);
+      remember();
+      console.log('Startup env applied setting stlHomeDirectories:', JSON.stringify(paths), force ? '(JUSTTPRINT_ENV_OVERRIDES_SETTINGS)' : '');
+      return;
+    }
+    if (lastRaw == null) {
+      if (paths.length) remember();
+      return;
+    }
+
+    const last = parseExcludePathList(lastRaw);
+    const now = new Set(paths.map(pathKey));
+    const before = new Set(last.map(pathKey));
+    const added = paths.filter((p) => !before.has(pathKey(p)));
+    const removed = new Set(last.filter((p) => !now.has(pathKey(p))).map(pathKey));
+    if (added.length || removed.size) {
+      const current = readStlHomeDirectories();
+      const kept = current.filter((p) => !removed.has(pathKey(p)));
+      const have = new Set(kept.map(pathKey));
+      const next = [...kept, ...added.filter((p) => !have.has(pathKey(p)))];
+      saveStlHomeDirectories(next);
+      const changes = [];
+      if (added.length) changes.push(`added ${added.join(', ')}`);
+      if (removed.size) changes.push(`removed ${last.filter((p) => removed.has(pathKey(p))).join(', ')}`);
+      console.log(`Startup env STL_HOME changed: ${changes.join('; ')}`);
+    }
+    remember();
   } catch (e) {
     console.error('Error applying STL_HOME:', e);
   }

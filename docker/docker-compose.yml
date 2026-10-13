@@ -56,8 +56,10 @@ services:
       # V8 heap MB (optional). Default auto-scales from the container memory limit
       # (or 8192 when unlimited). Raise if logs show "OOM error in V8: Zone Allocation".
       # - JUSTTPRINT_MAX_OLD_SPACE_MB=8192
-      # Optional: STL Home directories (applied when the list is unset in the DB, or always when
-      # JUSTTPRINT_ENV_OVERRIDES_SETTINGS=1). One path, or several separated by commas,
+      # Optional: STL Home directories. The first start fills the list with them; later, folders
+      # added to or removed from STL_HOME are added or removed, and folders chosen in the web UI
+      # stay (JUSTTPRINT_ENV_OVERRIDES_SETTINGS=1: STL_HOME is the whole list). Without it, an admin
+      # chooses the folders after logging in. One path, or several separated by commas,
       # semicolons, or newlines, or a JSON array. Use Linux paths inside the container.
       # - STL_HOME=/mnt/models,/mnt/archive
       - STL_HOME=/mnt/models

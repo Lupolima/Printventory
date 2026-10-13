@@ -105,6 +105,25 @@ export function FolderPicker() {
   };
 
   const current = listing?.path || null;
+
+  /** Choose: a path typed and not opened yet is opened first, so the typed folder is the one chosen. */
+  async function choose() {
+    const wanted = typed.trim();
+    if (!edited.current || !wanted || wanted === current) return finish(current);
+    const ticket = ++load.current;
+    setLoading(true);
+    setError('');
+    try {
+      const next = await browse(wanted);
+      if (ticket !== load.current) return;
+      if (next.error || !next.path) return setError(next.error || `Folder not found: ${wanted}`);
+      finish(next.path);
+    } catch (err) {
+      if (ticket === load.current) setError(errorText(err));
+    } finally {
+      if (ticket === load.current) setLoading(false);
+    }
+  }
   const places = listing?.places || [];
   const inPlace = (place: Entry) => !!current && (current === place.path || current.startsWith(place.path === '/' ? '/' : `${place.path}/`));
   const activePlace = places.filter(inPlace).sort((a, b) => b.path.length - a.path.length)[0];
@@ -120,7 +139,7 @@ export function FolderPicker() {
           <Button variant="secondary" onClick={() => finish(null)}>
             Cancel
           </Button>
-          <Button id="folder-picker-choose" variant="primary" disabled={!current || loading} onClick={() => finish(current)}>
+          <Button id="folder-picker-choose" variant="primary" disabled={(!current && !typed.trim()) || loading} onClick={() => void choose()}>
             {request?.confirmLabel || 'Choose This Folder'}
           </Button>
         </>
@@ -182,7 +201,7 @@ export function FolderPicker() {
               setTyped(event.target.value);
             }}
           />
-          <Button type="submit" size="sm" disabled={!typed.trim() || loading}>
+          <Button type="submit" size="sm" disabled={!typed.trim()}>
             Go
           </Button>
         </form>

@@ -99,7 +99,9 @@ test('only backup and export files are allowed from the data folder', () => {
   assert.ok(!isLibraryPathAllowed('/config/data/sub/justtprint-backup-x.db', ctx));
 });
 
-const { assertNetworkIpcArgs, assertMcpToolArgs } = require('../src/server/server-paths');
+const fs = require('fs');
+const os = require('os');
+const { assertNetworkIpcArgs, assertMcpToolArgs, isInsideSameFolder, isUnraidSystemShare } = require('../src/server/server-paths');
 
 const guardCtx = {
   roots: ['/mnt/library'],
@@ -170,8 +172,6 @@ test('MCP tools that write files only write to the library or the data folder', 
 });
 
 test('symlinks that leave the library are refused', () => {
-  const fs = require('fs');
-  const os = require('os');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'pv-links-'));
   try {
     const lib = path.join(base, 'library');
@@ -204,4 +204,27 @@ test("a folder's page opens for library folders and folders holding library mode
   assertNetworkIpcArgs('save-folder-notes', ['/mnt/library/Voltron', 'notes'], ctx);
   refused(() => assertNetworkIpcArgs('get-folder', ['/etc'], ctx));
   refused(() => assertNetworkIpcArgs('save-folder-notes', ['/home/someone', 'x'], ctx));
+});
+
+test('the data folder under another path, and Unraid shares, cannot be scanned', () => {
+  // Not under the system temp folder: /var counts as a system folder.
+  const base = fs.mkdtempSync(path.join(ROOT, '.jp-alias-'));
+  try {
+    const data = path.join(base, 'appdata', 'justtprint');
+    fs.mkdirSync(path.join(data, 'thumbs'), { recursive: true });
+    fs.mkdirSync(path.join(base, 'models'));
+    const alias = path.join(base, 'mount');
+    fs.symlinkSync(path.join(base, 'appdata'), alias);
+    assert.ok(isInsideSameFolder(path.join(alias, 'justtprint', 'thumbs'), data), 'the same folder through another path');
+    assert.ok(!isInsideSameFolder(path.join(base, 'models'), data));
+    assert.ok(!isInsideSameFolder(path.join(base, 'missing', 'x'), data));
+    assert.ok(isUnraidSystemShare('/mnt/user/appdata/justtprint') && isUnraidSystemShare('/mnt/disk1/system'));
+    assert.ok(!isUnraidSystemShare('/mnt/user/models') && !isUnraidSystemShare('/mnt/models/appdata'));
+    const ctx = { roots: [], appDir: '/app', dataDir: data };
+    assert.throws(() => assertNetworkIpcArgs('scan-directory', [path.join(alias, 'justtprint')], ctx), /cannot be scanned/);
+    assert.throws(() => assertNetworkIpcArgs('scan-directory', ['/mnt/user/appdata'], ctx), /cannot be scanned/);
+    assertNetworkIpcArgs('scan-directory', [path.join(base, 'models')], ctx);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
 });

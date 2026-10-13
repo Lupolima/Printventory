@@ -13,6 +13,7 @@ Every time, in this order:
 3. Run `npm test`, `npm run test:e2e`, `npm run test:docker` (builds the image and smoke-tests it; needs Docker) and `npm run test:e2e:docker` (the end-to-end checks against the image; needs Docker; do not run it at the same time as `npm run test:e2e`, they share `tests/e2e/.work`).
 4. Commit, merge into `main`, push `main`.
 5. Tag `vx.y.z`, push the tag, and create the GitHub release on ngolston/JusttPrint with the changelog entry as notes.
+6. Push the image to Docker Hub from the tagged `main`: `DOCKER_HUB_USERNAME=ace2123 CONTAINER_RUNTIME=docker node scripts/docker-hub-push.js multiarch` (amd64 and arm64; pushes `ace2123/justtprint:x.y.z` and `latest`; needs Docker logged in as ace2123; takes several minutes). Then check that `docker run --rm --entrypoint node ace2123/justtprint:latest -p "require('/app/package.json').version"` prints `x.y.z`. The README Quick Start and the Unraid template install this image.
 
 ## `todo:` shortcut
 

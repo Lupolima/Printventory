@@ -140,6 +140,7 @@ function isInsideRoots(filePath, roots, realpath) {
  * @property {string} [downloadsDir] Folder of backups and exports made for a browser download.
  * @property {(filePath: string) => boolean} [isExtractTemp] The app's own zip-extract temp files.
  * @property {(filePath: string) => string} [realpath] Follows symlinks (fs.realpathSync). Without it, paths are compared as written.
+ * @property {(p: string) => { dev: number, ino: number }} [stat] fs.statSync, for tests (the data folder under another path).
  */
 
 /**
@@ -301,6 +302,39 @@ const MCP_TOOL_PATH_RULES = {
   backup_database: [['destPath', 'dest']]
 };
 
+/**
+ * Whether `candidate` is `target`, or inside it, as the same folder on disk (device and inode),
+ * whatever path leads there. On Unraid the data folder (/root/.config/justtprint) is also
+ * /mnt/user/appdata/justtprint once /mnt/user is mounted.
+ * @param {(p: string) => { dev: number, ino: number }} [stat]
+ */
+function isInsideSameFolder(candidate, target, stat = fs.statSync) {
+  if (!candidate || !target) return false;
+  let want;
+  try {
+    want = stat(target);
+  } catch (_) {
+    return false;
+  }
+  let dir = path.posix.resolve(String(candidate));
+  for (;;) {
+    try {
+      const found = stat(dir);
+      if (found.dev === want.dev && found.ino === want.ino) return true;
+    } catch (_) {
+      /* not there: try its parent */
+    }
+    const parent = path.posix.dirname(dir);
+    if (parent === dir) return false;
+    dir = parent;
+  }
+}
+
+/** Unraid's own shares (apps, VMs, ISOs, system files) on the user share or a disk: never library folders. */
+function isUnraidSystemShare(dir) {
+  return /^\/mnt\/(user0?|disk\d+|cache)\/(appdata|system|domains|isos)(\/|$)/i.test(String(dir || ''));
+}
+
 function isSystemDirectory(dir) {
   const key = compareKey(dir);
   return SYSTEM_DIRECTORIES.some((systemDir) => {
@@ -330,8 +364,11 @@ function assertNetworkPathAllowed(kind, value, ctx) {
   const blockedRoot = (dir) =>
     [dir, realLocation(dir, ctx.realpath)].some(
       (candidate) =>
-        isSystemDirectory(candidate) || (ctx.appDir && isInsideOrSame(candidate, ctx.appDir)) || (ctx.dataDir && isInsideOrSame(candidate, ctx.dataDir))
-    );
+        isSystemDirectory(candidate) ||
+        isUnraidSystemShare(candidate) ||
+        (ctx.appDir && isInsideOrSame(candidate, ctx.appDir)) ||
+        (ctx.dataDir && isInsideOrSame(candidate, ctx.dataDir))
+    ) || !!(ctx.dataDir && isInsideSameFolder(String(dir), ctx.dataDir, ctx.stat));
 
   switch (kind) {
     case 'file':
@@ -402,7 +439,9 @@ module.exports = {
   staticFilePath,
   isLibraryPathAllowed,
   isInsideOrSame,
+  isInsideSameFolder,
   isSystemDirectory,
+  isUnraidSystemShare,
   assertNetworkPathAllowed,
   assertNetworkIpcArgs,
   assertMcpToolArgs,

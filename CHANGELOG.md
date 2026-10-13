@@ -2,6 +2,21 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.23.0] - 2026-10-13
+
+**Changes:**
+- **Choose your model folders:** while no STL Home folder is set, an admin is asked after logging in (after the welcome on a first run) which folders hold the models. It suggests the folders mounted into the container (on Unraid, the shares in `/mnt/user`), adds others with Choose Folder, and scans them right away. **Not now** puts it off; **Scan Library** (sidebar, or Home's empty library) opens it again.
+- **`STL_HOME` follows changes:** the first start still fills the STL Home list; after that, folders added to `STL_HOME` are added and folders taken out of it are removed on the next start, while folders chosen in the web UI stay. Before, `STL_HOME` was only read while the list was empty.
+- **Unraid template:** **Unraid Shares** maps `/mnt/user` at the same path, read and write, instead of one models folder at `/mnt/models`; the folders are chosen in the web UI. **STL Home** moved under Show more settings and is empty. README: how to add the template, a warning against installing from the Docker Hub search under Apps, and a `wget` fallback.
+- Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never offered in Choose Folder or scanned, and neither is JusttPrint's data folder when it is reached through another path (`/mnt/user/appdata/justtprint`).
+
+**Fixes:**
+- **Choose Folder** chooses the path typed into it, also when Go was not pressed or the first folder was still loading (it chose the folder shown instead), and says why when that path cannot be used.
+
+**Upgrade notes:**
+- Existing Unraid containers keep their **Models** path and nothing changes. Keep it for the folders already in the library: moving them to `/mnt/user/...` paths would add every model again under its new path, without its tags, notes and print history. To add more folders, add the path `/mnt/user` → `/mnt/user` next to it and choose them under **Settings → Scanning → STL Home**.
+- With `STL_HOME` set, the first start of 7.23.0 only records its value; changes to it apply from the next start on.
+
 ## [7.22.1] - 2026-10-12
 
 **Changes:**

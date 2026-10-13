@@ -13,7 +13,7 @@ const { deleteModelsByIds } = require('../../core/models');
 const { scheduleBackgroundHashGeneration } = require('./hashes');
 const { browseFolders, mountPoints } = require('../folder-browse');
 const { networkPathContext } = require('../path-context');
-const { isInsideOrSame, isSystemDirectory } = require('../server-paths');
+const { isInsideOrSame, isInsideSameFolder, isSystemDirectory, isUnraidSystemShare } = require('../server-paths');
 const { isSkippedLibraryFile, compileExcludeDirs, isExcludedPath } = require('../../core/scan-skip');
 const { clampFolderLevels } = require('../../core/library-context');
 const { shouldAutoTagNewScanFiles } = require('../../core/folder-tags');
@@ -346,6 +346,10 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
     );
     // Model folders' pictures, videos and documents are not models (model-folders.js).
     excludeDirectories.push(...require('../model-folders').mediaFolders(directoryPath));
+    // Unraid's own shares, when STL Home is the whole user share or a disk (server-paths.js isUnraidSystemShare).
+    if (/^\/mnt\/(user0?|disk\d+|cache)\/?$/i.test(directoryPath)) {
+      for (const share of ['appdata', 'system', 'domains', 'isos']) excludeDirectories.push(path.posix.join(directoryPath, share));
+    }
 
     // Read enableZipArchives and scanAdditionalFileTypes from database
     const zipSetting = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enableZipArchives');
@@ -586,8 +590,14 @@ ipcMain.handle('browse-folders', async (event, dir) => {
   const ctx = networkPathContext();
   const mounts = mountPoints();
   const places = [...mounts, ...(mounts.length ? [] : [os.homedir()]), ...ctx.roots];
+  // The data folder also counts under another path (Unraid: /mnt/user/appdata/justtprint).
   const isBlocked = (candidate) =>
-    !!(isSystemDirectory(candidate) || (ctx.appDir && isInsideOrSame(candidate, ctx.appDir)) || (ctx.dataDir && isInsideOrSame(candidate, ctx.dataDir)));
+    !!(
+      isSystemDirectory(candidate) ||
+      isUnraidSystemShare(candidate) ||
+      (ctx.appDir && isInsideOrSame(candidate, ctx.appDir)) ||
+      (ctx.dataDir && (isInsideOrSame(candidate, ctx.dataDir) || isInsideSameFolder(candidate, ctx.dataDir)))
+    );
   return browseFolders({ dir: dir || null, places, isBlocked });
 });
 

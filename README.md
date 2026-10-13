@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.22.1**
+**Version 7.23.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -118,10 +118,18 @@ JusttPrint has an Unraid template ([unraid/justtprint.xml](unraid/justtprint.xml
 
 1. In Unraid, open **Docker**, scroll to **Template Repositories**, add `https://github.com/ngolston/JusttPrint` and click **Save**.
 2. Click **Add Container** and choose **JusttPrint** under **Template**.
-3. Set **Models** to your models share (for example `/mnt/user/models`) and choose a **Password**. App Data goes to `/mnt/user/appdata/justtprint`.
-4. Click **Apply**, then **WebUI** in the container's menu, and log in as `admin`.
+3. Choose a **Password** and click **Apply**. App Data goes to `/mnt/user/appdata/justtprint`.
+4. Click **WebUI** in the container's menu and log in as `admin`. JusttPrint lists your shares: tick the ones that hold your models and click **Scan**.
 
-Models is read-only; set it to Read/Write to allow delete, move and Organize Library. More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show more settings**; leave one empty to set it in the web UI instead. For NVIDIA thumbnails, see the template's description.
+Don't install it by searching for JusttPrint under **Apps** and choosing the Docker Hub result: Unraid then builds a form from the image alone, without the folders, the password or the other settings. If **Template Repositories** is not there, download the template in the Unraid terminal and pick **JusttPrint** under **User templates** in step 2:
+
+```bash
+wget -O /boot/config/plugins/dockerMan/templates-user/my-JusttPrint.xml https://raw.githubusercontent.com/ngolston/JusttPrint/main/unraid/justtprint.xml
+```
+
+**Unraid Shares** maps `/mnt/user` into the container at the same path, read and write, so delete, move and Organize Library work and folders keep the paths you know. Add or change model folders any time under **Settings → Scanning → STL Home**. Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never shown or scanned. To keep JusttPrint to one share, set both the host and the container path of **Unraid Shares** to it (for example `/mnt/user/models`).
+
+More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show more settings**; leave one empty to set it in the web UI instead. For NVIDIA thumbnails, see the template's description.
 
 ## Docker Compose options explained
 
@@ -149,7 +157,7 @@ All are optional. You can change most of these later under **Settings** in the a
 | `JUSTTPRINT_GUEST_ACCESS` | `true`: people who open JusttPrint without logging in browse like a Viewer (also under **Settings → Authentication → Users**). Off by default. |
 | `JUSTTPRINT_MAX_UPLOAD_MB` | Largest file the browser may upload, in MB (default `2048`; `10240` for 10 GB). |
 | `JUSTTPRINT_UPLOAD_CHUNK_MB` | Size of the pieces uploads are sent in, in MB (default `16`). Lower it only if a proxy in front takes less per request. |
-| `STL_HOME` | Folders to scan automatically, as container paths. Several: `/mnt/models,/mnt/archive`. |
+| `STL_HOME` | Folders to scan automatically, as container paths. Several: `/mnt/models,/mnt/archive`. The first start fills the STL Home list with them; later, folders added to or removed from `STL_HOME` are added or removed on the next start, and folders chosen in the web UI stay. Without it, an admin is asked which folders to scan after logging in. |
 | `STL_HOME_EXCLUDE` | Folders inside STL Home to skip, for example `/mnt/models/cache`. |
 | `JUSTTPRINT_WATCH_FOLDERS` | `true` or `false`: watch the STL Home folders for changes (default on). |
 | `PUID` / `PGID` | User and group the app runs as. Match the owner of your models folder (`id -u` and `id -g`; Synology is often `1026`/`100`). Default `1000`/`1000`. |
