@@ -51,6 +51,12 @@ if (typeof window !== 'undefined') {
   window.showWelcome = () => set({ welcome: true });
 }
 
+/** After the welcome: choose the model folders (FolderSetup.tsx) instead of the guide. */
+let foldersAfterWelcome = false;
+export function setFoldersAfterWelcome(value: boolean) {
+  foldersAfterWelcome = value;
+}
+
 /** Open or close a <dialog> with the state. */
 function useModal(open: boolean) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -123,7 +129,7 @@ export function FirstRun() {
             id="dismiss-welcome"
             onClick={() => {
               set({ welcome: false });
-              setTimeout(() => window.showGuide?.(), 500);
+              setTimeout(() => (foldersAfterWelcome ? window.openFolderSetup?.() : window.showGuide?.()), 500);
             }}
           >
             Get Started!

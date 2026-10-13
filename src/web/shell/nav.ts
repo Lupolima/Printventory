@@ -55,7 +55,8 @@ import { scanDirectory, scanStlHome } from '../scan/scan';
 import { stlHomeDirectories } from '../scan/stlHome';
 import { findMenuAction } from './menu';
 import { navigate, type PageId } from './routes';
-import { roleAllows, type Role } from '../session';
+import { getCurrentUser, roleAllows, type Role } from '../session';
+import { openFolderSetup } from '../startup/FolderSetup';
 
 /** Run an old menu action by its label, looked up when clicked. */
 const menu = (label: string) => () => {
@@ -93,9 +94,11 @@ export interface NavSection {
 }
 
 /** Scan Library: the STL Home folders, or one folder when STL Home is not set up. */
+/** Scan the STL Home folders; without any, an admin chooses them (startup/FolderSetup.tsx), others scan one folder. */
 async function scanLibrary() {
   const dirs = await stlHomeDirectories().catch(() => []);
   if (dirs.length) await scanStlHome();
+  else if (getCurrentUser()?.role === 'admin') openFolderSetup();
   else await scanDirectory();
 }
 

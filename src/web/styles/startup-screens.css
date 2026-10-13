@@ -596,3 +596,54 @@
   padding: 8px;
   font-size: 14px;
 }
+
+/* Choose your model folders (startup/FolderSetup.tsx) */
+.jp-folder-setup {
+  width: min(560px, calc(100vw - 32px));
+}
+.jp-folder-setup .jp-overlay__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--jp-space-3);
+}
+.jp-folder-setup__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-md);
+}
+.jp-folder-setup__list > li + li {
+  border-top: 1px solid var(--jp-border);
+}
+.jp-folder-setup__list > .jp-meta {
+  padding: var(--jp-space-3);
+}
+.jp-folder-setup__row {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-2);
+  padding: var(--jp-space-2) var(--jp-space-3);
+  color: var(--jp-text);
+  cursor: pointer;
+}
+.jp-folder-setup__row:hover {
+  background: var(--jp-surface-hover);
+}
+.jp-folder-setup__row svg {
+  flex: none;
+  color: var(--jp-text-2);
+}
+.jp-folder-setup__row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jp-folder-setup .jp-overlay__body > p {
+  margin: 0;
+}
