@@ -4,6 +4,7 @@ import { callAction, uploadFile, uploads } from '../api';
 import { Button } from '../components/Button';
 import { showMessage } from '../page';
 import { useCan } from '../session';
+import { invalidateThumbnail } from '../thumbnails/cache';
 
 /** How each detail reads in the list of changes. */
 export const FIELD_LABELS: Record<string, string> = {
@@ -37,6 +38,31 @@ export function shownValue(field: string, value: string | null): string {
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
+ * A picture of the model's file as it is now, as its first picture (after Upload New Version). A
+ * 3MF's own preview is used when it has one; the earlier pictures stay as extra pictures.
+ */
+export async function newPictureFrom(filePath: string) {
+  try {
+    const { makeThumbnail } = await import('../thumbnails/pipeline');
+    const made = await makeThumbnail(filePath, { lighting: window.currentRenderLighting });
+    const image = made.image && made.image.startsWith('data:image') ? made.image : null;
+    if (!image) return void (await showMessage('Upload New Version', 'No picture could be made from the new file. The current picture stays.'));
+    if (made.stored) {
+      // A 3MF's previews were added as pictures: put the first one first.
+      const pictures = await callAction<string[]>('get-all-thumbnails', filePath);
+      const index = pictures.indexOf(image);
+      if (index > 0) await callAction('set-default-thumbnail', filePath, index);
+    } else {
+      await callAction('add-thumbnail', filePath, image);
+    }
+    invalidateThumbnail(filePath);
+    window.libraryGrid?.refresh();
+  } catch (error) {
+    await showMessage('Upload New Version', `No new picture: ${errorText(error)}`);
+  }
+}
+
+/**
  * Upload New Version (a model's page): the file is replaced in place (same name and folder) and
  * the old one is kept in the history (the History page).
  */
@@ -57,6 +83,11 @@ export function UploadVersionButton({ filePath, folder }: { filePath: string; fo
       const info = await uploads.info().catch(() => null);
       const sent = await uploadFile(file, folder, { chunkBytes: info?.chunkBytes || 16 * 1024 * 1024, onProgress: setProgress });
       await callAction('replace-model-file', filePath, sent.filePath);
+      const picture = await showMessage('Upload New Version', 'Make a new picture from the new file? The current pictures stay as extra pictures.', [
+        'Make a New Picture',
+        'Keep the Current Picture'
+      ]);
+      if (picture === 'Make a New Picture') await newPictureFrom(filePath);
     } catch (error) {
       await showMessage('Upload New Version', errorText(error));
     } finally {

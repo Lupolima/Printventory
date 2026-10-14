@@ -471,6 +471,36 @@ async function saveFromSite(dir, url, name = null, options = {}) {
   return saved;
 }
 
+/**
+ * Save a picture, video or document given as its contents (base64, or a data URL) into the folder's
+ * subfolder for its kind, under `name` (a number added when taken). A first picture becomes the
+ * cover. Answers { name, media } (MCP add_model_media).
+ * @param {string} dir a model folder or a model file in it
+ * @param {string} name
+ * @param {string} data
+ */
+async function saveMediaData(dir, name, data, { maxBytes = 200 * 1024 * 1024 } = {}) {
+  const folder = requireFolder(dir);
+  const fileName = plainFileName(name);
+  const kind = kindOf(fileName);
+  if (!kind) throw new Error(`Not a picture, video or document name: ${name} (give it an extension, such as .jpg, .mp4 or .pdf)`);
+  const text = String(data || '').trim();
+  const base64 = text.startsWith('data:') ? text.slice(text.indexOf(',') + 1) : text;
+  const body = Buffer.from(base64.replace(/\s/g, ''), 'base64');
+  if (!body.length) throw new Error('No file contents (base64) given');
+  if (body.length > maxBytes) throw new Error(`Larger than ${Math.round(maxBytes / 1024 / 1024)} MB`);
+  const crypto = require('crypto');
+  const { placeWithoutReplacing } = require('./uploads');
+  const target = path.join(folder, KINDS[kind].dir);
+  fs.mkdirSync(target, { recursive: true });
+  const tempPath = path.join(target, `.justtprint-${crypto.randomBytes(6).toString('hex')}.part`);
+  fs.writeFileSync(tempPath, body);
+  const saved = path.basename(placeWithoutReplacing(tempPath, target, fileName));
+  if (kind === 'image') await coverIfNone(folder).catch(() => {});
+  require('./events').broadcast('folder-changed', { path: folder });
+  return { name: saved, kind, media: getMedia(folder) };
+}
+
 /** A file name safe to save under: no folders, no control characters, not hidden, not too long. */
 function plainFileName(name) {
   let text = String(name || '')
@@ -697,6 +727,7 @@ module.exports = {
   register,
   removeMedia,
   removeYoutube,
+  saveMediaData,
   resolveFolder,
   saveFromSite,
   setCover,

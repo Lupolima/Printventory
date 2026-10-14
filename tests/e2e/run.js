@@ -1562,6 +1562,17 @@ async function browserChecks(base, wsUrl, session) {
           'a folder has a page with its files and notes of its own',
           folderShown && notesSaved === true && (await page.isVisible(`#jp-folder-file-grid [data-filepath="${cardPath.replace(/"/g, '\\"')}"]`))
         );
+        // The notes change is in the History, and can be put back (model-versions.js detail_changes).
+        const notesChange = (((await invoke(base, session, 'get-all-history', [{ search: 'e2e folder notes' }])).result || {}).entries || []).find(
+          (e) => e.kind === 'detail' && e.scope === 'folder' && e.newValue === 'e2e folder notes'
+        );
+        await invoke(base, session, 'save-folder-notes', [folder, 'changed again']);
+        if (notesChange) await invoke(base, session, 'undo-detail-change', [notesChange.id]);
+        check(
+          "a folder's notes are in the History and can be put back",
+          !!notesChange && ((await invoke(base, session, 'get-folder', [folder])).result || {}).notes === notesChange.oldValue,
+          JSON.stringify(notesChange)
+        );
         await invoke(base, session, 'save-folder-notes', [folder, '']);
         // The print logged above (Log Print, Printed) ticked this model's part.
         const kitBefore = (await invoke(base, session, 'get-kit', [folder])).result || {};

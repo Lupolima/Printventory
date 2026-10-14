@@ -103,6 +103,48 @@ async function main() {
     'searched'
   );
 
+  // --- The space versions take, and keeping only the last few (Settings → Backup) ---
+  for (const text of ['v4', 'v5', 'v6']) {
+    fs.writeFileSync(uploaded, text);
+    history.replaceWithUpload(file, uploaded);
+  }
+  let usage = history.versionsUsage();
+  assert.deepStrictEqual([usage.files, usage.models, usage.keep], [4, 1, 0], 'all kept by default');
+  assert.ok(usage.bytes > 0);
+  const pruned = history.pruneAll(2);
+  assert.strictEqual(pruned.deleted, 2);
+  assert.strictEqual(history.versionsUsage().files, 2);
+  assert.strictEqual(fs.readdirSync(history.versionsDir(id)).length, 2, 'their files are deleted too');
+  database.db.prepare("INSERT OR REPLACE INTO settings VALUES ('versionsKeep', '1')").run();
+  fs.writeFileSync(uploaded, 'v7');
+  history.replaceWithUpload(file, uploaded);
+  usage = history.versionsUsage();
+  assert.deepStrictEqual([usage.files, usage.keep], [1, 1], 'a new version keeps only the last one');
+  assert.strictEqual(fs.readdirSync(history.versionsDir(id)).length, 1, 'the older kept files are deleted');
+  database.db.prepare("DELETE FROM settings WHERE key = 'versionsKeep'").run();
+
+  // --- Folder notes and site details: written down by folder or link, listed with the rest ---
+  assert.strictEqual(history.recordDetailChanges('folder', '/lib/Robot', 'Robot', { notes: 'old' }, { notes: 'old' }), 0, 'nothing changed');
+  assert.strictEqual(history.recordDetailChanges('folder', '/lib/Robot', 'Robot', { notes: 'old' }, { notes: 'glue the head last' }, 'ace'), 1);
+  assert.strictEqual(
+    history.recordDetailChanges('site', 'https://makerworld.com/en/models/7', 'Cart', { title: 'Cart', tags: 'a' }, { title: 'AMS Cart', tags: 'a' }),
+    1
+  );
+  const details = history.listAll({ search: 'robot' }).entries.filter((e) => e.kind === 'detail');
+  assert.deepStrictEqual(
+    details.map((e) => [e.scope, e.target, e.label, e.field, e.oldValue, e.newValue, e.by]),
+    [['folder', '/lib/Robot', 'Robot', 'notes', 'old', 'glue the head last', 'ace']]
+  );
+  const siteChange = history.listAll({ search: 'ams cart' }).entries.find((e) => e.kind === 'detail');
+  assert.deepStrictEqual(history.detailChangeToUndo(siteChange.id), {
+    scope: 'site',
+    target: 'https://makerworld.com/en/models/7',
+    label: 'Cart',
+    field: 'title',
+    value: 'Cart'
+  });
+  assert.throws(() => history.detailChangeToUndo(99999), /gone/);
+
   // --- A model leaves the library: its history goes too ---
   fs.writeFileSync(uploaded, 'again');
   history.replaceWithUpload(file, uploaded);

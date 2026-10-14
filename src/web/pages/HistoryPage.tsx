@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, FileClock, History, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Download, FileClock, Folder, Globe, History, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { callAction, downloadUrl, LIBRARY_CHANGED } from '../api';
 import { Button, IconButton } from '../components/Button';
 import { EmptyState, Panel, Skeleton } from '../components/Panel';
@@ -18,7 +18,35 @@ interface HistoryModel {
 /** get-all-history (src/server/model-versions.js listAll). */
 export type HistoryEntry =
   | { kind: 'change'; id: number; at: string; by: string | null; field: string; oldValue: string | null; newValue: string | null; model: HistoryModel }
-  | { kind: 'version'; id: number; at: string; by: string | null; fileName: string; size: number | null; note: string | null; model: HistoryModel };
+  | { kind: 'version'; id: number; at: string; by: string | null; fileName: string; size: number | null; note: string | null; model: HistoryModel }
+  | {
+      kind: 'detail';
+      id: number;
+      at: string;
+      by: string | null;
+      /** A folder's notes, or the site details of a model link (the Edit dialog). */
+      scope: 'folder' | 'site';
+      target: string;
+      label: string | null;
+      field: string;
+      oldValue: string | null;
+      newValue: string | null;
+    };
+
+/** What a folder or site change is called (exported for tests). */
+export function detailLabel(scope: string, field: string): string {
+  if (scope === 'folder') return field === 'notes' ? 'Folder notes' : field;
+  if (field.startsWith('profile:')) return 'Print profile name';
+  const site: Record<string, string> = {
+    title: 'Site title',
+    description: 'Site description',
+    designer: 'Site designer',
+    license: 'Site license',
+    categories: 'Site categories',
+    tags: 'Site tags'
+  };
+  return site[field] || field;
+}
 
 const PAGE = 100;
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -154,20 +182,43 @@ export function HistoryPage() {
             const day = dayOf(entry.at);
             const heading = day !== lastDay;
             lastDay = day;
-            const label = entry.kind === 'change' ? FIELD_LABELS[entry.field] || entry.field : '';
+            const label =
+              entry.kind === 'change' ? FIELD_LABELS[entry.field] || entry.field : entry.kind === 'detail' ? detailLabel(entry.scope, entry.field) : '';
             return (
               <li key={`${entry.kind}-${entry.id}`} className="jp-history-page__entry" data-kind={entry.kind}>
                 {heading && <h2 className="jp-history-page__day">{day}</h2>}
                 <div className="jp-history-page__row">
                   <span className="jp-history-page__icon" aria-hidden="true">
-                    {entry.kind === 'change' ? <History size={16} /> : <FileClock size={16} />}
+                    {entry.kind === 'change' ? (
+                      <History size={16} />
+                    ) : entry.kind === 'detail' ? (
+                      entry.scope === 'folder' ? (
+                        <Folder size={16} />
+                      ) : (
+                        <Globe size={16} />
+                      )
+                    ) : (
+                      <FileClock size={16} />
+                    )}
                   </span>
                   <span className="jp-history__text">
                     <span>
-                      <button type="button" className="jp-link-button" title={entry.model.filePath} onClick={() => navigate('model', entry.model.filePath)}>
-                        {modelName(entry.model)}
-                      </button>
-                      {entry.kind === 'change' ? (
+                      {entry.kind === 'detail' ? (
+                        entry.scope === 'folder' ? (
+                          <button type="button" className="jp-link-button" title={entry.target} onClick={() => navigate('folder', entry.target)}>
+                            {entry.label || entry.target}
+                          </button>
+                        ) : (
+                          <a className="jp-link-button" href={entry.target} target="_blank" rel="noopener noreferrer" title={entry.target}>
+                            {entry.label || entry.target}
+                          </a>
+                        )
+                      ) : (
+                        <button type="button" className="jp-link-button" title={entry.model.filePath} onClick={() => navigate('model', entry.model.filePath)}>
+                          {modelName(entry.model)}
+                        </button>
+                      )}
+                      {entry.kind === 'change' || entry.kind === 'detail' ? (
                         <>
                           {' · '}
                           <strong>{label}</strong>: {shownValue(entry.field, entry.oldValue)} → {shownValue(entry.field, entry.newValue)}
@@ -207,6 +258,18 @@ export function HistoryPage() {
                         label="Delete this file"
                         onClick={() =>
                           void act('Delete', `Delete the file of ${when(entry.at)} for good?`, 'Delete', () => callAction('delete-model-version', entry.id))
+                        }
+                      />
+                    )}
+                    {canEdit && entry.kind === 'detail' && (
+                      <IconButton
+                        size="sm"
+                        icon={History}
+                        label={`Put the ${label.toLowerCase()} back`}
+                        onClick={() =>
+                          void act('Put Back', `Put the ${label.toLowerCase()} back to ${shownValue(entry.field, entry.oldValue)}?`, 'Put Back', () =>
+                            callAction('undo-detail-change', entry.id)
+                          )
                         }
                       />
                     )}

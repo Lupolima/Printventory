@@ -11,10 +11,35 @@ ipcMain.handle('get-site-details', async (event, url, refresh) => siteDetails.ge
 
 /** Keep changes to a model's site details (the Edit dialog); null forgets them. Answers the details as get-site-details does. */
 ipcMain.handle('save-site-edits', async (event, url, changes) => {
+  const before = safely(() => siteDetails.editableValues(url));
   const result = await siteDetails.saveSiteEdits(url, changes, { event });
+  // Written down for the History page (model-versions.js detail_changes), by the model's link.
+  const after = safely(() => siteDetails.editableValues(url));
+  if (before && after) {
+    safely(() =>
+      require('../model-versions').recordDetailChanges(
+        'site',
+        url,
+        after.title || before.title || url,
+        before,
+        after,
+        event && event.user ? event.user.username : null
+      )
+    );
+    events.broadcast('model-history-changed', {});
+  }
   events.broadcast('site-details-changed', { url });
   return result;
 });
+
+function safely(work) {
+  try {
+    return work();
+  } catch (error) {
+    console.warn('[History] Could not write down a site details change:', error.message);
+    return null;
+  }
+}
 
 ipcMain.handle('makerworld-account-status', async () => account.status());
 

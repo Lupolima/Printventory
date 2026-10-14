@@ -3,6 +3,7 @@ import { backup, downloadUrl, leftoverDownloads, type FileResult, type LeftoverD
 import { ModalDialog } from './components/ModalDialog';
 import { exposeGlobal, refreshModelDisplay, showMessage } from './page';
 import { AutoBackup } from './settings/AutoBackup';
+import { VersionsSpace } from './settings/VersionsSpace';
 import { formatFileSize } from './StatsDialog';
 import { useCan } from './session';
 
@@ -182,6 +183,7 @@ export function BackupRestoreDialog() {
       }
     >
       <AutoBackup opened={opened} />
+      <VersionsSpace opened={opened} />
       {!!leftovers?.files.length && (
         <div id="leftover-downloads" className="leftover-downloads">
           <p className="setting-description">

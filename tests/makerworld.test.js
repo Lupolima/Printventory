@@ -114,6 +114,33 @@ async function main() {
   ]);
   assert.strictEqual(makerWorldDetails({ id: 0, title: '' }, URL_), null);
 
+  // Guides, parts lists, other files and videos as MakerWorld lists them (checked on real models, 2026-10).
+  const file = (name, ext) => ({
+    name,
+    url: `https://makerworld.bblmw.com/makerworld/model/US1/design/a.${ext}`,
+    isRealLifePhoto: 0,
+    isCompression: 0,
+    size: 0
+  });
+  const withFiles = makerWorldDetails(
+    {
+      id: 7,
+      title: 'Cart',
+      designExtension: {
+        design_guide: [file('Assembly Instructions.pdf', 'pdf')],
+        design_bom: [],
+        design_other: [file('Ultra Compact 4 AMS Cart.pdf', 'pdf')],
+        design_video: [file('IMG_2200.mp4', 'mp4')]
+      }
+    },
+    URL_
+  );
+  assert.deepStrictEqual(
+    withFiles.attachments.map((a) => a.name),
+    ['Assembly Instructions.pdf', 'Ultra Compact 4 AMS Cart.pdf', 'IMG_2200.mp4']
+  );
+  assert.deepStrictEqual(withFiles.videos, [], 'a video file is not a YouTube video');
+
   assert.deepStrictEqual(
     youtubeIds(
       '<iframe src="https://www.youtube.com/embed/abcdefghijk"></iframe> https://www.youtube.com/watch?v=abcdefghijk&t=1 youtube.com/shorts/ZYXWVUTSRQP'
