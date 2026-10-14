@@ -3,6 +3,11 @@ set -e
 
 # JusttPrint server on plain Node (src/server/index.js). No Electron, no X server.
 
+# Defaults the image used to set with ENV (kept out of ENV so they are not shown as settings).
+export NODE_ENV="${NODE_ENV:-production}"
+export JUSTTPRINT_CHROMIUM="${JUSTTPRINT_CHROMIUM:-/usr/bin/chromium}"
+export PUPPETEER_EXECUTABLE_PATH="${PUPPETEER_EXECUTABLE_PATH:-$JUSTTPRINT_CHROMIUM}"
+
 # --- Run the app as PUID:PGID (default 1000:1000). PUID=0 keeps the old root behavior. ---
 # Files the app writes (database, moves, Organize Library) get this owner on mounted folders.
 PUID="${PUID:-1000}"

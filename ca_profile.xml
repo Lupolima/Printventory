@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>JusttPrint is a self-hosted library for your 3D printing models (STL, 3MF, OBJ, STEP, ZIP and more), used from any browser on your network: scanning, thumbnails, tags, categories, collections, print history, printers and kits. Questions and problems: GitHub issues.</Profile>
+  <Icon>https://raw.githubusercontent.com/ngolston/JusttPrint/main/assets/pwa-icon-512.png</Icon>
+  <WebPage>https://github.com/ngolston/JusttPrint</WebPage>
+</CommunityApplications>

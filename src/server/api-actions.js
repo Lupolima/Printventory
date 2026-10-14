@@ -106,6 +106,7 @@ const ACTIONS = {
   'save-directory': ['string'],
   'browse-folders': ['string?'],
   'scan-directory': ['string', 'object?'],
+  'remove-missing-models': ['string', 'object?'],
 
   // Files
   'trash-file': ['string'],
@@ -401,6 +402,7 @@ const EDITOR_ACTIONS = new Set([
   'makerworld-add-files',
   'browse-folders',
   'scan-directory',
+  'remove-missing-models',
   'save-directory',
   'trash-file',
   'delete-file',

@@ -14,6 +14,7 @@ const { scheduleBackgroundHashGeneration } = require('./hashes');
 const { browseFolders, mountPoints } = require('../folder-browse');
 const { networkPathContext } = require('../path-context');
 const { isInsideOrSame, isInsideSameFolder, isSystemDirectory, isUnraidSystemShare } = require('../server-paths');
+const { findMovedModel, moveModel } = require('../relink-moved');
 const { isSkippedLibraryFile, compileExcludeDirs, isExcludedPath } = require('../../core/scan-skip');
 const { clampFolderLevels } = require('../../core/library-context');
 const { shouldAutoTagNewScanFiles } = require('../../core/folder-tags');
@@ -297,6 +298,45 @@ function stlHomeExcludeDirectoriesForScan(directoryPath, options) {
  *   only a changed subfolder): relative exclusions and folder levels count from it.
  * options.rememberDirectory: false keeps the folder out of the scanned-directories list.
  */
+/**
+ * Folders a scan of `directoryPath` skips: the STL Home exclusions (relative ones from the STL Home
+ * folder `scanRoot`, not from a subfolder being scanned), model folders' media folders, and
+ * Unraid's own shares when the whole user share or a disk is scanned.
+ */
+function scanExcludeDirectories(directoryPath, scanRoot, options = {}) {
+  const excludeDirectories = stlHomeExcludeDirectoriesForScan(directoryPath, options).map((entry) =>
+    path.isAbsolute(entry) ? entry : path.resolve(scanRoot, entry)
+  );
+  // Model folders' pictures, videos and documents are not models (model-folders.js).
+  excludeDirectories.push(...require('../model-folders').mediaFolders(directoryPath));
+  // Unraid's own shares, when STL Home is the whole user share or a disk (server-paths.js isUnraidSystemShare).
+  if (/^\/mnt\/(user0?|disk\d+|cache)\/?$/i.test(directoryPath)) {
+    for (const share of ['appdata', 'system', 'domains', 'isos']) excludeDirectories.push(path.posix.join(directoryPath, share));
+  }
+  return excludeDirectories;
+}
+
+/**
+ * Drop the models under `directoryPath` whose files are gone. Runs after a scan has added its
+ * files, so a file moved within the scan is relinked first (relink-moved.js) instead of dropped.
+ */
+async function removeMissingIn(directoryPath, options = {}) {
+  const scanRoot = typeof options.scanRoot === 'string' && options.scanRoot ? options.scanRoot : directoryPath;
+  if (stlHomeFolderIsGone(scanRoot, options)) return 0;
+  return removeNonExistentFiles(directoryPath, null, scanExcludeDirectories(directoryPath, scanRoot, options));
+}
+
+/**
+ * A whole STL Home folder that is gone (a share not mounted, a container path changed) keeps its
+ * models: they are dropped only when files are gone from a folder that is there, and a scan of
+ * the folder's new place relinks them (relink-moved.js).
+ */
+function stlHomeFolderIsGone(scanRoot, options = {}) {
+  if (!options.isStlHomeScan || fs.existsSync(scanRoot)) return false;
+  console.warn(`[Scan] STL Home folder ${scanRoot} is not there (not mounted?): its models are kept`);
+  return true;
+}
+
 async function scanDirectoryHandler(event, directoryPath, options = {}) {
   // The progress bars above Library Storage (activity.js) follow what the scan tells its browser.
   const activity = require('../activity');
@@ -340,16 +380,7 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
     if (options.rememberDirectory !== false) rememberScannedDirectory(directoryPath);
     const maxFileSize = await getMaxFileSize();
     const scanRoot = typeof options.scanRoot === 'string' && options.scanRoot ? options.scanRoot : directoryPath;
-    // Relative exclusions are relative to the STL Home folder, not to a subfolder being scanned.
-    const excludeDirectories = stlHomeExcludeDirectoriesForScan(directoryPath, options).map((entry) =>
-      path.isAbsolute(entry) ? entry : path.resolve(scanRoot, entry)
-    );
-    // Model folders' pictures, videos and documents are not models (model-folders.js).
-    excludeDirectories.push(...require('../model-folders').mediaFolders(directoryPath));
-    // Unraid's own shares, when STL Home is the whole user share or a disk (server-paths.js isUnraidSystemShare).
-    if (/^\/mnt\/(user0?|disk\d+|cache)\/?$/i.test(directoryPath)) {
-      for (const share of ['appdata', 'system', 'domains', 'isos']) excludeDirectories.push(path.posix.join(directoryPath, share));
-    }
+    const excludeDirectories = scanExcludeDirectories(directoryPath, scanRoot, options);
 
     // Read enableZipArchives and scanAdditionalFileTypes from database
     const zipSetting = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enableZipArchives');
@@ -365,14 +396,14 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
       /* ignore */
     }
 
-    // First, remove any non-existent files from the scanned directory
-    // Pass the window so we can show a confirmation dialog if needed (null in server mode)
-    const window = null;
-    const removedCount = await removeNonExistentFiles(directoryPath, window, excludeDirectories);
-    if (removedCount > 0) {
-      event.sender.send('db-cleanup', {
-        message: `Removed ${removedCount} non-existent files from directory ${directoryPath}`
-      });
+    // A folder that is gone: drop its models now (there is nothing to relink them to).
+    let removedEarly = false;
+    if (options.removeMissing !== false && !fs.existsSync(directoryPath) && !stlHomeFolderIsGone(scanRoot, options)) {
+      removedEarly = true;
+      const removedCount = await removeNonExistentFiles(directoryPath, null, excludeDirectories);
+      if (removedCount > 0) {
+        event.sender.send('db-cleanup', { message: `Removed ${removedCount} non-existent files from directory ${directoryPath}` });
+      }
     }
 
     return new Promise((resolve, reject) => {
@@ -412,6 +443,7 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
         files: [],
         existingFilePaths: new Set(),
         newFilesCount: 0,
+        relinked: 0,
         /** @type {string[]} */
         newFilePaths: []
       };
@@ -449,7 +481,10 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
             for (const file of batch) {
               const bundle = deriveBundleFromFilePath(file.filePath);
               const modifiedDate = fileModifiedIso(file);
-              if (ingestState.existingFilePaths.has(file.filePath)) {
+              const known = ingestState.existingFilePaths.has(file.filePath);
+              // A file moved outside JusttPrint: the model follows it (relink-moved.js).
+              const movedFrom = known ? null : findMovedModel(database.db, file);
+              if (known) {
                 updateExisting.run(
                   file.hash || '',
                   file.size,
@@ -459,6 +494,19 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
                   bundle.bundleKind || null,
                   file.filePath
                 );
+              } else if (movedFrom) {
+                moveModel(database.db, movedFrom.id, movedFrom.filePath, file.filePath);
+                updateExisting.run(
+                  file.hash || '',
+                  file.size,
+                  modifiedDate,
+                  bundle.bundleKey || null,
+                  bundle.bundleLabel || null,
+                  bundle.bundleKind || null,
+                  file.filePath
+                );
+                ingestState.existingFilePaths.add(file.filePath);
+                ingestState.relinked++;
               } else {
                 insertNew.run(
                   file.filePath,
@@ -504,6 +552,17 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
               ingestFileBatch(message.result.files);
             }
             await ingestChain;
+
+            // Now that moved files are relinked, drop the models whose files are gone.
+            if (options.removeMissing !== false && !removedEarly && !stlHomeFolderIsGone(scanRoot, options)) {
+              const removedCount = await removeNonExistentFiles(directoryPath, null, excludeDirectories);
+              if (removedCount > 0) {
+                event.sender.send('db-cleanup', {
+                  message: `Removed ${removedCount} non-existent files from directory ${directoryPath}`
+                });
+              }
+            }
+            if (ingestState.relinked) console.log(`[Scan] ${ingestState.relinked} moved file(s) kept their details`);
 
             const files = ingestState.files;
             const totalFiles = message.result.totalFiles;
@@ -579,6 +638,13 @@ async function scanDirectoryInner(event, directoryPath, options = {}) {
 }
 
 ipcMain.handle('scan-directory', scanDirectoryHandler);
+// The second pass of a scan of several folders (scan-directory with removeMissing: false first):
+// drop the models under `dir` whose files are gone. Answers how many.
+ipcMain.handle('remove-missing-models', async (event, dir, options) => {
+  const removed = await removeMissingIn(dir, options && typeof options === 'object' ? options : {});
+  if (removed > 0) require('../events').broadcast('refresh-grid');
+  return { removed };
+});
 
 /**
  * Choose folder (src/web/components/FolderPicker.tsx): the places to start from (the container's
@@ -632,4 +698,4 @@ function applyFolderTagsToNewScanFiles(filePaths) {
   return result;
 }
 
-module.exports = { scanDirectoryHandler, readStlHomeExcludeDirectories };
+module.exports = { removeMissingIn, scanDirectoryHandler, readStlHomeExcludeDirectories };

@@ -917,12 +917,54 @@ async function apiChecks(base, wsUrl) {
     !!browserA && !!browserB && browserA.channels.includes('refresh-grid') && browserB.channels.includes('refresh-grid')
   );
   fs.rmSync(ownDir, { recursive: true, force: true });
-  // Scanning the deleted folder drops its models (the clean-up runs before the folder is read).
+  // Scanning the deleted folder drops its models.
   await invoke(base, asA, 'scan-directory', [ownDir]);
   await invoke(base, { cookie, origin }, 'save-setting', ['scannedDirectories', scannedBefore || '[]']);
   browserA?.close();
   browserB?.close();
   check('the library is back to the fixture models', ((await invoke(base, { cookie, origin }, 'get-stats')).result || {}).totalModels === 4);
+
+  // A file moved outside JusttPrint keeps its model, tags and all (src/server/relink-moved.js).
+  {
+    // Outside the app folder (the e2e library is inside it, and web scans of the app folder are refused).
+    const moveDir = fs.realpathSync(fs.mkdtempSync('/tmp/justtprint-e2e-move-'));
+    const from = path.join(moveDir, 'Old', 'relink-me.stl');
+    const to = path.join(moveDir, 'New', 'relink-me.stl');
+    fs.mkdirSync(path.dirname(from), { recursive: true });
+    fs.copyFileSync(cube, from);
+    await invoke(base, { cookie, origin }, 'scan-directory', [moveDir]);
+    const tagged = await invoke(base, { cookie, origin }, 'save-model', [{ filePath: from, tags: ['e2e-relinked'] }]);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.renameSync(from, to);
+    if (DOCKER_IMAGE) await sleep(1500); // Docker Desktop shows the move inside the container a moment later.
+    await invoke(base, { cookie, origin }, 'scan-directory', [moveDir]);
+    const found = (await invoke(base, { cookie, origin }, 'get-models-filtered', [{ tags: ['e2e-relinked'] }])).result || [];
+    check(
+      'a file moved outside JusttPrint keeps its model and tags',
+      !tagged.error && found.length === 1 && found[0].filePath === to,
+      JSON.stringify({ error: tagged.error, found: found.map((m) => m.filePath) })
+    );
+    fs.rmSync(moveDir, { recursive: true, force: true });
+    await invoke(base, { cookie, origin }, 'scan-directory', [moveDir]);
+    await invoke(base, { cookie, origin }, 'save-setting', ['scannedDirectories', scannedBefore || '[]']);
+    check('the library is back to the fixture models after the move', ((await invoke(base, { cookie, origin }, 'get-stats')).result || {}).totalModels === 4);
+  }
+
+  // A whole STL Home folder that is gone (a share not mounted) keeps its models; a plain scan of a deleted folder drops them.
+  {
+    const offline = fs.realpathSync(fs.mkdtempSync('/tmp/justtprint-e2e-offline-'));
+    fs.copyFileSync(cube, path.join(offline, 'offline.stl'));
+    await invoke(base, { cookie, origin }, 'scan-directory', [offline]);
+    fs.rmSync(offline, { recursive: true, force: true });
+    if (DOCKER_IMAGE) await sleep(1500);
+    await invoke(base, { cookie, origin }, 'scan-directory', [offline, { isStlHomeScan: true }]);
+    await invoke(base, { cookie, origin }, 'remove-missing-models', [offline, { isStlHomeScan: true }]);
+    const kept = ((await invoke(base, { cookie, origin }, 'get-stats')).result || {}).totalModels;
+    await invoke(base, { cookie, origin }, 'scan-directory', [offline]);
+    const dropped = ((await invoke(base, { cookie, origin }, 'get-stats')).result || {}).totalModels;
+    await invoke(base, { cookie, origin }, 'save-setting', ['scannedDirectories', scannedBefore || '[]']);
+    check('a missing STL Home folder keeps its models; a scan of a deleted folder drops them', kept === 5 && dropped === 4, JSON.stringify({ kept, dropped }));
+  }
 
   const part = path.join(LIBRARY, 'Designer A', 'Benchy Pack', 'part one.stl');
   const trash = await invoke(base, { cookie, origin }, 'trash-file', [part]);
