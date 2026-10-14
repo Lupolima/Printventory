@@ -518,7 +518,6 @@ function initializeDefaultSettings() {
 
     // Define default settings
     const defaultSettings = [
-      { key: 'tosAcceptedDate', value: null },
       { key: 'theme', value: 'light' },
       { key: 'apiKey', value: null },
       { key: 'aiModel', value: 'gpt-5-nano' },

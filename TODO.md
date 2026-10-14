@@ -69,7 +69,7 @@ docs/        GUIDE.md, its images, redesign notes
   - Puter AI.
   - Support-log uploads (removed in 2.3.x along with the rest of the original project's services).
 
-  Document each one, and send nothing before the terms of service are accepted.
+  Document each one, and send nothing until an admin turns it on.
 
 ## 🟠 3. High: container fixes
 

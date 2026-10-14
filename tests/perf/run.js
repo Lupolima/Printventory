@@ -263,7 +263,6 @@ async function main() {
     await ask('cancel-server-thumbnail-job').catch(() => {});
     await waitFor(async () => (await ask('get-server-thumbnail-job-status')).status === 'idle', 60000, 'the thumbnail job to stop');
     await sleep(1000); // A render that was under way is saved.
-    await ask('save-setting', ['tosAcceptedDate', new Date().toISOString()]);
     await ask('save-setting', ['hasRunBefore', 'true']);
 
     console.log('# Pictures');

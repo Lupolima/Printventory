@@ -1003,7 +1003,6 @@ async function browserChecks(base, wsUrl, session) {
   check('thumbnail job finished', jobStatus.status === 'idle', JSON.stringify(jobStatus));
   const cubeThumbs = (await invoke(base, session, 'get-all-thumbnails', [path.join(LIBRARY, 'Designer A', 'cube.stl')])).result;
   check('rendered thumbnail stored for a model', JSON.stringify(cubeThumbs || '').includes('data:image'), JSON.stringify(cubeThumbs).slice(0, 120));
-  await invoke(base, session, 'save-setting', ['tosAcceptedDate', new Date().toISOString()]);
   await invoke(base, session, 'save-setting', ['hasRunBefore', 'true']);
 
   const browser = await chromium.launch({ executablePath: CHROME });
@@ -3735,48 +3734,17 @@ async function browserChecks(base, wsUrl, session) {
     }
     await tablet.close();
 
-    // First run (React, src/web/startup/FirstRun.tsx): the terms, then the welcome, then the guide.
-    await invoke(base, session, 'save-setting', ['tosAcceptedDate', '']);
+    // First run (React, src/web/startup/FirstRun.tsx): the welcome, then the guide. No terms to accept.
     await invoke(base, session, 'save-setting', ['hasRunBefore', '']);
     const fresh = await page.context().newPage();
     fresh.on('pageerror', (error) => errors.push(`first run: ${error.message}`));
     await fresh.goto(base + '/');
     check(
-      'a first visit asks to accept the terms',
-      (await fresh.waitForSelector('#terms-of-service-dialog[open] #accept-terms', { timeout: 30000 }).then(
-        () => true,
-        () => false
-      )) && !(await fresh.isVisible('#welcome-message'))
-    );
-    await fresh.press('#terms-of-service-dialog', 'Escape');
-    check('Escape does not skip the terms', await fresh.isVisible('#terms-of-service-dialog'));
-    // A small window: the license scrolls and Accept stays in view, really drawn (not clipped by the dialog).
-    const tallView = fresh.viewportSize();
-    const acceptShown = [];
-    for (const size of [
-      { width: 773, height: 634 },
-      { width: 1280, height: 420 },
-      { width: 390, height: 640 }
-    ]) {
-      await fresh.setViewportSize(size);
-      await fresh.waitForTimeout(200);
-      acceptShown.push(
-        await fresh.$eval('#accept-terms', (el) => {
-          const r = el.getBoundingClientRect();
-          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight && (hit === el || el.contains(hit));
-        })
-      );
-    }
-    check('I Accept is shown in a small window', acceptShown.every(Boolean), JSON.stringify(acceptShown));
-    if (tallView) await fresh.setViewportSize(tallView);
-    await fresh.click('#accept-terms');
-    check(
-      'accepting saves it and shows the welcome',
+      'a first visit shows the welcome, with no terms to accept',
       (await fresh.waitForSelector('#welcome-message[open]', { timeout: 30000 }).then(
         () => true,
         () => false
-      )) && !!(await invoke(base, session, 'get-setting', ['tosAcceptedDate'])).result
+      )) && !(await fresh.$('#terms-of-service-dialog'))
     );
     await fresh.click('#dismiss-welcome');
     check(
@@ -5615,7 +5583,7 @@ async function accountChecks(base, wsUrl, admin) {
         () => false
       )
     );
-    check('a guest sees no welcome or terms', !(await guestPage.isVisible('#welcome-message')) && !(await guestPage.isVisible('#terms-of-service-dialog')));
+    check('a guest sees no welcome', !(await guestPage.isVisible('#welcome-message')));
     await guestPage.click('.jp-account');
     check('a guest can go to Log In', await guestPage.isVisible('[role="menuitem"]:has-text("Log In")'));
     await guestPage.context().close();

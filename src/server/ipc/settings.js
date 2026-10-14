@@ -32,8 +32,8 @@ const PER_USER_SETTING_KEYS = new Set([
   'folderModels'
 ]);
 
-/** Server-wide settings any user may save: the update check and the accepted terms. Everything else needs an admin. */
-const SHARED_PREFERENCE_KEYS = new Set(['tosAcceptedDate', 'latestVersion', 'lastUpdateCheck', 'lastDeclinedVersion']);
+/** Server-wide settings any user may save: the update check. Everything else needs an admin. */
+const SHARED_PREFERENCE_KEYS = new Set(['latestVersion', 'lastUpdateCheck', 'lastDeclinedVersion']);
 
 /** Settings only admins may read: API keys, tokens and passwords (the AI service key, for one). */
 const ADMIN_ONLY_SETTING = /(key|keypath)$|token|secret|password/i;
