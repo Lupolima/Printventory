@@ -19,7 +19,23 @@ ipcMain.handle('get-folder', async (event, dir) => {
 });
 
 ipcMain.handle('save-folder-notes', async (event, dir, notes) => {
+  const before = (folders.getFolder(database.db, dir) || {}).notes || '';
   const result = folders.saveFolderNotes(database.db, dir, notes);
+  // Written down for the History page (model-versions.js detail_changes).
+  try {
+    const key = folders.folderKey(dir);
+    require('../model-versions').recordDetailChanges(
+      'folder',
+      key,
+      require('path').basename(key),
+      { notes: before },
+      { notes: result.notes },
+      event && event.user ? event.user.username : null
+    );
+    events.broadcast('model-history-changed', {});
+  } catch (error) {
+    console.warn('[History] Could not write down a folder notes change:', error.message);
+  }
   events.broadcast('folder-changed', { path: folders.folderKey(dir) });
   return result;
 });

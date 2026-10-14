@@ -98,6 +98,18 @@ async function main() {
   assert.strictEqual(media.cover, null);
   assert.strictEqual(database.db.prepare('SELECT thumbnail FROM models').get().thumbnail, 'data:image/png;base64,OLD');
   await assert.rejects(mf.removeMedia(robot, 'document', 'Missing.pdf'), /No file named/);
+
+  // Contents given as base64 (MCP add_model_media): into the folder for its kind, a taken name numbered.
+  const pdf = Buffer.from('%PDF-1.4 guide').toString('base64');
+  let added = await mf.saveMediaData(robot, 'Guide.pdf', pdf);
+  assert.strictEqual(added.kind, 'document');
+  assert.notStrictEqual(added.name, 'Guide.pdf', 'Guide.pdf is taken: a numbered name');
+  assert.strictEqual(fs.readFileSync(path.join(robot, 'document', added.name), 'utf8'), '%PDF-1.4 guide');
+  added = await mf.saveMediaData(model, 'shot.png', `data:image/png;base64,${PNG.toString('base64')}`);
+  assert.deepStrictEqual([added.kind, added.name], ['image', 'shot.png'], 'a data URL, given a model file in the folder');
+  await assert.rejects(mf.saveMediaData(robot, 'notes', pdf), /give it an extension/);
+  await assert.rejects(mf.saveMediaData(robot, 'x.png', ''), /No file contents/);
+  await assert.rejects(mf.saveMediaData(lib, 'x.png', pdf), /Not a model folder/);
   await assert.rejects(mf.removeMedia(lib, 'document', 'Guide.pdf'), /Not a model folder/);
 
   // --- YouTube ---

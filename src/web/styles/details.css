@@ -815,3 +815,18 @@ body.jp-shell-on #model-details .details-name-field {
   flex-wrap: wrap;
   gap: var(--jp-space-1);
 }
+
+/* Log Print: the plates of a 3MF (print/PrintHistory.tsx) */
+.log-print-plates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.log-print-plates .checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}

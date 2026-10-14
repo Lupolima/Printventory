@@ -319,6 +319,78 @@ const TOOL_DEFINITIONS = [
     }
   },
   {
+    name: 'get_model_media',
+    description:
+      "A model folder's pictures, videos and documents (each { name, size }), its YouTube videos and which picture is the cover. Give a model (id or filePath) or the folder. Only model folders (a folder of its own per model) have media.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'A model in the folder' },
+        filePath: { type: 'string', description: 'A model file in the folder' },
+        folder: { type: 'string', description: 'The model folder itself' }
+      }
+    }
+  },
+  {
+    name: 'add_model_media',
+    description:
+      "Add a picture, video or document to a model's folder (into image/, video/ or document/ by its extension). Give either url (downloaded) or data (base64 or a data URL) with name. A taken name gets a number. The first picture becomes the cover.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'A model in the folder' },
+        filePath: { type: 'string', description: 'A model file in the folder' },
+        folder: { type: 'string', description: 'The model folder itself' },
+        url: { type: 'string', description: 'An https link to download' },
+        data: { type: 'string', description: 'The file contents: base64 or a data URL' },
+        name: { type: 'string', description: 'File name with extension (required with data; with url, taken from the link when missing)' }
+      }
+    }
+  },
+  {
+    name: 'set_model_cover',
+    description:
+      "Make one of the folder's pictures (by name, from get_model_media) its cover: the picture the library shows for its models. Leave name out to take the cover away.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'A model in the folder' },
+        filePath: { type: 'string', description: 'A model file in the folder' },
+        folder: { type: 'string', description: 'The model folder itself' },
+        name: { type: 'string', description: 'Picture name; leave out to remove the cover' }
+      }
+    }
+  },
+  {
+    name: 'remove_model_media',
+    description: 'Move a picture, video or document of a model folder to the Trash. Removing the cover picture removes the cover.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'A model in the folder' },
+        filePath: { type: 'string', description: 'A model file in the folder' },
+        folder: { type: 'string', description: 'The model folder itself' },
+        kind: { type: 'string', enum: ['image', 'video', 'document'] },
+        name: { type: 'string' }
+      },
+      required: ['kind', 'name']
+    }
+  },
+  {
+    name: 'add_model_youtube',
+    description: 'Keep YouTube videos (links or video ids) with a model folder.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'A model in the folder' },
+        filePath: { type: 'string', description: 'A model file in the folder' },
+        folder: { type: 'string', description: 'The model folder itself' },
+        links: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['links']
+    }
+  },
+  {
     name: 'find_duplicates',
     description: 'Find duplicate models grouped by file hash (DeDup). Returns hash groups with file paths, names, and sizes. Read-only.',
     inputSchema: {
@@ -734,6 +806,16 @@ async function callTool(name, args, ctx) {
       return ctx.setDefaultThumbnail({ id: a.id, filePath: a.filePath, index: a.index });
     case 'delete_thumbnail':
       return ctx.deleteThumbnail({ id: a.id, filePath: a.filePath, index: a.index });
+    case 'get_model_media':
+      return ctx.getModelMedia(a);
+    case 'add_model_media':
+      return ctx.addModelMedia(a);
+    case 'set_model_cover':
+      return ctx.setModelCover(a);
+    case 'remove_model_media':
+      return ctx.removeModelMedia(a);
+    case 'add_model_youtube':
+      return ctx.addModelYoutube(a);
     case 'find_duplicates':
       return ctx.findDuplicates({
         includeZip: !!a.includeZip,

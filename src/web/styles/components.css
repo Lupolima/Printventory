@@ -981,6 +981,9 @@ button.jp-tag__label:hover {
 }
 .jp-undo-toast__button {
   flex: none;
+  /* Not the old site-wide button rule (base-elements.css: width 90%), which hid the text. */
+  width: auto;
+  margin: 0;
   padding: 4px 12px;
   border: 0;
   border-radius: var(--jp-radius-sm);
@@ -995,6 +998,11 @@ button.jp-tag__label:hover {
 }
 .jp-undo-toast__close {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
   width: 28px;
   height: 28px;
   border: 0;

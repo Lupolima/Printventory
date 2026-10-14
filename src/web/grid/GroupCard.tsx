@@ -408,7 +408,11 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
           {cell('designer', 'designer-info-column', cols.designer || '—', cols.designer || undefined)}
           {cell('parentmodel', 'parent-model-column', cols.parentModel || '—', cols.parentModel || undefined)}
           <div className="print-status-column" data-list-col="printed">
-            <span className={print.printedCount > 0 ? 'print-status printed' : 'print-status'}>{print.label}</span>
+            {isFolder ? (
+              <FolderKit folder={folderOf(record.children[0] || { filePath: '' })} fallback={print.label} printed={print.printedCount > 0} />
+            ) : (
+              <span className={print.printedCount > 0 ? 'print-status printed' : 'print-status'}>{print.label}</span>
+            )}
           </div>
           <div className="tags-info-column" data-list-col="tags">
             <GroupTags host={host} record={record} />
@@ -424,9 +428,18 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
         <div className="parent-model-group-details">
           {titleRow}
           <div className="parent-model-group-meta" title={isBundle ? 'Right-click for Preview and more options' : undefined}>
-            {isBundle
-              ? `${count} part${count === 1 ? '' : 's'} • ${kindLabel || 'folder'} • ${print.label}`
-              : `${count} model${count === 1 ? '' : 's'} • ${print.label}`}
+            {isFolder ? (
+              // Folders as models: the kit's progress, as on the grid's cards.
+              <FolderKit
+                folder={folderOf(record.children[0] || { filePath: '' })}
+                fallback={`${count} files • ${print.label}`}
+                printed={print.printedCount > 0}
+              />
+            ) : isBundle ? (
+              `${count} part${count === 1 ? '' : 's'} • ${kindLabel || 'folder'} • ${print.label}`
+            ) : (
+              `${count} model${count === 1 ? '' : 's'} • ${print.label}`
+            )}
           </div>
         </div>
         {view === 'preview' && (

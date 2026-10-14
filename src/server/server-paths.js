@@ -281,6 +281,26 @@ const MCP_TOOL_PATH_RULES = {
   add_thumbnail: [['filePath', 'file']],
   set_default_thumbnail: [['filePath', 'file']],
   delete_thumbnail: [['filePath', 'file']],
+  get_model_media: [
+    ['filePath', 'file'],
+    ['folder', 'modelDir']
+  ],
+  add_model_media: [
+    ['filePath', 'file'],
+    ['folder', 'modelDir']
+  ],
+  set_model_cover: [
+    ['filePath', 'file'],
+    ['folder', 'modelDir']
+  ],
+  remove_model_media: [
+    ['filePath', 'file'],
+    ['folder', 'modelDir']
+  ],
+  add_model_youtube: [
+    ['filePath', 'file'],
+    ['folder', 'modelDir']
+  ],
   scan_directory: [['directory', 'scanDir']],
   import_model_links: [['downloadFolder', 'dir']],
   remove_model: [

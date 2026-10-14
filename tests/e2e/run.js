@@ -1562,6 +1562,17 @@ async function browserChecks(base, wsUrl, session) {
           'a folder has a page with its files and notes of its own',
           folderShown && notesSaved === true && (await page.isVisible(`#jp-folder-file-grid [data-filepath="${cardPath.replace(/"/g, '\\"')}"]`))
         );
+        // The notes change is in the History, and can be put back (model-versions.js detail_changes).
+        const notesChange = (((await invoke(base, session, 'get-all-history', [{ search: 'e2e folder notes' }])).result || {}).entries || []).find(
+          (e) => e.kind === 'detail' && e.scope === 'folder' && e.newValue === 'e2e folder notes'
+        );
+        await invoke(base, session, 'save-folder-notes', [folder, 'changed again']);
+        if (notesChange) await invoke(base, session, 'undo-detail-change', [notesChange.id]);
+        check(
+          "a folder's notes are in the History and can be put back",
+          !!notesChange && ((await invoke(base, session, 'get-folder', [folder])).result || {}).notes === notesChange.oldValue,
+          JSON.stringify(notesChange)
+        );
         await invoke(base, session, 'save-folder-notes', [folder, '']);
         // The print logged above (Log Print, Printed) ticked this model's part.
         const kitBefore = (await invoke(base, session, 'get-kit', [folder])).result || {};
@@ -4939,18 +4950,52 @@ async function browserChecks(base, wsUrl, session) {
       await window.performCombinedSearch({ force: true });
     });
 
-    // Scan Library in the sidebar: busy while it runs, then the notice says how it went.
+    // Scan Library in the sidebar: busy while it runs, then the notice says how it went. STL Home is
+    // a folder outside the app for this (the e2e library is inside it, and web scans of it are refused).
+    const homeDir = fs.realpathSync(fs.mkdtempSync('/tmp/justtprint-e2e-home-'));
+    fs.copyFileSync(cubePath, path.join(homeDir, 'home-cube.stl'));
+    const settingBefore = async (key) => (await invoke(base, session, 'get-setting', [key])).result;
+    const homeSettings = {};
+    for (const key of ['stlHomeDirectories', 'stlHome', 'directoryPath', 'scannedDirectories']) homeSettings[key] = await settingBefore(key);
+    await invoke(base, session, 'save-setting', ['stlHomeDirectories', JSON.stringify([homeDir])]);
+    await invoke(base, session, 'save-setting', ['stlHome', homeDir]);
     await page.click('[data-testid="scan-toast"] .jp-undo-toast__close').catch(() => {});
-    await page.click('.jp-sidebar .jp-nav__row:has-text("Scan Library")');
-    const scanDone = await page.waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished:")', { timeout: 60000 }).then(
-      () => true,
-      () => false
-    );
+    // The scan above starts a thumbnail job whose "finished" message can open at any moment and
+    // blocks the page: answer any open message, then click (again, if a message came in between).
+    let scanClicked = false;
+    for (let attempt = 0; attempt < 5 && !scanClicked; attempt++) {
+      for (const button of await page.$$('dialog[id^="browser-message-"][open] button')) await button.click().catch(() => {});
+      scanClicked = await page.click('.jp-sidebar .jp-nav__row:has-text("Scan Library")', { timeout: 3000 }).then(
+        () => true,
+        () => false
+      );
+    }
+    const scanDone = await page
+      .waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished: 1 new model")', { timeout: 60000 })
+      .then(
+        () => true,
+        () => false
+      );
     check(
-      'Scan Library says when the scan is done',
-      scanDone && !(await page.isDisabled('.jp-sidebar .jp-nav__row:has-text("Scan Library")')),
+      'Scan Library says when the scan is done and how many models are new',
+      scanClicked && scanDone && !(await page.isDisabled('.jp-sidebar .jp-nav__row:has-text("Scan Library")')),
       await page.textContent('[data-testid="scan-toast"]').catch(() => '')
     );
+    // Its thumbnail is drawn from the file: wait until it is saved, so the folder is not deleted under it.
+    await waitFor(
+      async () =>
+        JSON.stringify((await invoke(base, session, 'get-all-thumbnails', [path.join(homeDir, 'home-cube.stl')])).result || '').includes('data:image'),
+      90000,
+      "the scanned model's thumbnail"
+    ).catch(() => {});
+    await page.waitForTimeout(1000);
+    // Put STL Home back and drop the model of the folder (scanning the deleted folder).
+    for (const [key, value] of Object.entries(homeSettings)) await invoke(base, session, 'save-setting', [key, value ?? '']);
+    fs.rmSync(homeDir, { recursive: true, force: true });
+    if (DOCKER_IMAGE) await sleep(1500);
+    await invoke(base, session, 'scan-directory', [homeDir]);
+    await invoke(base, session, 'save-setting', ['scannedDirectories', homeSettings.scannedDirectories ?? '[]']);
+    for (const button of await page.$$('dialog[id^="browser-message-"][open] button')) await button.click().catch(() => {});
 
     // Purge Models (React). Empties the library, so it runs last among the library checks.
     // A late message from the scan or thumbnail jobs above (slow machines) would cover the
@@ -5942,6 +5987,11 @@ async function accountChecks(base, wsUrl, admin) {
       await editorPage.click('#model-details #jp-model-notes-save');
       const saved = await waitFor(async () => (await notesNow()) === typed, 10000, 'notes saved').catch(() => false);
       const toast = await editorPage.waitForSelector('[data-testid="undo-toast"]:has-text("Changed the notes")', { timeout: 10000 }).catch(() => null);
+      if (toast && how === 'the Undo button')
+        check(
+          'the Undo notice shows its text, not only the button',
+          await editorPage.$eval('[data-testid="undo-toast"] .jp-undo-toast__text', (el) => el.getBoundingClientRect().width > 40).catch(() => false)
+        );
       if (how === 'the Undo button') await editorPage.click('[data-testid="undo-toast"] button:text-is("Undo")').catch(() => {});
       else {
         // The shortcut is off while typing in a field: leave it first, as a person would.

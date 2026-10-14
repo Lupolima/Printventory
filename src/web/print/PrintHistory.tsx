@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Reac
 import { createPortal } from 'react-dom';
 import { models, parts as partApi, printers as printerApi, prints, type Part, type PrintEvent, type Printer } from '../api';
 import { exposeGlobal, showMessage } from '../page';
+import { getKit } from '../kits/kits';
 import { getCurrentUser, roleAllows, useCan } from '../session';
 import {
   OUTCOME_LABELS,
@@ -149,6 +150,9 @@ function LogPrintDialog() {
   const [partQuantity, setPartQuantity] = useState('1');
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  /** A 3MF's plates (one model only): which were printed. */
+  const [plates, setPlates] = useState<{ plate: number; label: string }[]>([]);
+  const [chosenPlates, setChosenPlates] = useState<Set<number>>(new Set());
 
   const loadPrinters = () =>
     printerApi
@@ -167,8 +171,19 @@ function LogPrintDialog() {
     setPartQuantity('1');
     setChosenParts([]);
     setStatus('');
-    const [allParts] = await Promise.all([partApi.list().catch(() => [] as Part[]), loadPrinters()]);
+    setPlates([]);
+    setChosenPlates(new Set());
+    const [allParts, kit] = await Promise.all([
+      partApi.list().catch(() => [] as Part[]),
+      paths.length === 1 && /\.3mf$/i.test(paths[0]) ? getKit(paths[0]).catch(() => null) : Promise.resolve(null),
+      loadPrinters()
+    ]);
     setPartList(allParts);
+    const found = (kit?.parts || []).filter((part) => part.plate > 0).map((part) => ({ plate: part.plate, label: part.label }));
+    if (found.length > 1) {
+      setPlates(found);
+      setChosenPlates(new Set(found.map((p) => p.plate)));
+    }
     dialogRef.current?.showModal();
   }
 
@@ -208,13 +223,23 @@ function LogPrintDialog() {
     event.preventDefault();
     if (saving || !filePaths.length) return;
     const pickedPrinter = Number(printerId);
+    if (plates.length && !chosenPlates.size) return setStatus('Choose at least one plate.');
+    const some = plates.length > 0 && chosenPlates.size < plates.length;
+    // Only some plates: say which in the history row too.
+    const plateNote = some
+      ? `Plates: ${plates
+          .filter((p) => chosenPlates.has(p.plate))
+          .map((p) => p.label)
+          .join(', ')}`
+      : '';
     const input = {
       printedAt: when ? new Date(when).toISOString() : new Date().toISOString(),
       outcome,
       quantity: Number(quantity) || 1,
-      notes,
+      notes: [notes.trim(), plateNote].filter(Boolean).join('\n'),
       printerId: pickedPrinter > 0 ? pickedPrinter : null,
-      parts: chosenParts.map((c) => ({ id: c.part.id, quantity: c.quantity }))
+      parts: chosenParts.map((c) => ({ id: c.part.id, quantity: c.quantity })),
+      ...(plates.length ? { plates: [...chosenPlates] } : {})
     };
     setSaving(true);
     try {
@@ -250,6 +275,32 @@ function LogPrintDialog() {
             ))}
           </select>
         </div>
+        {plates.length > 0 && (
+          <div className="form-group" id="log-print-plates">
+            <label>Plates printed</label>
+            <p className="setting-description">A Printed print ticks these plates in the model’s kit.</p>
+            <div className="log-print-plates">
+              {plates.map((p) => (
+                <label key={p.plate} className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    data-plate={p.plate}
+                    checked={chosenPlates.has(p.plate)}
+                    onChange={(e) =>
+                      setChosenPlates((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(p.plate);
+                        else next.delete(p.plate);
+                        return next;
+                      })
+                    }
+                  />
+                  <span>{p.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="form-group">
           <label htmlFor="log-print-quantity">Quantity</label>
           <input type="number" id="log-print-quantity" min="1" max="9999" value={quantity} onChange={(e) => setQuantity(e.target.value)} />

@@ -248,6 +248,33 @@ async function runAsync() {
     assert.ok(res.result.content[0].text.includes('boat'));
   });
 
+  await test('tools/call: model folder media tools reach their handlers', async () => {
+    const calls = [];
+    const ctx = mockCtx({
+      getModelMedia: async (a) => (calls.push(['get', a.folder]), { image: [] }),
+      addModelMedia: async (a) => (calls.push(['add', a.name]), { name: a.name }),
+      setModelCover: async (a) => (calls.push(['cover', a.name]), {}),
+      removeModelMedia: async (a) => (calls.push(['remove', a.kind, a.name]), {}),
+      addModelYoutube: async (a) => (calls.push(['youtube', a.links.length]), {})
+    });
+    const call = (name, args) => handleMcpJsonRpc({ jsonrpc: '2.0', id: 50, method: 'tools/call', params: { name, arguments: args } }, ctx);
+    await call('get_model_media', { folder: '/lib/Robot' });
+    await call('add_model_media', { id: 1, name: 'a.png', data: 'iVBOR' });
+    await call('set_model_cover', { id: 1, name: 'a.png' });
+    await call('remove_model_media', { id: 1, kind: 'image', name: 'a.png' });
+    await call('add_model_youtube', { id: 1, links: ['dQw4w9WgXcQ'] });
+    assert.deepStrictEqual(calls, [
+      ['get', '/lib/Robot'],
+      ['add', 'a.png'],
+      ['cover', 'a.png'],
+      ['remove', 'image', 'a.png'],
+      ['youtube', 1]
+    ]);
+    const listed = (await handleMcpJsonRpc({ jsonrpc: '2.0', id: 51, method: 'tools/list' }, mockCtx())).result.tools.map((t) => t.name);
+    for (const name of ['get_model_media', 'add_model_media', 'set_model_cover', 'remove_model_media', 'add_model_youtube'])
+      assert.ok(listed.includes(name), name);
+  });
+
   await test('tools/call find_duplicates', async () => {
     const res = await handleMcpJsonRpc(
       {

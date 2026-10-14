@@ -883,6 +883,8 @@ export interface LogPrintInput {
   notes: string;
   printerId: number | null;
   parts: { id: number; quantity: number }[];
+  /** For one 3MF with several plates: the plates printed (a Printed log ticks only these in its kit). */
+  plates?: number[];
 }
 
 export const prints = {

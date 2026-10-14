@@ -22,16 +22,26 @@ function touchedPaths(payload, result) {
   return [...new Set(paths)];
 }
 
-/** A print logged as Printed ticks every part of its models' kits (src/server/kits.js). */
+/**
+ * A print logged as Printed ticks every part of its models' kits (src/server/kits.js), or only the
+ * plates chosen in Log Print (`plates`, for one 3MF with several).
+ */
 async function tickKits(event, payload) {
   if (String((payload && payload.outcome) || 'printed').toLowerCase() !== 'printed') return;
+  const by = event && event.user ? event.user.username : null;
+  const plates = Array.isArray(payload && payload.plates) ? payload.plates.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
+  if (plates.length && typeof payload.filePath === 'string') {
+    await require('../kits').markPlates(payload.filePath, plates, by);
+    events.broadcast('kit-changed', { filePath: payload.filePath });
+    return;
+  }
   const find = database.db.prepare('SELECT id FROM models WHERE filePath = ?');
   const ids = touchedPaths(payload, null)
     .map((filePath) => find.get(filePath))
     .filter(Boolean)
     .map((row) => row.id);
   if (!ids.length) return;
-  await require('../kits').markPrinted(ids, event && event.user ? event.user.username : null);
+  await require('../kits').markPrinted(ids, by);
   events.broadcast('kit-changed', {});
 }
 

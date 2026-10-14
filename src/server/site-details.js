@@ -281,6 +281,29 @@ function applyEdits(details, edits) {
  * and is added to the edits kept so far; a value the same as the site's drops that edit, so the
  * field follows the site again. Null forgets all the edits. Answers the details as getDetails does.
  */
+/**
+ * What the Edit dialog shows of a link's site details now (the site's values with the edits laid
+ * over them), as text per field: { title, designer, license, description, categories, tags,
+ * 'profile:<id>' }. Lists are joined with ", ". Empty when nothing is kept for the link. For the
+ * history of site edits (ipc/makerworld.js).
+ * @param {string} url
+ */
+function editableValues(url) {
+  const link = parseModelLink(url);
+  if (!link) return {};
+  const key = linkKey(link);
+  const row = table().prepare('SELECT data FROM site_details WHERE key = ?').get(key);
+  const site = row ? siteValues(JSON.parse(row.data)) : { title: '', designer: '', license: '', description: '', categories: [], tags: [], profiles: {} };
+  const edits = editsFor(key);
+  const pick = (field) => (edits[field] !== undefined ? edits[field] : site[field]);
+  const out = {};
+  for (const field of Object.keys(EDIT_LIMITS)) out[field] = String(pick(field) || '');
+  for (const field of ['categories', 'tags']) out[field] = (pick(field) || []).join(', ');
+  const profiles = { ...site.profiles, ...(edits.profiles || {}) };
+  for (const [id, name] of Object.entries(profiles)) out[`profile:${id}`] = String(name || '');
+  return out;
+}
+
 async function saveSiteEdits(url, changes, options = {}) {
   const link = parseModelLink(url);
   if (!link) throw new Error('Not a model link from MakerWorld, Printables or Thingiverse');
@@ -780,7 +803,8 @@ function renameProfileFiles(key = null) {
   for (const row of rows) {
     let details;
     try {
-      details = JSON.parse(row.data);
+      // With the Edit dialog's changes: a title changed there names the files (as a download does).
+      details = applyEdits(JSON.parse(row.data), editsFor(row.key));
     } catch (_) {
       continue;
     }
@@ -930,6 +954,7 @@ function siteTitleOf(model) {
 
 module.exports = {
   DOWNLOAD_HOSTS,
+  editableValues,
   siteTitleOf,
   giveSiteTags,
   downloadsFor,

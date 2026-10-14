@@ -36,6 +36,57 @@ ipcMain.handle('delete-model-version', async (event, versionId) => {
   return result;
 });
 
+/** Settings → Backup: the space the kept versions take, and how many each model keeps. */
+ipcMain.handle('get-versions-usage', async () => history.versionsUsage());
+/** Keep only the newest `keep` versions of each model (0: all), from now on and right away. */
+ipcMain.handle('set-versions-keep', async (event, keep) => {
+  const n = Math.max(0, Math.min(1000, Math.floor(Number(keep) || 0)));
+  require('../../core/settings').persistSetting('versionsKeep', String(n));
+  const pruned = history.pruneAll(n);
+  events.broadcast('model-history-changed', {});
+  return { ...history.versionsUsage(), pruned };
+});
+
+/** Put a folder's notes or a site detail back to what it was before a change (History page). */
+ipcMain.handle('undo-detail-change', async (event, changeId) => {
+  const { scope, target, field, value } = history.detailChangeToUndo(changeId);
+  const by = who(event);
+  if (scope === 'folder' && field === 'notes') {
+    const database = require('../../core/database');
+    const folders = require('../../core/folder-models');
+    const before = (folders.getFolder(database.db, target) || {}).notes || '';
+    const result = folders.saveFolderNotes(database.db, target, value || '');
+    history.recordDetailChanges(
+      'folder',
+      folders.folderKey(target),
+      require('path').basename(folders.folderKey(target)),
+      { notes: before },
+      { notes: result.notes },
+      by
+    );
+    events.broadcast('folder-changed', { path: folders.folderKey(target) });
+  } else if (scope === 'site') {
+    const siteDetails = require('../site-details');
+    const list = (text) =>
+      String(text || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    const changes = field.startsWith('profile:')
+      ? { profiles: { [field.slice('profile:'.length)]: value || '' } }
+      : { [field]: field === 'categories' || field === 'tags' ? list(value) : value || '' };
+    const before = siteDetails.editableValues(target);
+    await siteDetails.saveSiteEdits(target, changes, { event });
+    const after = siteDetails.editableValues(target);
+    history.recordDetailChanges('site', target, after.title || target, before, after, by);
+    events.broadcast('site-details-changed', { url: target });
+  } else {
+    throw new Error('This change cannot be put back');
+  }
+  events.broadcast('model-history-changed', {});
+  return { success: true };
+});
+
 /** A copy of an earlier version to download: { filePath } (in downloads/, gone after an hour). */
 ipcMain.handle('download-model-version', async (event, versionId) => history.versionDownload(versionId));
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const events = require('./events');
+const modelFolders = require('./model-folders');
 const database = require('../core/database');
 const { ipcMain, shell } = require('./runtime');
 
@@ -25,6 +26,14 @@ const { saveThumbnail, setDefaultThumbnailIndex } = require('../core/thumbnail-s
 const { networkPathContext } = require('./path-context');
 const { checkLinks, importLink } = require('./link-import');
 const { version } = require('../../package.json');
+
+/** The model folder of an MCP call: `folder`, or the folder of the model given by id or filePath. */
+function mediaFolderForMcp(args) {
+  const dir = args && args.folder ? String(args.folder) : resolveModelForMcp(args).filePath;
+  const folder = modelFolders.resolveFolder(dir);
+  if (!folder) throw new Error('Not a model folder: media belongs to a model with a folder of its own (Keep Them in This Folder, or Tidy Into Model Folders)');
+  return folder;
+}
 
 function resolveModelForMcp(args) {
   if (!args) throw new Error('Provide id or filePath');
@@ -378,6 +387,23 @@ function getMcpToolContext() {
       events.broadcast('thumbnail-default-changed', payload);
       return { success: true, id: model.id, filePath: model.filePath, thumbnailCount: thumbs.length };
     },
+    // A model folder's pictures, videos and documents (src/server/model-folders.js).
+    getModelMedia: async (args) => modelFolders.getMedia(mediaFolderForMcp(args)),
+    addModelMedia: async (args) => {
+      const folder = mediaFolderForMcp(args);
+      if (args.data) {
+        if (!args.name) throw new Error('name (with an extension) is required with data');
+        return modelFolders.saveMediaData(folder, args.name, args.data);
+      }
+      if (!args.url || !/^https:\/\//i.test(String(args.url))) throw new Error('Give an https url, or data with name');
+      const saved = await modelFolders.saveFromSite(folder, String(args.url), args.name || null);
+      if (saved && modelFolders.kindOf(saved) === 'image') await modelFolders.coverIfNone(folder).catch(() => {});
+      events.broadcast('folder-changed', { path: folder });
+      return { name: saved, kind: saved ? modelFolders.kindOf(saved) : null, skipped: !saved, media: modelFolders.getMedia(folder) };
+    },
+    setModelCover: async (args) => modelFolders.setCover(mediaFolderForMcp(args), args.name || null),
+    removeModelMedia: async (args) => modelFolders.removeMedia(mediaFolderForMcp(args), args.kind, args.name),
+    addModelYoutube: async (args) => modelFolders.addYoutube(mediaFolderForMcp(args), Array.isArray(args.links) ? args.links : [args.links]),
     deleteThumbnail: async (args) => {
       const model = resolveModelForMcp(args);
       const index = parseInt(args.index, 10);

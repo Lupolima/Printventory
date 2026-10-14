@@ -10,6 +10,9 @@
  *
  * Changes: each edit of a model's details (name, designer, source, parent model, license, notes,
  * tags, rating, categories) is written down with who made it and when; an old value can be put back.
+ * So are changes that belong to a folder or a site link rather than one model (detail_changes):
+ * a folder's notes (scope 'folder'), and the site details changed in the Edit dialog (scope 'site',
+ * by the model's link, which models sharing the link share).
  */
 
 const fs = require('fs');
@@ -48,6 +51,17 @@ function table() {
         changed_by TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_model_changes_model ON model_changes(model_id);
+      CREATE TABLE IF NOT EXISTS detail_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        target TEXT NOT NULL,
+        label TEXT,
+        field TEXT NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        changed_at TEXT NOT NULL,
+        changed_by TEXT
+      );
       CREATE TRIGGER IF NOT EXISTS model_history_removed AFTER DELETE ON models BEGIN
         DELETE FROM model_changes WHERE model_id = OLD.id; DELETE FROM model_versions WHERE model_id = OLD.id; END;
     `);
@@ -141,6 +155,7 @@ function replaceWithUpload(filePath, uploadedPath, { by = null, note = null } = 
   keepCurrent(model, by, note || 'Replaced by a new version');
   fs.renameSync(uploaded, model.filePath);
   fileChanged(model);
+  pruneModel(model.id);
   return listVersions(model.filePath);
 }
 
@@ -160,6 +175,7 @@ function restoreVersion(versionId, { by = null } = {}) {
   table().prepare('DELETE FROM model_versions WHERE id = ?').run(version.id);
   fs.rmSync(version.stored_path, { force: true });
   fileChanged(model);
+  pruneModel(model.id);
   return listVersions(model.filePath);
 }
 
@@ -169,6 +185,46 @@ function deleteVersion(versionId) {
   fs.rmSync(version.stored_path, { force: true });
   table().prepare('DELETE FROM model_versions WHERE id = ?').run(version.id);
   return { deleted: true };
+}
+
+/** How many earlier versions each model keeps (Settings → Backup): a number, or 0 for all. */
+function keepLimit() {
+  const n = Number(require('../core/settings').getSettingValueOr('versionsKeep', '0'));
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+/** Delete a model's versions beyond the newest `keep` (0 keeps all). Answers { deleted, freedBytes }. */
+function pruneModel(modelId, keep = keepLimit()) {
+  const out = { deleted: 0, freedBytes: 0 };
+  if (!keep) return out;
+  const older = table()
+    .prepare('SELECT id, stored_path, size FROM model_versions WHERE model_id = ? ORDER BY created_at DESC, id DESC LIMIT -1 OFFSET ?')
+    .all(Number(modelId), keep);
+  for (const version of older) {
+    fs.rmSync(version.stored_path, { force: true });
+    table().prepare('DELETE FROM model_versions WHERE id = ?').run(version.id);
+    out.deleted++;
+    out.freedBytes += Number(version.size) || 0;
+  }
+  return out;
+}
+
+/** Keep only the newest `keep` versions of every model (0: all). Answers { deleted, freedBytes }. */
+function pruneAll(keep = keepLimit()) {
+  const out = { deleted: 0, freedBytes: 0 };
+  if (!keep) return out;
+  for (const { model_id: modelId } of table().prepare('SELECT DISTINCT model_id FROM model_versions').all()) {
+    const done = pruneModel(modelId, keep);
+    out.deleted += done.deleted;
+    out.freedBytes += done.freedBytes;
+  }
+  return out;
+}
+
+/** The space the kept versions take: { bytes, files, models, keep } (Settings → Backup). */
+function versionsUsage() {
+  const row = table().prepare('SELECT COUNT(*) AS files, COUNT(DISTINCT model_id) AS models, COALESCE(SUM(size), 0) AS bytes FROM model_versions').get();
+  return { bytes: Number(row.bytes) || 0, files: Number(row.files) || 0, models: Number(row.models) || 0, keep: keepLimit() };
 }
 
 /** A copy of a version to download (downloads/, deleted after an hour): its path. */
@@ -242,7 +298,31 @@ function listAll({ before = null, limit = 100, search = null } = {}) {
       ORDER BY v.created_at DESC, v.id DESC LIMIT ?`
     )
     .all(when, ...(term ? [term, term, term] : []), max + 1);
+  const details = db
+    .prepare(
+      `SELECT id, scope, target, label, field, old_value AS oldValue, new_value AS newValue, changed_at AS at, changed_by AS by
+      FROM detail_changes
+      WHERE changed_at < ? ${
+        term
+          ? "AND (LOWER(COALESCE(label, '')) LIKE ? OR LOWER(target) LIKE ? OR LOWER(field) LIKE ? OR LOWER(COALESCE(old_value, '')) LIKE ? OR LOWER(COALESCE(new_value, '')) LIKE ?)"
+          : ''
+      }
+      ORDER BY changed_at DESC, id DESC LIMIT ?`
+    )
+    .all(when, ...(term ? [term, term, term, term, term] : []), max + 1);
   const entries = [
+    ...details.map((row) => ({
+      kind: 'detail',
+      id: row.id,
+      at: row.at,
+      by: row.by,
+      scope: row.scope,
+      target: row.target,
+      label: row.label,
+      field: row.field,
+      oldValue: row.oldValue,
+      newValue: row.newValue
+    })),
     ...changes.map((row) => ({
       kind: 'change',
       id: row.id,
@@ -342,6 +422,37 @@ async function tracking(ids, by, run) {
   return result;
 }
 
+/**
+ * Write down changes to a folder's or a site link's details: `before` and `after` are
+ * { field: text }. Answers how many fields changed.
+ * @param {'folder' | 'site'} scope
+ * @param {string} target the folder, or the site link
+ * @param {string} label what the History page calls it
+ */
+function recordDetailChanges(scope, target, label, before, after, by = null) {
+  if (!before || !after) return 0;
+  const insert = table().prepare(
+    'INSERT INTO detail_changes (scope, target, label, field, old_value, new_value, changed_at, changed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+  const at = new Date().toISOString();
+  let count = 0;
+  for (const field of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const was = String(before[field] ?? '');
+    const now = String(after[field] ?? '');
+    if (was === now) continue;
+    insert.run(scope, String(target), label ? String(label).slice(0, 300) : null, field, was.slice(0, MAX_VALUE), now.slice(0, MAX_VALUE), at, by);
+    count++;
+  }
+  return count;
+}
+
+/** A folder or site change, to put its old value back: { scope, target, field, value }. */
+function detailChangeToUndo(changeId) {
+  const change = table().prepare('SELECT * FROM detail_changes WHERE id = ?').get(Number(changeId));
+  if (!change) throw new Error('This change is gone');
+  return { scope: change.scope, target: change.target, label: change.label, field: change.field, value: change.old_value };
+}
+
 /** The model ids behind file paths. */
 function idsFor(filePaths) {
   const find = table().prepare('SELECT id FROM models WHERE filePath = ?');
@@ -368,15 +479,20 @@ module.exports = {
   listAll,
   TRACKED,
   changeToUndo,
+  detailChangeToUndo,
+  recordDetailChanges,
   deleteVersion,
   idsFor,
   listVersions,
   recordChanges,
+  pruneAll,
+  pruneModel,
   replaceWithUpload,
   restoreVersion,
   snapshot,
   tracking,
   valueOf,
   versionDownload,
-  versionsDir
+  versionsDir,
+  versionsUsage
 };
