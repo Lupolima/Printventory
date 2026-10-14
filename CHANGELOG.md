@@ -2,7 +2,7 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.27.0] - 2026-10-14
 
 **Changes:**
 - **MCP: a model folder's media.** New tools `get_model_media`, `add_model_media` (from an https link, or the file's contents as base64 with a name; into `image/`, `video/` or `document/` by extension), `set_model_cover`, `remove_model_media` (to the Trash) and `add_model_youtube`.
@@ -16,11 +16,7 @@ All notable changes contributed via pull request are documented in this file.
 **Fixes:**
 - A title changed in the Edit dialog named downloaded print profiles, but the next start renamed them back after the site's title; they keep the edited title now.
 - The **Undo** notice showed only a stretched **Undo** button: an old site-wide button style hid its text.
-
-## [7.26.1] - 2026-10-14
-
-**Fixes:**
-- **Tests:** the end-to-end check of Scan Library in the sidebar answers the "Thumbnail generation finished" message a scan can leave open before clicking, instead of stopping the run. 7.26.0 was released while that check stopped the end-to-end run partway; its image was not pushed to Docker Hub. 7.26.1 is the first release of the 7.26 changes there.
+- 7.26.0 was released while its end-to-end tests stopped partway (the Scan Library check was blocked by a "Thumbnail generation finished" message) and was not pushed to Docker Hub. The check now answers such messages, scans an STL Home outside the app and waits for the new model's picture; 7.27.0 brings the 7.26 changes to Docker Hub.
 
 ## [7.26.0] - 2026-10-14
 
