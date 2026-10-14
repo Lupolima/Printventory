@@ -321,11 +321,15 @@ export function ModelView({
   const [site, setSite] = useState<MakerWorldDetails | null>(null);
   /** The group it is in (innermost) and the groups above it. */
   const [group, setGroup] = useState<ModelGroupRef | null>(null);
+  /** The gallery's pictures, loaded after the details (null while they come). */
+  const [pictures, setPictures] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
-    const next = await modelApi.get<PageModel>(filePath).catch(() => null);
+    // The details first (small); the pictures, which can be megabytes, after (the gallery fills in).
+    const next = await modelApi.withoutPictures<PageModel>(filePath).catch(() => null);
     setModel(next);
     if (!next) return;
+    modelApi.pictures(filePath).then(setPictures, () => setPictures([]));
     callAction<FolderFile[]>('get-folder-models', filePath).then(setFiles, () => setFiles([]));
     const link = siteModelUrl(next);
     if (link)
@@ -342,6 +346,7 @@ export function ModelView({
 
   useEffect(() => {
     setModel(undefined);
+    setPictures(null);
     setFiles([]);
     setEvents([]);
     setSite(null);
@@ -434,12 +439,15 @@ export function ModelView({
     </header>
   );
 
+  // Until the pictures come: the small picture the folder's file list already has.
+  const shownFile = files.find((file) => file.filePath === model.filePath);
+  const placeholder = shownFile && shownFile.image ? [shownFile.image] : [];
   const gallery = (
     <ModelGallery
       key={`gallery:${model.filePath}`}
       filePath={model.filePath}
       folder={online || inZip ? null : model.modelFolder || folderOf(model.filePath)}
-      renders={(model.renders ?? panelImages(model)).filter((src) => src !== '3d.png')}
+      renders={(pictures ?? placeholder).filter((src) => src !== '3d.png')}
       online={online}
       alone={files.length <= 1}
     />
