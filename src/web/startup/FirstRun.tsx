@@ -109,10 +109,11 @@ export function FirstRun() {
                 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
                 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               </p>
-              <p>By using this software, you agree to abide by the terms of this license.</p>
             </div>
           </div>
+          {/* The agreement sits with the buttons, so it is always in view next to I Accept. */}
           <div className="tos-footer">
+            <p className="tos-agreement">By using this software, you agree to abide by the terms of this license.</p>
             <button id="decline-terms" className="tos-button tos-button-decline" onClick={() => answer(false)}>
               I Decline
             </button>

@@ -192,6 +192,8 @@
 
 .tos-footer {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 1rem;
   padding: 1rem 2rem;
@@ -663,4 +665,13 @@
   .tos-scroll-content {
     padding: 1rem 1.5rem;
   }
+}
+
+/* The agreement, just before I Decline and I Accept; on a narrow window it goes above them. */
+.tos-agreement {
+  flex: 1 1 280px;
+  margin: 0;
+  color: rgba(var(--jp-overlay-rgb), 0.85);
+  font-size: 14px;
+  line-height: 1.4;
 }

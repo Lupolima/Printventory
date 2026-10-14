@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.24.2] - 2026-10-14
+
+**Changes:**
+- **Terms of Service:** "By using this software, you agree to abide by the terms of this license." is now in the button row, just before **I Decline** and **I Accept** (above them on a narrow window), so it is always in view next to them while the license scrolls.
+
 ## [7.24.1] - 2026-10-13
 
 **Fixes:**
