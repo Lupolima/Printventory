@@ -132,6 +132,15 @@ async function main() {
   assert.deepStrictEqual(await kits.summaries([kitDir, path.join(kitDir, 'extras')]), { [kitDir]: { done: 3, total: 4 } }, 'a one-part folder has no kit');
   assert.throws(() => kits.setPart('/nope.stl', 0, true), /not in the library/);
 
+  // Log Print with only some plates chosen: those are ticked, the others stay as they are.
+  for (const plate of [1, 2, 3]) kits.setPart(threeMf, plate, false);
+  assert.strictEqual(await kits.markPlates(threeMf, [1, 3, 9]), 2, 'a plate the file does not have is skipped');
+  assert.deepStrictEqual(
+    (await kits.getKit(threeMf)).parts.map((p) => p.done),
+    [true, false, true]
+  );
+  await kits.markPrinted([kitId], 'ace');
+
   // Continue your kits: started and not finished, as a folder or as a file with plates.
   assert.deepStrictEqual(
     (await kits.inProgress({ folders: true })).map((k) => [k.kind, k.target, k.name, k.done, k.total]),

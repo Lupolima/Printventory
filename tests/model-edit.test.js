@@ -120,6 +120,14 @@ async function main() {
   database.db.prepare('UPDATE site_files SET named_by_user = 0').run();
   assert.strictEqual(siteDetails.renameProfileFiles(), 1, 'without the mark it would have been renamed after the site');
 
+  // A title changed in the Edit dialog names the downloaded files, and stays (not renamed back to the site's).
+  await siteDetails.saveSiteEdits(URL_, { title: 'Lion Force' }, { fetchImpl: world });
+  assert.strictEqual(siteDetails.renameProfileFiles(), 1);
+  const afterEdit = database.db.prepare('SELECT file_path AS filePath FROM site_files').get().filePath;
+  assert.ok(path.basename(afterEdit).includes('Lion Force'), afterEdit);
+  assert.ok(fs.existsSync(afterEdit));
+  assert.strictEqual(siteDetails.renameProfileFiles(), 0, 'the next start leaves the edited name');
+
   database.db.close();
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('model-edit tests passed');

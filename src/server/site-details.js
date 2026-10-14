@@ -803,7 +803,8 @@ function renameProfileFiles(key = null) {
   for (const row of rows) {
     let details;
     try {
-      details = JSON.parse(row.data);
+      // With the Edit dialog's changes: a title changed there names the files (as a download does).
+      details = applyEdits(JSON.parse(row.data), editsFor(row.key));
     } catch (_) {
       continue;
     }

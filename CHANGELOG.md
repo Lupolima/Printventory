@@ -2,6 +2,21 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [Unreleased]
+
+**Changes:**
+- **MCP: a model folder's media.** New tools `get_model_media`, `add_model_media` (from an https link, or the file's contents as base64 with a name; into `image/`, `video/` or `document/` by extension), `set_model_cover`, `remove_model_media` (to the Trash) and `add_model_youtube`.
+- **Upload New Version** asks whether to make a new picture from the new file (a 3MF's own previews, else a render); the earlier pictures stay as extra pictures. **Settings → Backup** shows the space earlier versions take, and **Keep … of each model** (all, or the last 1, 3, 5 or 10) deletes older ones, now and after each new version.
+- **History** also lists changes to a folder's notes and to the site details changed in the Edit dialog (title, description, designer, license, categories, tags, print profile names), each with **Put back**.
+- **Log Print** for a 3MF with several plates lists them: a Printed print ticks only the plates chosen in the model's kit, and the print's notes say which ("Plates: Legs, Head").
+- **Folders as models** shows a folder's kit progress ("3 of 12 printed") in the list view and the picture view too, not only on the grid's cards.
+- **The model page** edits in place: the print status is a menu, tags can be removed (×) and added (with the library's tags offered, and Undo), and each print in Print History can be deleted.
+- MakerWorld guides, parts lists, other files and video files checked with real models: they are saved into the model's folder by kind (PDFs into `document/`, MP4s into `video/`, guide pictures into `image/`), also with non-Latin names.
+
+**Fixes:**
+- A title changed in the Edit dialog named downloaded print profiles, but the next start renamed them back after the site's title; they keep the edited title now.
+- The **Undo** notice showed only a stretched **Undo** button: an old site-wide button style hid its text.
+
 ## [7.26.1] - 2026-10-14
 
 **Fixes:**

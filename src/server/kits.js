@@ -155,6 +155,25 @@ async function markPrinted(modelIds, by = null) {
   }
 }
 
+/**
+ * A print of some plates of one file logged as Printed (Log Print's plate choice): those plates are
+ * ticked, the others left as they are. Plates the file does not have are skipped. Answers how many.
+ */
+async function markPlates(filePath, plates, by = null) {
+  const model = table()
+    .prepare('SELECT id, filePath, fileName FROM models WHERE filePath = ?')
+    .get(String(filePath || ''));
+  if (!model) throw new Error('This model is not in the library');
+  const known = new Set((await platesOf(model)).map((p) => p.index));
+  let ticked = 0;
+  for (const plate of new Set((Array.isArray(plates) ? plates : []).map(Number))) {
+    if (!known.has(plate)) continue;
+    setPart(model.filePath, plate, true, by);
+    ticked++;
+  }
+  return ticked;
+}
+
 /** Progress of several folders at once (folder cards): { [folder]: { done, total } } for kits of two parts or more. */
 async function summaries(folders) {
   const out = {};
@@ -222,4 +241,4 @@ async function inProgress({ folders = false, limit = 6 } = {}) {
   return out;
 }
 
-module.exports = { getKit, inProgress, markPrinted, platesOf, setPart, summaries };
+module.exports = { getKit, inProgress, markPlates, markPrinted, platesOf, setPart, summaries };

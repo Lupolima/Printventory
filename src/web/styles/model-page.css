@@ -349,6 +349,60 @@
   flex-wrap: wrap;
   gap: var(--jp-space-1) var(--jp-space-3);
 }
+/* The delete button at the end of a print (editors). */
+.jp-model-page__history li > .jp-icon-btn {
+  margin-left: auto;
+}
+
+/* Editing in place (pages/ModelPageParts.tsx): print status, tags. */
+.jp-model-page__select {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-sm);
+  background: var(--jp-surface-2);
+  color: var(--jp-text);
+  font: inherit;
+}
+.jp-page-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.jp-page-tags__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 2px;
+}
+.jp-page-tags__name,
+.jp-page-tags__remove {
+  all: unset;
+  cursor: pointer;
+}
+.jp-page-tags__remove {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 18px;
+  color: var(--jp-text-2);
+}
+.jp-page-tags__remove:hover {
+  background: var(--jp-surface-hover);
+  color: var(--jp-text);
+}
+.jp-page-tags__name:focus-visible,
+.jp-page-tags__remove:focus-visible {
+  box-shadow: var(--jp-focus-ring);
+  border-radius: 4px;
+}
+.jp-page-tags__input {
+  min-width: 120px;
+  flex: 1 1 120px;
+  padding: 4px 8px;
+}
 
 @media (max-width: 1023px) {
   .jp-model-page__grid {

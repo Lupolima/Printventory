@@ -225,7 +225,7 @@ You can also set this up with the `JUSTTPRINT_AI_*` [environment variables](#env
 
 ## MCP Server
 
-AI apps can connect to JusttPrint over MCP (Model Context Protocol) to search the library, edit tags and metadata, log prints, add models from Printables, Thingiverse and MakerWorld links, and more. For example, ask "tag everything in the Kitchen folder as kitchen".
+AI apps can connect to JusttPrint over MCP (Model Context Protocol) to search the library, edit tags and metadata, log prints, add models from Printables, Thingiverse and MakerWorld links, manage a model folder's pictures, videos and documents (list, add from a link or a file, set the cover, remove), and more. For example, ask "tag everything in the Kitchen folder as kitchen".
 
 1. Open **Settings → Integrations → MCP Server**.
 2. Pick your app under **Set up in**: Claude Code, Claude Desktop, Cursor, VS Code, or another MCP client.

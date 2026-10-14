@@ -95,6 +95,8 @@ Click a model to see it in the details panel, which shows the sections of its pa
 - **Model Details**: **Open in Slicer** (the arrow lists the other slicers), **Edit**, **Log Print** and **Open Page**, then file, format, size, print status, rating, designer, source, group, license, tags, Category, Subcategory, location and date added.
 - **Description**, the site's section (for models from MakerWorld, Printables or Thingiverse), **Videos**, **Documents**, **Notes** (edited in place), the other files in its folder, kit progress and **Print History**.
 
+On a model's own page (**Open Page**) editors and admins change things in place too: the print status from its menu, tags with × to remove and **Add a tag**, and a print removed from **Print History** with its bin button.
+
 ### Edit mode
 
 Click **Edit** next to **Filter** above the grid (or press Ctrl/⌘ E). A click on a card now chooses it instead of opening it:
@@ -109,7 +111,7 @@ Click **Edit** next to **Filter** above the grid (or press Ctrl/⌘ E). A click 
 
 ### Print status and history
 
-Each model has a status (Unprinted, Want, Queued, Printing, Printed, Failed) and a print log. Logging a print (date, outcome, quantity, printer, parts used, notes) sets the status and adds a dated entry to the history; a successful print counts as a reprint after the first. The **Printed** and **Unprinted** tabs go by the logged prints, not the status alone.
+Each model has a status (Unprinted, Want, Queued, Printing, Printed, Failed) and a print log. Logging a print (date, outcome, quantity, printer, parts used, notes) sets the status and adds a dated entry to the history; a successful print counts as a reprint after the first. The **Printed** and **Unprinted** tabs go by the logged prints, not the status alone. For a 3MF with several plates, **Log Print** lists them: a Printed print ticks only the plates you leave ticked in the model's kit, and its notes say which.
 
 ## Printing
 

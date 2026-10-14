@@ -5987,6 +5987,11 @@ async function accountChecks(base, wsUrl, admin) {
       await editorPage.click('#model-details #jp-model-notes-save');
       const saved = await waitFor(async () => (await notesNow()) === typed, 10000, 'notes saved').catch(() => false);
       const toast = await editorPage.waitForSelector('[data-testid="undo-toast"]:has-text("Changed the notes")', { timeout: 10000 }).catch(() => null);
+      if (toast && how === 'the Undo button')
+        check(
+          'the Undo notice shows its text, not only the button',
+          await editorPage.$eval('[data-testid="undo-toast"] .jp-undo-toast__text', (el) => el.getBoundingClientRect().width > 40).catch(() => false)
+        );
       if (how === 'the Undo button') await editorPage.click('[data-testid="undo-toast"] button:text-is("Undo")').catch(() => {});
       else {
         // The shortcut is off while typing in a field: leave it first, as a person would.

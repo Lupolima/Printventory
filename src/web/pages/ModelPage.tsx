@@ -20,7 +20,7 @@ import { KitChecklist } from '../kits/KitChecklist';
 import { UploadVersionButton } from './ModelHistory';
 import { ModelGallery } from '../media/ModelGallery';
 import { ModelMediaSection, YoutubeVideo } from '../media/ModelMediaSection';
-import { DescriptionSection, NotesPanel } from './ModelPageParts';
+import { DeletePrintButton, DescriptionSection, NotesPanel, PageStatus, PageTags } from './ModelPageParts';
 import { getSiteDetails, siteModelUrl, type MakerWorldDetails } from '../makerworld/makerworld';
 import { folderOf } from '../media/media';
 
@@ -547,7 +547,17 @@ export function ModelView({
         </Prop>
         <Prop label="Format">{formatOf(model) || '—'}</Prop>
         <Prop label="Size">{model.size ? formatFileSize(Number(model.size)) : '—'}</Prop>
-        {statusSlot ? <div className="jp-props__group" ref={statusSlot} /> : <Prop label="Print status">{STATUS_LABELS[status as PrintStatus] || status}</Prop>}
+        {statusSlot ? (
+          <div className="jp-props__group" ref={statusSlot} />
+        ) : (
+          <Prop label="Print status">
+            {canEdit && !online ? (
+              <PageStatus filePath={model.filePath} status={status} onSaved={() => void load()} />
+            ) : (
+              STATUS_LABELS[status as PrintStatus] || status
+            )}
+          </Prop>
+        )}
         <Prop label="Rating">
           <Rating model={model} readOnly={!canEdit} onSaved={(rating) => setModel({ ...model, rating })} />
         </Prop>
@@ -572,7 +582,9 @@ export function ModelView({
         </Prop>
         <Prop label="License">{model.license || '—'}</Prop>
         <Prop label="Tags">
-          {tags.length ? (
+          {canEdit && !compact ? (
+            <PageTags filePath={model.filePath} tags={tags} onSaved={() => void load()} onShow={(name) => showInLibrary(() => filterActions.setTags([name]))} />
+          ) : tags.length ? (
             <span className="jp-details__categories">
               {tags.map((name) => (
                 <button
@@ -650,6 +662,7 @@ export function ModelView({
                 {entry.quantity > 1 ? ` ×${entry.quantity}` : ''}
               </span>
               {entry.notes && <span className="jp-meta">{entry.notes}</span>}
+              {canEdit && <DeletePrintButton id={entry.id} label={formatPrintDate(entry.printed_at)} onDeleted={() => void load()} />}
             </li>
           ))}
         </ul>
