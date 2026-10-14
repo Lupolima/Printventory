@@ -900,7 +900,11 @@ export const prints = {
 
 /** The full model record (fields vary; only the ones the screens read are typed where used). */
 export const models = {
-  get: <T = Record<string, unknown>>(filePath: string) => callAction<T | null>('get-model', filePath)
+  get: <T = Record<string, unknown>>(filePath: string) => callAction<T | null>('get-model', filePath),
+  /** The model without its pictures (fast); the model page fetches them apart with `pictures`. */
+  withoutPictures: <T = Record<string, unknown>>(filePath: string) => callAction<T | null>('get-model', filePath, { pictures: false }),
+  /** The pictures the model page's gallery shows (data URLs). */
+  pictures: (filePath: string) => callAction<string[]>('get-model-pictures', filePath)
 };
 
 /** A model's stored images (data URLs); the first is the one the grid shows. */

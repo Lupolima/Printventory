@@ -50,9 +50,15 @@ function directoryScanPrefixSqlParam(scanDirectoryPath) {
 /** Who made a change (the logged-in account), for the version history. */
 const who = (event) => (event && event.user ? event.user.username : null);
 
-ipcMain.handle('get-model', async (event, filePath) => {
+/**
+ * A model with its tags, categories and page title. `{ pictures: false }` leaves its pictures out
+ * (they can be megabytes): the model page asks for them apart (get-model-pictures), after showing
+ * the rest.
+ */
+ipcMain.handle('get-model', async (event, filePath, options) => {
   try {
-    const model = getModelByFilePath(filePath, { includeThumbnail: true });
+    const withPictures = !(options && options.pictures === false);
+    const model = getModelByFilePath(filePath, { includeThumbnail: withPictures });
     if (!model) return null;
 
     // Get tags for this model
@@ -86,12 +92,21 @@ ipcMain.handle('get-model', async (event, filePath) => {
       title,
       modelFolder: folder,
       // The file's own pictures (its 3D renders), without the model folder's cover.
-      renders: folder ? modelFolders.ownPictures(model.filePath, model.thumbnail) : null
+      renders: withPictures && folder ? modelFolders.ownPictures(model.filePath, model.thumbnail) : null
     };
   } catch (error) {
     console.error('Error getting model:', error);
     throw error;
   }
+});
+
+/** The pictures the model page's gallery shows: the file's own (without its model folder's cover), else all of them. */
+ipcMain.handle('get-model-pictures', async (event, filePath) => {
+  const model = getModelByFilePath(filePath, { includeThumbnail: true });
+  if (!model) return [];
+  const modelFolders = require('../model-folders');
+  if (modelFolders.folderOfFile(model.filePath)) return modelFolders.ownPictures(model.filePath, model.thumbnail);
+  return require('../../core/thumbnails').parseThumbnails(model.thumbnail || '');
 });
 
 /**

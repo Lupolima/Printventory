@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.27.1] - 2026-10-14
+
+**Fixes:**
+- **Opening a model is faster:** the model page and the details panel show the details first and load the model's pictures after (a model from MakerWorld can carry megabytes of plate previews, and a model in a folder of its own sent them twice). The gallery shows the small picture it already has until the full ones come. With 1.4 MB of pictures the page appeared in 0.17 s instead of 0.47 s on a slow network and CPU.
+
 ## [7.27.0] - 2026-10-14
 
 **Changes:**

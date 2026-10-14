@@ -13,7 +13,8 @@
  */
 const ACTIONS = {
   // Models
-  'get-model': ['string'],
+  'get-model': ['string', 'object?'],
+  'get-model-pictures': ['string'],
   'get-folder': ['string'],
   'get-model-history': ['string'],
   'get-all-history': ['object?'],
@@ -310,6 +311,7 @@ const VIEWER_ACTIONS = new Set([
   'get-folder-models',
   'get-notifications',
   'mark-notifications-read',
+  'get-model-pictures',
   'get-model',
   'get-designers',
   'get-licenses',
