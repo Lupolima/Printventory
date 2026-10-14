@@ -4939,18 +4939,52 @@ async function browserChecks(base, wsUrl, session) {
       await window.performCombinedSearch({ force: true });
     });
 
-    // Scan Library in the sidebar: busy while it runs, then the notice says how it went.
+    // Scan Library in the sidebar: busy while it runs, then the notice says how it went. STL Home is
+    // a folder outside the app for this (the e2e library is inside it, and web scans of it are refused).
+    const homeDir = fs.realpathSync(fs.mkdtempSync('/tmp/justtprint-e2e-home-'));
+    fs.copyFileSync(cubePath, path.join(homeDir, 'home-cube.stl'));
+    const settingBefore = async (key) => (await invoke(base, session, 'get-setting', [key])).result;
+    const homeSettings = {};
+    for (const key of ['stlHomeDirectories', 'stlHome', 'directoryPath', 'scannedDirectories']) homeSettings[key] = await settingBefore(key);
+    await invoke(base, session, 'save-setting', ['stlHomeDirectories', JSON.stringify([homeDir])]);
+    await invoke(base, session, 'save-setting', ['stlHome', homeDir]);
     await page.click('[data-testid="scan-toast"] .jp-undo-toast__close').catch(() => {});
-    await page.click('.jp-sidebar .jp-nav__row:has-text("Scan Library")');
-    const scanDone = await page.waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished:")', { timeout: 60000 }).then(
-      () => true,
-      () => false
-    );
+    // The scan above starts a thumbnail job whose "finished" message can open at any moment and
+    // blocks the page: answer any open message, then click (again, if a message came in between).
+    let scanClicked = false;
+    for (let attempt = 0; attempt < 5 && !scanClicked; attempt++) {
+      for (const button of await page.$$('dialog[id^="browser-message-"][open] button')) await button.click().catch(() => {});
+      scanClicked = await page.click('.jp-sidebar .jp-nav__row:has-text("Scan Library")', { timeout: 3000 }).then(
+        () => true,
+        () => false
+      );
+    }
+    const scanDone = await page
+      .waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished: 1 new model")', { timeout: 60000 })
+      .then(
+        () => true,
+        () => false
+      );
     check(
-      'Scan Library says when the scan is done',
-      scanDone && !(await page.isDisabled('.jp-sidebar .jp-nav__row:has-text("Scan Library")')),
+      'Scan Library says when the scan is done and how many models are new',
+      scanClicked && scanDone && !(await page.isDisabled('.jp-sidebar .jp-nav__row:has-text("Scan Library")')),
       await page.textContent('[data-testid="scan-toast"]').catch(() => '')
     );
+    // Its thumbnail is drawn from the file: wait until it is saved, so the folder is not deleted under it.
+    await waitFor(
+      async () =>
+        JSON.stringify((await invoke(base, session, 'get-all-thumbnails', [path.join(homeDir, 'home-cube.stl')])).result || '').includes('data:image'),
+      90000,
+      "the scanned model's thumbnail"
+    ).catch(() => {});
+    await page.waitForTimeout(1000);
+    // Put STL Home back and drop the model of the folder (scanning the deleted folder).
+    for (const [key, value] of Object.entries(homeSettings)) await invoke(base, session, 'save-setting', [key, value ?? '']);
+    fs.rmSync(homeDir, { recursive: true, force: true });
+    if (DOCKER_IMAGE) await sleep(1500);
+    await invoke(base, session, 'scan-directory', [homeDir]);
+    await invoke(base, session, 'save-setting', ['scannedDirectories', homeSettings.scannedDirectories ?? '[]']);
+    for (const button of await page.$$('dialog[id^="browser-message-"][open] button')) await button.click().catch(() => {});
 
     // Purge Models (React). Empties the library, so it runs last among the library checks.
     // A late message from the scan or thumbnail jobs above (slow machines) would cover the

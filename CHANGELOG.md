@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.26.1] - 2026-10-14
+
+**Fixes:**
+- **Tests:** the end-to-end check of Scan Library in the sidebar answers the "Thumbnail generation finished" message a scan can leave open before clicking, instead of stopping the run. 7.26.0 was released while that check stopped the end-to-end run partway; its image was not pushed to Docker Hub. 7.26.1 is the first release of the 7.26 changes there.
+
 ## [7.26.0] - 2026-10-14
 
 **Changes:**
