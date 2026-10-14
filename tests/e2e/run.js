@@ -3750,6 +3750,15 @@ async function browserChecks(base, wsUrl, session) {
     );
     await fresh.press('#terms-of-service-dialog', 'Escape');
     check('Escape does not skip the terms', await fresh.isVisible('#terms-of-service-dialog'));
+    // A short window: the license scrolls and Accept stays in view.
+    const tallView = fresh.viewportSize();
+    await fresh.setViewportSize({ width: 1280, height: 560 });
+    const acceptBox = await fresh.$eval('#accept-terms', (el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, height: window.innerHeight };
+    });
+    check('Accept fits in a short window', acceptBox.top >= 0 && acceptBox.bottom <= acceptBox.height, JSON.stringify(acceptBox));
+    if (tallView) await fresh.setViewportSize(tallView);
     await fresh.click('#accept-terms');
     check(
       'accepting saves it and shows the welcome',

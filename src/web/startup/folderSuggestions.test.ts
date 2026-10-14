@@ -9,13 +9,13 @@ describe('folder setup suggestions', () => {
     expect(['/mnt/models', '/mnt/user/models', '/mnt/users'].some(isShareRoot)).toBe(false);
   });
 
-  it('suggests each mount, and the shares inside /mnt/user instead of /mnt/user', async () => {
+  it('suggests each mount, and for /mnt/user also the folders in it', async () => {
     const listings: Record<string, Listing> = {
       '': { places: [entry('/mnt/models'), entry('/mnt/user')], folders: [] },
       '/mnt/user': { places: [], folders: [entry('/mnt/user/media'), entry('/mnt/user/models')] }
     };
     const browse = async (dir: string | null) => listings[dir || ''];
-    expect(await suggestedFolders(browse)).toEqual(['/mnt/models', '/mnt/user/media', '/mnt/user/models']);
+    expect(await suggestedFolders(browse)).toEqual(['/mnt/models', '/mnt/user', '/mnt/user/media', '/mnt/user/models']);
   });
 
   it('suggests nothing when nothing is mounted', async () => {
