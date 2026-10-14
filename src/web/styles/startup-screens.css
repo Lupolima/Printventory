@@ -63,21 +63,31 @@
    TERMS OF SERVICE DIALOG - MODERN STYLING
    ============================================ */
 
-.tos-dialog {
-  width: 90%;
-  max-width: 1000px;
-  max-height: 90vh;
-  max-height: 90dvh;
+/*
+ * The license scrolls; the header and the Accept / Decline row always fit in the window. The
+ * dialog is a column whose middle shrinks. ".modal.tos-dialog" wins over the generic .modal frame
+ * (dialogs.css, loaded later), whose padding and height limit pushed the buttons out of view.
+ */
+.modal.tos-dialog {
+  width: min(1000px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   padding: 0;
-  overflow: hidden;
+  /* Normally nothing overflows (the license scrolls); if a browser does not shrink it, the dialog
+     scrolls instead and the button row below stays stuck to its bottom edge. */
+  overflow-y: auto;
 }
-
-/* The license scrolls; the header and the Accept / Decline buttons always fit in the window. */
-.tos-dialog-content {
+.modal.tos-dialog[open] {
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
-  max-height: 90dvh;
+}
+
+.tos-dialog-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   position: relative;
 }
 
@@ -109,14 +119,11 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
-  background: var(--jp-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--jp-accent);
 }
 
 .tos-body {
-  flex: 1;
+  flex: 1 1 auto;
   overflow: hidden;
   padding: 0;
   display: flex;
@@ -198,7 +205,10 @@
   gap: 1rem;
   padding: 1rem 2rem;
   border-top: 1px solid rgba(var(--jp-overlay-rgb), 0.1);
-  background: rgba(var(--jp-overlay-rgb), 0.02);
+  background: var(--jp-surface-1);
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   flex-shrink: 0;
 }
 

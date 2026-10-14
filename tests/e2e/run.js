@@ -3750,14 +3750,25 @@ async function browserChecks(base, wsUrl, session) {
     );
     await fresh.press('#terms-of-service-dialog', 'Escape');
     check('Escape does not skip the terms', await fresh.isVisible('#terms-of-service-dialog'));
-    // A short window: the license scrolls and Accept stays in view.
+    // A small window: the license scrolls and Accept stays in view, really drawn (not clipped by the dialog).
     const tallView = fresh.viewportSize();
-    await fresh.setViewportSize({ width: 1280, height: 560 });
-    const acceptBox = await fresh.$eval('#accept-terms', (el) => {
-      const r = el.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom, height: window.innerHeight };
-    });
-    check('Accept fits in a short window', acceptBox.top >= 0 && acceptBox.bottom <= acceptBox.height, JSON.stringify(acceptBox));
+    const acceptShown = [];
+    for (const size of [
+      { width: 773, height: 634 },
+      { width: 1280, height: 420 },
+      { width: 390, height: 640 }
+    ]) {
+      await fresh.setViewportSize(size);
+      await fresh.waitForTimeout(200);
+      acceptShown.push(
+        await fresh.$eval('#accept-terms', (el) => {
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight && (hit === el || el.contains(hit));
+        })
+      );
+    }
+    check('I Accept is shown in a small window', acceptShown.every(Boolean), JSON.stringify(acceptShown));
     if (tallView) await fresh.setViewportSize(tallView);
     await fresh.click('#accept-terms');
     check(
