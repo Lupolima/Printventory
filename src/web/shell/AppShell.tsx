@@ -8,6 +8,7 @@ import {
   Library,
   Link2,
   ListChecks,
+  Loader2,
   Lock,
   LogIn,
   Menu as MenuIcon,
@@ -17,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { searchByMeaning } from '../search/aiSearch';
+import { useScanProgress } from '../scan/scan';
 import { showMessage } from '../page';
 import { library, type LibraryCounts, type LibraryStorage } from '../api';
 import { Menu } from '../components/Menu';
@@ -94,18 +96,23 @@ function StorageIndicator() {
 }
 
 function NavRow({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
-  const Icon = item.icon;
+  // Scan Library shows that it runs (and is not started twice); the notice says how far it is.
+  const scanning = !!useScanProgress() && item.id === 'scan';
+  const Icon = scanning ? Loader2 : item.icon;
+  const label = scanning ? 'Scanning…' : item.label;
   return (
     <li>
       <button
         type="button"
         className={cx('jp-nav__row', active && 'is-active')}
         aria-current={active ? 'page' : undefined}
-        title={item.label}
+        aria-busy={scanning || undefined}
+        disabled={scanning}
+        title={label}
         onClick={() => (item.page ? navigate(item.page) : item.run?.())}
       >
-        <Icon size={18} aria-hidden="true" />
-        <span className="jp-nav__label">{item.label}</span>
+        <Icon size={18} aria-hidden="true" className={scanning ? 'jp-spin' : undefined} />
+        <span className="jp-nav__label">{label}</span>
         {badge ? (
           <span className="jp-nav__badge" aria-label={`${badge} in the queue`}>
             {badge}

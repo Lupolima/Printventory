@@ -241,7 +241,8 @@ async function aiStep(models, list, event, ask) {
     );
   const failed = (error, what) => {
     // A rate limit or a failed sign-in stops the AI step; what was placed so far stays.
-    if (/rate limit|authentication|api key/i.test(error.message || '')) job.error = error.message;
+    if (/rate limit|authentication|api key/i.test(error.message || '') || require('../core/aitagging').PUTER_STOP.test(error.message || ''))
+      job.error = error.message;
     else console.warn(`[Categories] AI could not categorize ${what}: ${error.message}`);
   };
 

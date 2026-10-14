@@ -6,6 +6,7 @@ import {
   Clock,
   ExternalLink,
   Library,
+  Loader2,
   PlusCircle,
   Printer as PrinterIcon,
   ScanSearch,
@@ -27,6 +28,7 @@ import { useLibraryData } from '../shell/libraryData';
 import { NAV } from '../shell/nav';
 import { navigate } from '../shell/routes';
 import { EditOnly } from '../components/EditOnly';
+import { useScanProgress } from '../scan/scan';
 
 const loadActivity = () => library.activity(8);
 const loadPrinters = () => printerApi.list();
@@ -35,6 +37,23 @@ const scanLibrary = () =>
   NAV.flatMap((section) => section.items)
     .find((item) => item.id === 'scan')
     ?.run?.();
+
+/** Scan Library, showing that it runs: spinning and not clickable until the scan is done. */
+function ScanLibraryButton({ primary = false }: { primary?: boolean }) {
+  const scanning = !!useScanProgress();
+  return (
+    <Button
+      variant={primary ? 'primary' : 'secondary'}
+      icon={scanning ? Loader2 : ScanSearch}
+      className={scanning ? 'jp-btn--busy' : undefined}
+      disabled={scanning}
+      aria-busy={scanning || undefined}
+      onClick={scanLibrary}
+    >
+      {scanning ? 'Scanning…' : 'Scan Library'}
+    </Button>
+  );
+}
 
 // ---- Hero picture -------------------------------------------------------------------------
 
@@ -263,9 +282,7 @@ function RecentActivity({ activity }: { activity: ActivityItem[] | null }) {
           title="Nothing yet"
           action={
             <EditOnly>
-              <Button icon={ScanSearch} onClick={scanLibrary}>
-                Scan Library
-              </Button>
+              <ScanLibraryButton />
             </EditOnly>
           }
         >
@@ -411,9 +428,7 @@ function RecentModels() {
             title="Your library is empty"
             action={
               <EditOnly>
-                <Button variant="primary" icon={ScanSearch} onClick={scanLibrary}>
-                  Scan Library
-                </Button>
+                <ScanLibraryButton primary />
               </EditOnly>
             }
           >

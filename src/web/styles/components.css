@@ -1009,3 +1009,23 @@ button.jp-tag__label:hover {
   background: var(--jp-surface-hover);
   color: var(--jp-text);
 }
+
+/* Scan notice (scan/ScanToast.tsx): above the undo notice, so both can show. */
+.jp-scan-toast-region {
+  bottom: calc(var(--jp-space-6) + 56px);
+}
+.jp-scan-toast {
+  padding-left: var(--jp-space-3);
+}
+.jp-scan-toast > svg {
+  flex: none;
+  color: var(--jp-accent);
+}
+.jp-scan-toast .jp-scan-toast__done {
+  color: var(--jp-success);
+}
+
+/* A button whose work is running (Scan Library): its icon spins. */
+.jp-btn--busy > svg {
+  animation: jp-spin 1s linear infinite;
+}

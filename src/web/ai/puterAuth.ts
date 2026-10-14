@@ -62,6 +62,10 @@ interface Pending {
 }
 let pending: Pending | null = null;
 let watchClosed: ReturnType<typeof setInterval> | null = null;
+let signInLimit: ReturnType<typeof setTimeout> | null = null;
+
+/** How long a request waits for a Puter sign-in before it gives up (and says why). */
+export const SIGNIN_WAIT_MS = 120_000;
 
 export const signInNeedsClick = () => !!pending?.needsClick;
 
@@ -70,6 +74,8 @@ function settle(token: string | null, error?: Error) {
   pending = null;
   if (watchClosed) clearInterval(watchClosed);
   watchClosed = null;
+  if (signInLimit) clearTimeout(signInLimit);
+  signInLimit = null;
   if (token) storeToken(token);
   else changed();
   if (!current) return;
@@ -94,6 +100,12 @@ function startPending(): Pending {
   });
   promise.catch(() => {});
   pending = { promise, resolve, reject, needsClick: false };
+  const current = pending;
+  // Nobody signs in (a background run, a page left alone): give up, so the server is not kept waiting.
+  signInLimit = setTimeout(() => {
+    if (pending === current)
+      settle(null, new Error('Not signed in to Puter: the sign-in was not finished within 2 minutes. Sign in under Settings → AI Tagging, then try again.'));
+  }, SIGNIN_WAIT_MS);
   return pending;
 }
 

@@ -2,6 +2,15 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.26.0] - 2026-10-14
+
+**Changes:**
+- **Scan Library says what it is doing:** the Scan Library buttons (sidebar and Home) spin and say **Scanning…** while a scan runs (and cannot start a second one), and a notice at the bottom shows the progress, then **Scan finished: 3 new models** with **Show Them**, or **no new models**. It replaces the pop-up that only came when models were new.
+- **Puter no longer keeps the AI waiting:** the Categories page asks you to sign in to Puter in this browser before it offers the AI step; a Puter request whose sign-in is not finished within 2 minutes ends with "Not signed in to Puter", and one whose JusttPrint page was closed ends at once. Those are not retried, and Categorize Library and AI Tagging stop at the first with the reason, instead of waiting minutes for every model.
+
+**Fixes:**
+- **MakerWorld collection links** in Add Links listed nothing: MakerWorld's collection list is at another address than the one used. Checked with a public collection (63 models); the list is named after the collection and its maker ("Collection "Parametric" by SemiAmateur"), and a collection that is not there says so.
+
 ## [7.25.0] - 2026-10-14
 
 **Changes:**

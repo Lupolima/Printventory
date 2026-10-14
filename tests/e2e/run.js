@@ -4904,9 +4904,11 @@ async function browserChecks(base, wsUrl, session) {
     await page.press('#folder-picker-path', 'Enter');
     await page.waitForFunction((dir) => document.getElementById('folder-picker-path')?.value === dir, scanDir, { timeout: 10000 }).catch(() => {});
     await page.click('#folder-picker-choose');
+    // The scan notice (src/web/scan/ScanToast.tsx) says how it went and offers the new model.
     const offer = await page
-      .waitForSelector('dialog[id^="browser-message-"][open]:has-text("1 new model(s) found") button:text-is("Yes")', { timeout: 60000 })
+      .waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished: 1 new model") button:text-is("Show Them")', { timeout: 60000 })
       .catch(() => null);
+    check('a scan says when it is done and how many models are new', !!offer);
     if (offer) await offer.click();
     const shownNew = await page
       .waitForFunction(
@@ -4936,6 +4938,19 @@ async function browserChecks(base, wsUrl, session) {
       window.clearAllLibraryFilters?.();
       await window.performCombinedSearch({ force: true });
     });
+
+    // Scan Library in the sidebar: busy while it runs, then the notice says how it went.
+    await page.click('[data-testid="scan-toast"] .jp-undo-toast__close').catch(() => {});
+    await page.click('.jp-sidebar .jp-nav__row:has-text("Scan Library")');
+    const scanDone = await page.waitForSelector('[data-testid="scan-toast"][data-state="done"]:has-text("Scan finished:")', { timeout: 60000 }).then(
+      () => true,
+      () => false
+    );
+    check(
+      'Scan Library says when the scan is done',
+      scanDone && !(await page.isDisabled('.jp-sidebar .jp-nav__row:has-text("Scan Library")')),
+      await page.textContent('[data-testid="scan-toast"]').catch(() => '')
+    );
 
     // Purge Models (React). Empties the library, so it runs last among the library checks.
     // A late message from the scan or thumbnail jobs above (slow machines) would cover the

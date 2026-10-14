@@ -517,6 +517,7 @@ async function generateTagsForImage(base64Image, model, options = {}, delayMs = 
         return withCategory(limitedTags, responseContent, choices);
       } catch (error) {
         console.error('Error generating tags with Puter:', error);
+        if (PUTER_STOP.test(error.message || '')) throw new Error(`Tag generation failed with Puter: ${error.message}`, { cause: error });
         if (attempt < maxRetries - 1) {
           attempt++;
           await delay(delayMs * (attempt + 1)); // Exponential backoff
@@ -811,7 +812,14 @@ async function testAIConfig(apiKey, baseURL, model, service = 'openai', puterIPC
   }
 }
 
+/**
+ * Puter cannot answer at all (nobody signed in, no JusttPrint page open to ask, no answer in time):
+ * not retried, and a run of several models stops at the first (category-scan.js, generate tags).
+ */
+const PUTER_STOP = /not signed in to Puter|Puter sign-in was cancelled|No JusttPrint page is open|Puter did not answer in time/i;
+
 module.exports = {
+  PUTER_STOP,
   initializeOpenAI,
   generateTagsForImage,
   testAIConfig,

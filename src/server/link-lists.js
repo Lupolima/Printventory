@@ -87,13 +87,24 @@ async function makerWorldList(list, fetchImpl, uid) {
     });
     return { title: `Models by ${designer.name}`, ids, total };
   }
+  // A collection ("favorites" to MakerWorld): its name, then its models page by page (checked against
+  // a public collection; `favorites/designs/<id>` answers an empty list for every collection).
+  let about;
+  try {
+    about = await bambuJson(`/design-service/favorites/${list.id}`, fetchImpl);
+  } catch (error) {
+    if (/answered 404/.test(error.message)) throw new Error(`MakerWorld has no collection ${list.id} (or it is private)`, { cause: error });
+    throw error;
+  }
   const { ids, total } = await collect(async (page) => {
-    const body = await bambuJson(`/design-service/favorites/designs/${list.id}?limit=${PAGE}&offset=${page * PAGE}`, fetchImpl);
+    const body = await bambuJson(`/design-service/favorites/${list.id}/designs?limit=${PAGE}&offset=${page * PAGE}`, fetchImpl);
     const hits = Array.isArray(body.hits) ? body.hits : [];
     return { items: hits.map((hit) => hit.id).filter(Boolean), total: body.total, more: hits.length === PAGE };
   });
   if (!total) throw new Error('MakerWorld lists no models in this collection (it may be private)');
-  return { title: 'MakerWorld collection', ids, total };
+  const name = about && about.title ? String(about.title) : '';
+  const by = about && about.creator && about.creator.name ? ` by ${about.creator.name}` : '';
+  return { title: name ? `Collection "${name}"${by}` : 'MakerWorld collection', ids, total };
 }
 
 async function printablesList(list, fetchImpl) {
