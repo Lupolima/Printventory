@@ -350,7 +350,7 @@ export const categories = {
   list: () => callAction<{ categories: Category[]; uncategorized: number }>('get-categories'),
   update: (id: number, changes: { keywords?: string }) => callAction<{ id: number; name: string }>('update-category', id, changes),
   setForModel: (filePath: string, names: string[]) => callAction<string[]>('set-model-categories', filePath, names),
-  scan: () => callAction<{ job: CategoryScan | null; aiReady: boolean }>('get-category-scan'),
+  scan: () => callAction<{ job: CategoryScan | null; aiReady: boolean; aiService?: string }>('get-category-scan'),
   startScan: (useAi: boolean, again = false) => callAction<CategoryScan | { busy: true }>('start-category-scan', { useAi, again }),
   stopScan: () => callAction<{ success: boolean }>('stop-category-scan'),
   dismissScan: () => callAction<{ success: boolean }>('dismiss-category-scan')

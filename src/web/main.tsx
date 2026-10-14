@@ -28,6 +28,7 @@ import { QuickStartGuide } from './QuickStartGuide';
 import { initPage } from './startup/pageInit';
 import { KeyboardShortcuts, KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { UndoToast } from './library/UndoToast';
+import { ScanToast } from './scan/ScanToast';
 import { InstallAppDialog } from './InstallAppDialog';
 import { ManageThumbnailsDialog } from './ManageThumbnailsDialog';
 import { McpServerSettingsDialog } from './McpServerSettingsDialog';
@@ -112,6 +113,7 @@ function Screens() {
       <QuickStartGuide />
       <KeyboardShortcuts />
       <UndoToast />
+      <ScanToast />
       <InstallAppDialog />
       <AboutDialog />
       <PerformanceSettingsDialog />

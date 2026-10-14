@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { ChevronRight, Library, Shapes, Sparkles, Square, Tags, WandSparkles } from 'lucide-react';
 import { categories as categoryApi, type Category, type CategoryScan } from '../api';
 import { Button, IconButton } from '../components/Button';
@@ -7,6 +7,7 @@ import { applyFilterChange } from '../filters/search';
 import { filterActions } from '../filters/store';
 import { askText, onServerEvent, showMessage } from '../page';
 import { useCan } from '../session';
+import { currentToken, subscribe as subscribePuter } from '../ai/puterAuth';
 import { navigate } from '../shell/routes';
 
 /** Show a Category's or Subcategory's models in the library. */
@@ -100,7 +101,12 @@ function Row({ category, max, canEdit, sub }: { category: Category; max: number;
 /** Categorize Library: start it (with or without the AI, or for every model again), follow it, and see what the AI placed. */
 function ScanPanel({ uncategorized }: { uncategorized: number }) {
   const [job, setJob] = useState<CategoryScan | null>(null);
-  const [aiReady, setAiReady] = useState(false);
+  const [serviceReady, setServiceReady] = useState(false);
+  const [aiService, setAiService] = useState('');
+  // Puter runs in this browser: without its sign-in here, the AI step would wait for one.
+  const puterSignedIn = useSyncExternalStore(subscribePuter, () => !!currentToken());
+  const puterMissing = aiService === 'puter' && !puterSignedIn;
+  const aiReady = serviceReady && !puterMissing;
   const [useAi, setUseAi] = useState(true);
   const [again, setAgain] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -109,7 +115,8 @@ function ScanPanel({ uncategorized }: { uncategorized: number }) {
     categoryApi.scan().then(
       (result) => {
         setJob(result.job);
-        setAiReady(result.aiReady);
+        setServiceReady(result.aiReady);
+        setAiService(result.aiService || '');
       },
       () => {}
     );
@@ -205,7 +212,16 @@ function ScanPanel({ uncategorized }: { uncategorized: number }) {
         <span>
           Then the AI service looks at each remaining model's picture and picks its Category and Subcategory, saved straight away (uses the AI Tagging service
           and its costs). Models placed earlier by a word in their folder, tags or name are looked at again. Without the AI, those words place what they can.
-          {!aiReady && (
+          {puterMissing && serviceReady && (
+            <>
+              {' '}
+              <button type="button" className="jp-link-button" onClick={() => window.openAiConfig?.()}>
+                Sign in to Puter
+              </button>{' '}
+              first (in Settings → AI Tagging): the AI step runs through your Puter account in this browser.
+            </>
+          )}
+          {!serviceReady && (
             <>
               {' '}
               <button type="button" className="jp-link-button" onClick={() => window.openAiConfig?.()}>

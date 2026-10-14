@@ -30,6 +30,42 @@ function setProgress(next: ScanProgress | null) {
   listeners.forEach((listener) => listener());
 }
 
+/** How the last scan from this page ended: how many models are new, since when, how many folders failed. */
+export interface ScanResult {
+  found: number;
+  /** When the scan started, to show the new models (added since then). */
+  since: string;
+  failed: number;
+  /** Changes with every scan, so the same numbers twice still show. */
+  id: number;
+}
+
+let result: ScanResult | null = null;
+let resultId = 0;
+function setResult(next: ScanResult | null) {
+  result = next;
+  listeners.forEach((listener) => listener());
+}
+
+/** The last scan's result until it is dismissed (scan/ScanToast.tsx), or null. */
+export function useScanResult(): ScanResult | null {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => result
+  );
+}
+
+export const dismissScanResult = () => setResult(null);
+
+/** Show the models a scan added (the toast's Show Them). */
+export function showNewModels(since: string) {
+  filterActions.showAddedSince(since);
+  navigate('library');
+}
+
 /** The running scan's progress, or null when none runs. */
 export function useScanProgress(): ScanProgress | null {
   return useSyncExternalStore(
@@ -64,7 +100,7 @@ async function skippedNotice(count: number) {
   }
 }
 
-interface ScanResult {
+interface ScanAnswer {
   newFilesCount?: number;
   skippedDueToSize?: number;
 }
@@ -74,6 +110,7 @@ export async function scanFolders(dirs: string[], options: { stlHome?: boolean }
   if (progress || !dirs.length) return;
   const started = new Date().toISOString();
   let checked = 0;
+  setResult(null);
   setProgress({ text: 'Gathering files...', percent: null });
   const offs = [
     // Scan events can arrive out of order: keep the count from going backwards.
@@ -95,7 +132,7 @@ export async function scanFolders(dirs: string[], options: { stlHome?: boolean }
     const scanOptions = options.stlHome ? { isStlHomeScan: true } : {};
     for (const dir of dirs) {
       try {
-        const result = await callAction<ScanResult | null>('scan-directory', dir, { ...scanOptions, removeMissing: false });
+        const result = await callAction<ScanAnswer | null>('scan-directory', dir, { ...scanOptions, removeMissing: false });
         found += Number(result?.newFilesCount) || 0;
         skipped += Number(result?.skippedDueToSize) || 0;
       } catch (error) {
@@ -117,10 +154,8 @@ export async function scanFolders(dirs: string[], options: { stlHome?: boolean }
   if (missing.length) startThumbnailJob('missing', { background: true, quiet: true });
 
   if (failures.length) await showMessage('Scan Error', `Some folders could not be scanned:\n\n${failures.join('\n')}`);
-  if (found > 0 && (await showMessage('New Models Found', `${found} new model(s) found, would you like to see them?`, ['Yes', 'No'])) === 'Yes') {
-    filterActions.showAddedSince(started);
-    navigate('library');
-  }
+  // The scan notice (scan/ScanToast.tsx) says how it went, with Show Them for new models.
+  setResult({ found, since: started, failed: failures.length, id: ++resultId });
   invalidateThumbnail();
   await refreshLibraryViews();
   await skippedNotice(skipped);

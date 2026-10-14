@@ -115,6 +115,12 @@ function createPuterIPCHandler(event = null) {
 
       // In server mode with WebSocket client, send via WebSocket
       // This routes to the browser client where Puter.js is loaded and can show the captcha
+      if (wsClient && wsClient.readyState !== undefined && wsClient.readyState !== 1) {
+        // The page that started this is closed: nobody can sign in to Puter or run the request.
+        puterPendingRequests.delete(requestId);
+        reject(new Error('No JusttPrint page is open to ask Puter: Puter runs in your browser, so keep a JusttPrint page open while it works.'));
+        return;
+      }
       if (wsClient) {
         console.debug('[Puter AI] Sending request to browser client via WebSocket (captcha will appear in browser window)');
         wsClient.send(
@@ -132,13 +138,13 @@ function createPuterIPCHandler(event = null) {
         return;
       }
 
-      // Timeout after 3 minutes: the first request may wait for the user to sign in to Puter.
+      // The page gives a sign-in 2 minutes (ai/puterAuth.ts); this covers a page that never answers.
       setTimeout(() => {
         if (puterPendingRequests.has(requestId)) {
           puterPendingRequests.delete(requestId);
-          reject(new Error('Puter AI request timeout'));
+          reject(new Error('Puter did not answer in time: keep a JusttPrint page open and signed in to Puter (Settings → AI Tagging).'));
         }
-      }, 180000);
+      }, 150000);
     });
   };
 }

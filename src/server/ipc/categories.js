@@ -57,7 +57,8 @@ ipcMain.handle('start-category-scan', async (event, options) => {
   return started || { busy: true };
 });
 
-ipcMain.handle('get-category-scan', async () => ({ job: scan.snapshot(), aiReady: scan.aiReady() }));
+// aiService: Puter also needs this browser to be signed in to it (the page checks).
+ipcMain.handle('get-category-scan', async () => ({ job: scan.snapshot(), aiReady: scan.aiReady(), aiService: require('./ai').getAISettings().aiService }));
 ipcMain.handle('stop-category-scan', async () => ({ success: scan.stop() }));
 
 ipcMain.handle('dismiss-category-scan', async () => ({ success: scan.dismiss() }));

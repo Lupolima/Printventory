@@ -138,6 +138,14 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
     // Process files in parallel with concurrency limit
     const concurrency = Math.max(1, Math.min(settings.aiTagConcurrency || 3, 10));
     let rateLimitStopped = false;
+    /** Why the run stopped (a rate limit, or Puter that cannot answer); the models after it say so. */
+    let stopMessage = '';
+    const stopsTheRun = (error) => {
+      const message = (error && error.message) || '';
+      if (!message.includes('Rate limit') && !aitagging.PUTER_STOP.test(message)) return false;
+      stopMessage = message.includes('Rate limit') ? '' : `Stopped: ${message}`;
+      return true;
+    };
     const totalFiles = filesToProcess.length;
     const rateLimitSkipMessage =
       'Rate limit exceeded: Tag generation stopped because the API rate limit did not clear. Tags already generated can still be applied.';
@@ -146,7 +154,11 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
     // Use eventSender (captured from event or clickEvent) for sending events
     const processFile = async (filePath, index) => {
       if (rateLimitStopped || aiTagJob.stopRequested(runId)) {
-        report(filePath, [], rateLimitStopped ? rateLimitSkipMessage : 'Stopped before this model. Tags already generated can still be applied.');
+        report(
+          filePath,
+          [],
+          rateLimitStopped ? stopMessage || rateLimitSkipMessage : 'Stopped before this model. Tags already generated can still be applied.'
+        );
         return;
       }
       try {
@@ -206,8 +218,8 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
             tags = await aitagging.generateTagsForImage(data, settings.aiModel, tagOptions, 2000, 5, filePath);
           } catch (error) {
             console.error(`Error generating tags with default image for ${filePath}:`, error);
-            // Check if it's a rate limit error
-            if (error.message && error.message.includes('Rate limit')) {
+            // A rate limit, or Puter that cannot answer, stops the run
+            if (stopsTheRun(error)) {
               rateLimitStopped = true;
               report(filePath, [], error.message);
               return;
@@ -233,8 +245,8 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
               saveCategory(model.id, tags);
             } catch (error) {
               console.error(`Error generating tags for ${filePath}:`, error);
-              // Check if it's a rate limit error
-              if (error.message && error.message.includes('Rate limit')) {
+              // A rate limit, or Puter that cannot answer, stops the run
+              if (stopsTheRun(error)) {
                 rateLimitStopped = true;
                 report(filePath, [], error.message);
                 return;
@@ -248,8 +260,8 @@ async function generateTagsFromMenu(event, clickEvent, sender, filePaths) {
         // Progress is now shown in the review dialog
       } catch (error) {
         console.error(`Unexpected error processing ${filePath}:`, error);
-        // Check if it's a rate limit error
-        if (error.message && error.message.includes('Rate limit')) {
+        // A rate limit, or Puter that cannot answer, stops the run
+        if (stopsTheRun(error)) {
           rateLimitStopped = true;
           report(filePath, [], error.message);
         } else {
