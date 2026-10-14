@@ -214,11 +214,12 @@ const ATTENTION: Record<AttentionKey, { icon: LucideIcon; run: () => void }> = {
   thumbnails: { icon: ImageOff, run: () => void generateMissing() }
 };
 
-/** For editors and admins: the library's loose ends, each a click from where it is fixed. */
-export function NeedsAttention({ printers }: { printers: Printer[] | null }) {
+/** For editors and admins, once there are models: the library's loose ends, each a click from where it is fixed. */
+export function NeedsAttention({ printers, models }: { printers: Printer[] | null; models: number | undefined }) {
   const canEdit = useCan('editor');
   const found = useLibraryData<LibraryAttention>(library.attention);
-  if (!canEdit) return null;
+  // Nothing to look after in an empty library (and "All caught up" would say so wrongly).
+  if (!canEdit || !models) return null;
   const due = (printers || []).filter((p) => Number(p.due_reminders_count) > 0).length;
   const items = found ? attentionItems(found, due, canEdit) : null;
   return (

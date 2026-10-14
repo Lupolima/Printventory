@@ -2,6 +2,20 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.24.0] - 2026-10-13
+
+**Changes:**
+- **Moved files keep their details:** a file moved outside JusttPrint, to another folder or share, or with its folder renamed, keeps its model: tags, notes, print history, collections, groups, kits and versions. A scan that finds a file not in the library first looks for a model whose file is gone with the same name and size (the one whose path ends the same way, when there are several) and moves it to the new path. Models whose files are gone are now dropped after the scan has added its files, and the folder watcher adds the files of every changed folder before dropping any, so a move from one folder to another is caught whichever is scanned first. A renamed file (another name) is still a new model.
+- **A missing STL Home folder keeps its models:** when a whole STL Home folder is not there (a share not mounted, a container path changed), its models are kept and the log says so, instead of being dropped; they are relinked when their files turn up in another folder. Files gone from a folder that is there are dropped as before. Scan Library, the scheduled scan and the folder watcher add every folder's files before dropping any.
+- **Docker image:** the Unraid WebUI link and icon as labels (`net.unraid.docker.webui`, `net.unraid.docker.icon`) and the usual image labels; the data folder `/root/.config/justtprint` is a declared volume; Chromium's path and `NODE_ENV` are set by the entrypoint instead of the image's environment. Unraid's Docker Hub search under Apps now shows the data folder and fewer internal settings.
+- **Community Applications:** `ca_profile.xml` for submitting the template to Unraid's Community Applications.
+
+**Upgrade notes:**
+- An Unraid container still on the old **Models** mapping (`/mnt/models`) can now move to **Unraid Shares** without losing anything. 1. In Unraid, edit the container: remove the **Models** path and add the path `/mnt/user` → `/mnt/user` (or update from the template), then **Apply**. JusttPrint keeps the models of the STL Home folder that is no longer there. 2. In JusttPrint, **Settings → Scanning → STL Home**: remove `/mnt/models`, add the same folder under its new path (for example `/mnt/user/models`) and **Save**. The scan moves each model to its new path with its details. This replaces the 7.23.0 advice to keep the old mapping.
+
+**Fixes:**
+- **Needs attention** is left out while the library has no models (it said "All caught up").
+
 ## [7.23.0] - 2026-10-13
 
 **Changes:**

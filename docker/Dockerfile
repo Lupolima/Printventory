@@ -48,11 +48,20 @@ COPY --from=web /app/web-build ./web-build
 COPY docker/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    JUSTTPRINT_CHROMIUM=/usr/bin/chromium \
-    NODE_ENV=production
+# Chromium's path and NODE_ENV are set in docker-entrypoint.sh rather than with ENV, so tools that
+# read the image (Unraid's Docker Hub search) do not list them as settings to fill in.
 
+# The database, thumbnails, settings and backups; mount a folder here to keep them.
+VOLUME /root/.config/justtprint
 EXPOSE 5000
+
+# Shown by Unraid for a container from any template, and by registries.
+LABEL net.unraid.docker.webui="http://[IP]:[PORT:5000]/" \
+      net.unraid.docker.icon="https://raw.githubusercontent.com/ngolston/JusttPrint/main/assets/pwa-icon-512.png" \
+      org.opencontainers.image.title="JusttPrint" \
+      org.opencontainers.image.description="A self-hosted library for your 3D printing models" \
+      org.opencontainers.image.source="https://github.com/ngolston/JusttPrint" \
+      org.opencontainers.image.licenses="MIT"
 # Healthy once /api/health answers on the port the server actually listens on (see src/server/healthcheck.js).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 CMD ["node", "/app/src/server/healthcheck.js"]
 

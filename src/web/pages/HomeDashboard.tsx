@@ -375,7 +375,7 @@ export function HomeDashboard() {
       </div>
       <div className="jp-home__panels jp-home__panels--extra">
         <ContinueKits />
-        <NeedsAttention printers={list} />
+        <NeedsAttention printers={list} models={counts?.models} />
       </div>
     </div>
   );

@@ -90,9 +90,12 @@ export async function scanFolders(dirs: string[], options: { stlHome?: boolean }
   let skipped = 0;
   const failures: string[] = [];
   try {
+    // Every folder's files first, then the models whose files are gone (src/server/relink-moved.js):
+    // a model moved between these folders keeps its details whichever folder comes first.
+    const scanOptions = options.stlHome ? { isStlHomeScan: true } : {};
     for (const dir of dirs) {
       try {
-        const result = await callAction<ScanResult | null>('scan-directory', dir, options.stlHome ? { isStlHomeScan: true } : {});
+        const result = await callAction<ScanResult | null>('scan-directory', dir, { ...scanOptions, removeMissing: false });
         found += Number(result?.newFilesCount) || 0;
         skipped += Number(result?.skippedDueToSize) || 0;
       } catch (error) {
@@ -100,6 +103,9 @@ export async function scanFolders(dirs: string[], options: { stlHome?: boolean }
         failures.push(`${dir}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    // Also for a folder that could not be scanned because it is gone: its models were relinked above or are gone.
+    for (const dir of dirs)
+      await callAction('remove-missing-models', dir, scanOptions).catch((error) => console.error('Error dropping missing models', dir, error));
   } finally {
     offs.forEach((off) => off());
     setProgress(null);

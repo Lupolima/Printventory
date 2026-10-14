@@ -6,7 +6,7 @@ const { getSettingValueOr } = require('../core/settings');
 const { getScanExcludeNames, readStlHomeDirectories } = require('../core/library-paths');
 const { compileExcludeDirs, isExcludedDir, shouldSkipDirectoryName } = require('../core/scan-skip');
 const { ChangeQueue, TreeWatcher } = require('./folder-watch');
-const { readStlHomeExcludeDirectories, scanDirectoryHandler } = require('./ipc/scan');
+const { readStlHomeExcludeDirectories, removeMissingIn, scanDirectoryHandler } = require('./ipc/scan');
 const { startServerThumbnailJobInternal, thumbnailJobRunning } = require('./ipc/thumbnails');
 
 /**
@@ -64,14 +64,23 @@ async function runServerStlHomeScan(reason) {
   serverStlHomeScanRunning = true;
   try {
     let newModels = 0;
+    // Every folder's files first, then the models whose files are gone: a model moved from one
+    // STL Home folder to another (or to a new share) is relinked before it could be dropped.
     for (const dir of dirs) {
       try {
-        const result = await scanDirectoryHandler(serverIpcEvent(), dir, { isStlHomeScan: true });
+        const result = await scanDirectoryHandler(serverIpcEvent(), dir, { isStlHomeScan: true, removeMissing: false });
         const found = Number(result && result.newFilesCount) || 0;
         newModels += found;
         console.log(`[STL Home] ${reason} scan of ${dir}: ${found} new`);
       } catch (error) {
         console.error(`[STL Home] ${reason} scan of ${dir} failed:`, error.message);
+      }
+    }
+    for (const dir of dirs) {
+      try {
+        await removeMissingIn(dir, { isStlHomeScan: true });
+      } catch (error) {
+        console.error(`[STL Home] Could not drop the missing models of ${dir}:`, error.message);
       }
     }
     events.broadcast('refresh-grid');
@@ -125,13 +134,22 @@ async function rescanChangedFolders(root, folders) {
   watchScanRunning = true;
   try {
     let newModels = 0;
+    // Add every changed folder's files first and drop missing models after, so a file moved from
+    // one folder to another keeps its model whichever folder is scanned first (relink-moved.js).
     for (const folder of folders) {
       try {
-        const result = await scanDirectoryHandler(quietEvent, folder, { isStlHomeScan: true, scanRoot: root, rememberDirectory: false });
+        const result = await scanDirectoryHandler(quietEvent, folder, { isStlHomeScan: true, scanRoot: root, rememberDirectory: false, removeMissing: false });
         newModels += Number(result && result.newFilesCount) || 0;
       } catch (error) {
         // A folder removed meanwhile: its parent was queued too and drops its models.
         if (!/ENOENT|no such file/i.test(error.message)) console.error(`[Watch] Rescan of ${folder} failed:`, error.message);
+      }
+    }
+    for (const folder of folders) {
+      try {
+        await removeMissingIn(folder, { isStlHomeScan: true, scanRoot: root });
+      } catch (error) {
+        console.error(`[Watch] Could not drop the missing models of ${folder}:`, error.message);
       }
     }
     console.log(`[Watch] Rescanned ${folders.length} folder(s) under ${root}: ${newModels} new`);

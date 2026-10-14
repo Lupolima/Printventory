@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.23.0**
+**Version 7.24.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -16,7 +16,7 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **Notifications**: a bell for what finished or went wrong in the background (new models from scans, thumbnail and AI tagging jobs, maintenance coming due, failed backups), each person seeing what their role may
 - **Light or dark**: each person picks a dark or light look, or follows their computer's setting, and an accent color
 - **Works on phones and tablets**: a bottom bar and full-screen details on phones, an icon rail on tablets, finger-sized controls on touch screens, and **Install App** for the home screen (Android and desktop need HTTPS)
-- **Automatic scanning** of STL, 3MF, ZIP and other model files, with thumbnails rendered by the JusttPrint backend; large pictures show as small copies in the grid, and the originals are kept
+- **Automatic scanning** of STL, 3MF, ZIP and other model files, with thumbnails rendered by the JusttPrint backend; large pictures show as small copies in the grid, and the originals are kept; files moved to another folder or share outside JusttPrint keep their tags, notes and print history
 - **Upload from the browser**: drop model files on the page (or use **Upload** in the Library) to save them into a library folder; large files (many GB) go in pieces that resume after a lost connection
 - **A folder for every model**: uploads and site downloads go into a folder named after the model, with its pictures in `image/`, videos in `video/` and documents in `document/`; the model's page shows them, plays the videos and reads PDFs, Word, Markdown and text files in the page, and you choose the cover picture; **Tidy Into Model Folders** gives models already in the library folders of their own
 - **Add from links**: paste a list of Printables, Thingiverse or MakerWorld links and each model is added with its name, designer, license, picture and source link, and its files downloaded into the library when you want (Thingiverse with your own API token); links already in the library are skipped
@@ -127,7 +127,7 @@ Don't install it by searching for JusttPrint under **Apps** and choosing the Doc
 wget -O /boot/config/plugins/dockerMan/templates-user/my-JusttPrint.xml https://raw.githubusercontent.com/ngolston/JusttPrint/main/unraid/justtprint.xml
 ```
 
-**Unraid Shares** maps `/mnt/user` into the container at the same path, read and write, so delete, move and Organize Library work and folders keep the paths you know. Add or change model folders any time under **Settings → Scanning → STL Home**. Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never shown or scanned. To keep JusttPrint to one share, set both the host and the container path of **Unraid Shares** to it (for example `/mnt/user/models`).
+**Unraid Shares** maps `/mnt/user` into the container at the same path, read and write, so delete, move and Organize Library work and folders keep the paths you know. Add or change model folders any time under **Settings → Scanning → STL Home**. Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never shown or scanned. To keep JusttPrint to one share, set both the host and the container path of **Unraid Shares** to it (for example `/mnt/user/models`). Moving a library from an older **Models** mapping (`/mnt/models`) to **Unraid Shares** keeps each model's details: replace the path in the container, then in **Settings → Scanning → STL Home** swap `/mnt/models` for the folder's `/mnt/user/...` path and save; the scan moves each model to its new path.
 
 More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show more settings**; leave one empty to set it in the web UI instead. For NVIDIA thumbnails, see the template's description.
 
