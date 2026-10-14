@@ -2,6 +2,13 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.24.1] - 2026-10-13
+
+**Fixes:**
+- **Terms of Service:** on a window shorter than the dialog, **I Accept** and **I Decline** were cut off below the license, so there was no way to accept it and get in. The license now scrolls and the buttons always stay in view.
+- **Choose your model folders** also lists `/mnt/user` itself, not only the folders in it. When one share is mounted at `/mnt/user` (host `/mnt/user/models`, container `/mnt/user`), it was offered only folder by folder; now the share can be ticked as a whole.
+- **Unraid template:** the **Unraid Shares** path says to change both the host and the container path to use one share only (for example `/mnt/user/models` for both), so files keep their real paths.
+
 ## [7.24.0] - 2026-10-13
 
 **Changes:**
