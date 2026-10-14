@@ -89,7 +89,7 @@ export function AboutDialog() {
             <div className="about-section about-card about-terms-card">
               <div className="about-card-header">
                 <span className="card-icon">📜</span>
-                <h3>Terms of Service</h3>
+                <h3>License</h3>
               </div>
               <div className="about-card-content">
                 <p className="about-card-description">JusttPrint is licensed under the MIT License:</p>

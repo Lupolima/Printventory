@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.25.0] - 2026-10-14
+
+**Changes:**
+- **No Terms of Service to accept:** the license dialog that had to be accepted before JusttPrint would open is gone; a first visit goes straight to the welcome. JusttPrint is still MIT-licensed (`LICENSE.txt`), and **About** shows the license under **License** (it said Terms of Service). The saved acceptance (`tosAcceptedDate`) is no longer used.
+
 ## [7.24.3] - 2026-10-14
 
 **Fixes:**
