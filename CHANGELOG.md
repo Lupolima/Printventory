@@ -2,6 +2,12 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.24.3] - 2026-10-14
+
+**Fixes:**
+- **Terms of Service in Firefox:** **I Decline** and **I Accept** were still out of view, so there was no way in. The dialog's own layout now wins over the general dialog frame (whose padding and height limit pushed the button row out), the license scrolls between the header and the buttons, and should a browser still not shrink it, the dialog scrolls with the button row stuck to its bottom edge.
+- **Terms of Service** title is plain text in the accent color (it could show as a blank colored box).
+
 ## [7.24.2] - 2026-10-14
 
 **Changes:**
