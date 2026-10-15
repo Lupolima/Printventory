@@ -4497,7 +4497,15 @@ async function browserChecks(base, wsUrl, session) {
         () => true,
         () => false
       );
-    check('opening the panel marks it read', cleared && (await invoke(base, session, 'get-notifications', [null])).result?.unread === 0);
+    // What was listed is read now. (A background job can finish meanwhile and bring a new unread one:
+    // that is not what this checks.)
+    const afterOpen = (await invoke(base, session, 'get-notifications', [null])).result || {};
+    const geometryNote = (afterOpen.items || []).find((item) => /Same-geometry search finished/.test(item.title || ''));
+    check(
+      'opening the panel marks it read',
+      cleared && !!geometryNote && geometryNote.unread === false,
+      JSON.stringify((afterOpen.items || []).slice(0, 3).map((item) => [item.title, item.unread]))
+    );
     if (notice) await page.click('#jp-notifications .jp-notify__item:has-text("Same-geometry search finished") button');
     check(
       'a notification opens its page',
