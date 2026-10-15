@@ -197,19 +197,14 @@ async function scanDirectory(directoryPath, maxFileSize, enableZipArchives = fal
           skippedDueToSize++;
         }
       } else if (enableZipArchives && ext === '.zip') {
-        // Scan inside ZIP using same scanExtensions
-        // ZIP files still need stat for size check
-        const stats = await fs.promises.stat(filePath);
-        if (stats.size <= maxFileSize) {
-          const zipScan = await scanZipFile(filePath, maxFileSize, extSet);
-          if (zipScan.files.length > 0) {
-            files.push(...zipScan.files);
-            flushDiscoveredFiles();
-          }
-          skippedDueToSize += zipScan.skippedDueToSize;
-        } else {
-          skippedDueToSize++;
+        // Scan inside the ZIP with the same file types. The size limit is for each model in it,
+        // not for the archive (a 115 MB kit of small parts was skipped whole).
+        const zipScan = await scanZipFile(filePath, maxFileSize, extSet);
+        if (zipScan.files.length > 0) {
+          files.push(...zipScan.files);
+          flushDiscoveredFiles();
         }
+        skippedDueToSize += zipScan.skippedDueToSize;
       }
       // For all other files, do nothing - no stat() call!
     } catch (error) {

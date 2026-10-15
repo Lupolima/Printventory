@@ -24,6 +24,10 @@ describe('upload checks', () => {
     expect(check.ok && check.warning).toMatch(/scan limit/);
   });
 
+  it('does not warn about a large ZIP: its models are checked one by one', () => {
+    expect(checkFile({ name: 'kit.zip', size: 60 }, { ...info, extensions: [...info.extensions, '.zip'], scanMaxBytes: 50 })).toEqual({ ok: true });
+  });
+
   it('takes pictures, videos and documents only into a model folder', () => {
     const withMedia = { ...info, mediaExtensions: { image: ['.png'], video: ['.mp4'], document: ['.pdf'] } };
     expect(checkFile({ name: 'cover.png', size: 1 }, withMedia, 'yes')).toEqual({ ok: true });
