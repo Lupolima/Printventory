@@ -154,9 +154,12 @@ function mediaFolders(dir) {
     .map((row) => row.path);
   // A scan of a media folder itself (folder watching scans the folder that changed).
   const parent = path.dirname(key);
-  if (KIND_NAMES.some((kind) => KINDS[kind].dir === path.basename(key)) && isModelFolder(parent)) rows.push(folderKey(parent));
-  return [...new Set(rows)].flatMap((folder) => KIND_NAMES.map((kind) => path.join(folder, KINDS[kind].dir)));
+  if (SKIPPED_DIRS().includes(path.basename(key)) && isModelFolder(parent)) rows.push(folderKey(parent));
+  return [...new Set(rows)].flatMap((folder) => SKIPPED_DIRS().map((name) => path.join(folder, name)));
 }
+
+/** A model folder's subfolders that scans leave out: its media, and the archives unpacked into it (unpack-archives.js). */
+const SKIPPED_DIRS = () => [...KIND_NAMES.map((kind) => KINDS[kind].dir), require('./unpack-archives').ARCHIVES_DIR];
 
 /** Whether `dir` is the image, video or document subfolder of a model folder. */
 function isMediaFolder(dir) {

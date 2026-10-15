@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.27.2**
+**Version 7.28.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -18,6 +18,7 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **Works on phones and tablets**: a bottom bar and full-screen details on phones, an icon rail on tablets, finger-sized controls on touch screens, and **Install App** for the home screen (Android and desktop need HTTPS)
 - **Automatic scanning** of STL, 3MF, ZIP and other model files, with thumbnails rendered by the JusttPrint backend; large pictures show as small copies in the grid, and the originals are kept; files moved to another folder or share outside JusttPrint keep their tags, notes and print history
 - **Upload from the browser**: drop model files on the page (or use **Upload** in the Library) to save them into a library folder; large files (many GB) go in pieces that resume after a lost connection
+- **Archives unpacked, kept together**: an uploaded ZIP, RAR or 7Z (and the archives inside it) is unpacked into the model's folder, a folder per archive, with the originals kept in `archives/` and loose pictures and PDFs as the model's pictures and documents; **Unpack Archives** on a folder's page does the same for archives already in the library
 - **A folder for every model**: uploads and site downloads go into a folder named after the model, with its pictures in `image/`, videos in `video/` and documents in `document/`; the model's page shows them, plays the videos and reads PDFs, Word, Markdown and text files in the page, and you choose the cover picture; **Tidy Into Model Folders** gives models already in the library folders of their own
 - **Add from links**: paste a list of Printables, Thingiverse or MakerWorld links and each model is added with its name, designer, license, picture and source link, and its files downloaded into the library when you want (Thingiverse with your own API token); links already in the library are skipped
 - **Same-geometry duplicates**: besides identical files, the Duplicates page finds the same model saved as different files (an STL and its 3MF, a re-export), also inside ZIP files, and the same design exported at another mesh resolution

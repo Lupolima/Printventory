@@ -59,6 +59,16 @@ test('ZIP entries follow their archive', () => {
   assert.strictEqual(sharedTail('/old/pack.zip::parts/arm.stl', '/new/pack.zip::parts/arm.stl'), 3);
 });
 
+test('a model inside a ZIP follows its file once the ZIP is unpacked', () => {
+  const db = library([[3, '/lib/Gundam/arm.zip::arm/upper.stl', 100]]);
+  db.prepare("UPDATE models SET fileName = 'arm/upper.stl' WHERE id = 3").run();
+  const file = { filePath: '/lib/Gundam/arm/upper.stl', fileName: 'upper.stl', size: 100 };
+  const found = findMovedModel(db, file, onDisk(file.filePath));
+  assert.strictEqual(found && found.id, 3);
+  moveModel(db, 3, found.filePath, file.filePath);
+  assert.deepStrictEqual(db.prepare('SELECT filePath, fileName FROM models').get(), { filePath: '/lib/Gundam/arm/upper.stl', fileName: 'upper.stl' });
+});
+
 test('moving keeps the id and moves the site files', () => {
   const db = library([[7, '/old/arm.stl', 100]]);
   db.prepare("INSERT INTO site_files VALUES ('/old/arm.stl', 'mw:1')").run();

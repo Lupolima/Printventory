@@ -75,12 +75,19 @@ function uploadSessions() {
   return sessionStore;
 }
 
-/** File types an upload may have: the ones the library scans (Settings → File Types), and ZIP when on. */
+/** Whether uploaded ZIP, RAR and 7Z files are unpacked into their model's folder (unpack-archives.js; on unless turned off). */
+function unpackOnUpload() {
+  const row = database.db && database.db.prepare('SELECT value FROM settings WHERE key = ?').get('unpackArchivesOnUpload');
+  return !row || row.value !== '0';
+}
+
+/** File types an upload may have: the ones the library scans (Settings → File Types), ZIP when on, and ZIP, RAR and 7Z when they are unpacked. */
 function allowedUploadExtensions() {
   const { getSupportedExtensionsForLibrary } = require('./ipc/models');
   const extensions = new Set(getSupportedExtensionsForLibrary(database.db));
   const zip = database.db && database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enableZipArchives');
   if (zip && zip.value === '1') extensions.add('.zip');
+  if (unpackOnUpload()) for (const ext of require('./unpack-archives').ARCHIVE_EXTENSIONS) extensions.add(ext);
   return [...extensions].sort();
 }
 
@@ -397,6 +404,7 @@ module.exports = {
   registerUploadRoutes,
   uploadChunkBytes,
   allowedUploadExtensions,
+  unpackOnUpload,
   checkFolder,
   checkWritableFolder,
   checkUploadName,

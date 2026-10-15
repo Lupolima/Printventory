@@ -278,7 +278,15 @@ export const uploads = {
   info: () => callAction<UploadInfo>('get-upload-info'),
   /** Scan the folder after a batch so the new models show up. */
   finish: (folder: string, filePaths: string[]) =>
-    callAction<{ newModels: number; inLibrary: number; media?: number; notAdded?: { name: string; reason: string }[] }>('add-uploaded-files', folder, filePaths)
+    callAction<{
+      newModels: number;
+      inLibrary: number;
+      media?: number;
+      notAdded?: { name: string; reason: string }[];
+      /** Archives unpacked into the model's folder, and the ones that could not be. */
+      unpacked?: string[];
+      unpackFailed?: { name: string; error: string }[];
+    }>('add-uploaded-files', folder, filePaths)
 };
 
 export interface PrintStatistics {

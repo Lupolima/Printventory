@@ -43,9 +43,12 @@ function sharedTail(a, b) {
 function findMovedModel(db, file, existsSync = fs.existsSync) {
   const size = Number(file.size);
   if (!file.fileName || !Number.isFinite(size) || size <= 0) return null;
+  // A model inside a ZIP is named by its path in the archive ("arm/upper.stl"): the same file once unpacked.
+  const name = String(file.fileName).split(/[\\/]/).pop() || '';
+  const inFolder = `%/${name.replace(/[\\%_]/g, (c) => `\\${c}`)}`;
   const gone = db
-    .prepare('SELECT id, filePath FROM models WHERE fileName = ? AND size = ? AND filePath != ? LIMIT 50')
-    .all(file.fileName, size, file.filePath)
+    .prepare("SELECT id, filePath FROM models WHERE (fileName = ? OR fileName LIKE ? ESCAPE '\\') AND size = ? AND filePath != ? LIMIT 50")
+    .all(name, inFolder, size, file.filePath)
     .filter((row) => !fileIsThere(row.filePath, existsSync));
   if (!gone.length) return null;
   const scored = gone.map((row) => ({ row, score: sharedTail(row.filePath, file.filePath) })).sort((a, b) => b.score - a.score);
@@ -53,9 +56,12 @@ function findMovedModel(db, file, existsSync = fs.existsSync) {
   return scored[0].row;
 }
 
-/** Move a model to its new path (the name is the same), with the records kept by path (site files). */
+/** Move a model to its new path, with the records kept by path (site files). */
 function moveModel(db, id, from, to) {
-  db.prepare('UPDATE models SET filePath = ? WHERE id = ?').run(to, id);
+  // Its name as the scan names it: the path inside a ZIP, else the file's name.
+  const text = String(to);
+  const fileName = text.includes('::') ? text.split('::').pop() : text.split(/[\\/]/).pop();
+  db.prepare('UPDATE models SET filePath = ?, fileName = ? WHERE id = ?').run(to, fileName, id);
   try {
     db.prepare('UPDATE site_files SET file_path = ? WHERE file_path = ?').run(to, from);
   } catch (_) {

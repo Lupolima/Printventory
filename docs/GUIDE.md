@@ -137,6 +137,8 @@ Editors and admins can add models from the browser:
 - Scans skip files over the size limit under **Settings → General → Performance** (50 MB unless changed). The dialog warns about such files: they are saved, and appear once an admin raises the limit and scans again.
 - Nothing is replaced: when a name is taken, the upload is saved as `Name (2).stl`.
 - After the upload, the folder is scanned, so the models appear with thumbnails.
+- **Archives** (ZIP, RAR, 7Z) are unpacked into the model's folder: each into a folder of its own named after it (`arm.zip` → `arm/`), archives inside them too, and the original kept in `archives/` (scans skip it). Pictures and PDFs next to them become the model's **Pictures** and **Documents**, so a kit downloaded as a pile of archives becomes one model with all its parts (turn on **Folders as models** to see it as one card). Turn this off under **Settings → Scanning → File Types** (**Unpack uploaded ZIP, RAR and 7Z files**). A password-protected or damaged archive is listed in the summary and stays as it is.
+- **Archives already in the library**: a folder's page lists the archives in it with **Unpack Archives**, which does the same. Models that were found inside a ZIP keep their tags, notes and history once unpacked.
 
 ## Adding models from links
 
