@@ -2,12 +2,14 @@
 
 All notable changes contributed via pull request are documented in this file.
 
-## [Unreleased]
+## [7.28.0] - 2026-10-15
 
 **Changes:**
 - **Archives are unpacked and kept together:** an uploaded ZIP, RAR or 7Z is unpacked into the model's folder, each archive into a folder of its own named after it (`arm.zip` → `arm/`, `back+pack.zip` → `back pack/`), archives inside archives too (up to 4 levels); the originals are kept in `archives/`, which scans skip. Loose pictures and PDFs become the model's Pictures (the first is the cover) and Documents. A folder's page lists the archives in it with **Unpack Archives**, for archives already in the library. Models found inside a ZIP before keep their tags, notes and history at their unpacked paths. On by default; **Settings → Scanning → File Types → Unpack uploaded ZIP, RAR and 7Z files** turns it off. Uploads take `.rar` and `.7z` files while it is on.
 - Safety: nothing is unpacked outside the folder (no absolute paths, no `..`, links removed), an archive that would take more than the free space or 20 GB (or more than 50,000 files) is refused, password-protected and damaged archives are listed and left as they are, and a whole STL Home folder is never turned into one model.
 - **Docker image:** `bsdtar` (libarchive-tools), which reads ZIP, 7Z and RAR 4 and 5.
+
+**Upgrading:** no changes needed. Docker: pull the new image (it brings `bsdtar`); running from source, install libarchive (`bsdtar`; built into macOS) for unpacking. Reload open browser tabs after the update.
 
 ## [7.27.2] - 2026-10-15
 
