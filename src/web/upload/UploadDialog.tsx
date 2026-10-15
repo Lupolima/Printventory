@@ -256,9 +256,12 @@ export function UploadDialog() {
       setSummary(`Uploaded ${uploaded} ${uploaded === 1 ? 'file' : 'files'}. Adding to the library…`);
       let inLibrary = 0;
       let scanError = '';
+      const notAdded: { name: string; reason: string }[] = [];
       for (const [modelFolder, paths] of byFolder) {
         try {
-          inLibrary += (await uploads.finish(modelFolder, paths)).inLibrary;
+          const done = await uploads.finish(modelFolder, paths);
+          inLibrary += done.inLibrary;
+          notAdded.push(...(done.notAdded || []));
         } catch (error) {
           scanError = errorText(error);
         }
@@ -267,10 +270,11 @@ export function UploadDialog() {
       const where = byFolder.size === 1 ? ` into “${lastSegment([...byFolder.keys()][0])}”` : ` into ${byFolder.size} model folders`;
       if (scanError) setSummary(`Uploaded ${files}${where}, but the scan failed: ${scanError}`);
       else {
+        const why = notAdded.map((n) => `${n.name}: ${n.reason}`).join('; ');
         const added =
           inLibrary === uploaded
             ? `${uploaded === 1 ? 'it is' : 'all are'} in the library.`
-            : `${inLibrary} of them in the library. The others are larger than the scan limit (Settings → General → Performance): raise it and scan again to add them.`;
+            : `${inLibrary} of them in the library. Not added: ${why || 'larger than the scan limit (Settings → General → Performance)'}.`;
         setSummary(`Uploaded ${files}${where}; ${added}${failed && !cancelled ? ` ${failed} failed.` : ''}`);
       }
     } else if (failed) {

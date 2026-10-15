@@ -40,8 +40,31 @@ ipcMain.handle('add-uploaded-files', async (event, folder, filePaths) => {
   const newModels = await scanUploadedFolder(dir, rootFor(dir, ctx.roots), { isStlHomeScan });
   const paths = (Array.isArray(filePaths) ? filePaths : []).filter((p) => typeof p === 'string' && isInsideOrSame(p, dir));
   const known = database.db.prepare('SELECT 1 FROM models WHERE filePath = ?');
+  // A ZIP is in the library as the models inside it ("archive.zip::part.stl").
+  const inZip = database.db.prepare("SELECT 1 FROM models WHERE filePath LIKE ? ESCAPE '\\' LIMIT 1");
+  const escapeLike = (text) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const isKnown = (p) => !!known.get(p) || (/\.zip$/i.test(p) && !!inZip.get(`${escapeLike(p)}::%`));
   // A model folder's first picture becomes its cover; a cover goes on new files too.
   if (modelFolders.isModelFolder(dir)) await modelFolders.coverIfNone(dir).catch((error) => console.warn(`[Upload] cover: ${error.message}`));
   const media = paths.filter((p) => modelFolders.kindOf(p) && modelFolders.isMediaFolder(path.dirname(p))).length;
-  return { newModels, inLibrary: paths.filter((p) => known.get(p)).length + media, media };
+  // Files that did not become models, and why (the upload's summary lists them).
+  const max = scanMaxBytes();
+  const notAdded = paths
+    .filter((p) => !isKnown(p) && !(modelFolders.kindOf(p) && modelFolders.isMediaFolder(path.dirname(p))))
+    .map((p) => {
+      let size = 0;
+      try {
+        size = require('fs').statSync(p).size;
+      } catch (_) {
+        /* gone */
+      }
+      const zip = /\.zip$/i.test(p);
+      const reason = zip
+        ? 'no model files inside it (or all larger than the Max File Size, Settings → General → Performance)'
+        : size > max
+          ? `larger than the Max File Size (${Math.round(max / 1024 / 1024)} MB, Settings → General → Performance)`
+          : 'not added by the scan';
+      return { name: path.basename(p), reason };
+    });
+  return { newModels, inLibrary: paths.filter(isKnown).length + media, media, notAdded };
 });

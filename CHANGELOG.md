@@ -2,6 +2,12 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [Unreleased]
+
+**Fixes:**
+- **ZIP files larger than the Max File Size were skipped whole:** a 115 MB ZIP of small parts never reached the library (the limit, 50 MB unless changed in Settings → General → Performance, was applied to the archive). The limit now applies to each model inside a ZIP. ZIPs skipped before are added at the next scan (Scan Library, or the hourly one).
+- **Upload's summary** names the files that did not become models and why (larger than the Max File Size; a ZIP with no model files inside), and counts a ZIP as in the library when its models are. It no longer warns that a large ZIP is over the scan limit.
+
 ## [7.27.1] - 2026-10-14
 
 **Fixes:**
