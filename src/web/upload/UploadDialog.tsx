@@ -257,11 +257,16 @@ export function UploadDialog() {
       let inLibrary = 0;
       let scanError = '';
       const notAdded: { name: string; reason: string }[] = [];
+      const unpacked: string[] = [];
+      let newModels = 0;
       for (const [modelFolder, paths] of byFolder) {
         try {
           const done = await uploads.finish(modelFolder, paths);
           inLibrary += done.inLibrary;
+          newModels += done.newModels;
           notAdded.push(...(done.notAdded || []));
+          unpacked.push(...(done.unpacked || []));
+          for (const failed of done.unpackFailed || []) notAdded.push({ name: failed.name, reason: `could not be unpacked: ${failed.error}` });
         } catch (error) {
           scanError = errorText(error);
         }
@@ -271,10 +276,14 @@ export function UploadDialog() {
       if (scanError) setSummary(`Uploaded ${files}${where}, but the scan failed: ${scanError}`);
       else {
         const why = notAdded.map((n) => `${n.name}: ${n.reason}`).join('; ');
+        // Unpacked archives (unpack-archives.js): their models count, the archive itself is kept in archives/.
+        const unpackedText = unpacked.length
+          ? ` Unpacked ${unpacked.length} ${unpacked.length === 1 ? 'archive' : 'archives'} (${newModels} new ${newModels === 1 ? 'model' : 'models'}; the originals are kept in archives/).`
+          : '';
         const added =
-          inLibrary === uploaded
-            ? `${uploaded === 1 ? 'it is' : 'all are'} in the library.`
-            : `${inLibrary} of them in the library. Not added: ${why || 'larger than the scan limit (Settings → General → Performance)'}.`;
+          inLibrary + unpacked.length >= uploaded && !notAdded.length
+            ? `${uploaded === 1 ? 'it is' : 'all are'} in the library.${unpackedText}`
+            : `${inLibrary + unpacked.length} of them in the library.${unpackedText} Not added: ${why || 'larger than the scan limit (Settings → General → Performance)'}.`;
         setSummary(`Uploaded ${files}${where}; ${added}${failed && !cancelled ? ` ${failed} failed.` : ''}`);
       }
     } else if (failed) {

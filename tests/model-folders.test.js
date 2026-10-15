@@ -44,10 +44,17 @@ async function main() {
 
   // Scans leave out the media folders of model folders at or under the scanned folder.
   const skipped = mf.mediaFolders(lib);
-  assert.ok(skipped.includes(path.join(robot, 'image')) && skipped.includes(path.join(robot, 'document')) && skipped.length === 6, JSON.stringify(skipped));
+  // Their media folders and archives/ (unpack-archives.js), for each of the two.
+  assert.ok(
+    skipped.includes(path.join(robot, 'image')) &&
+      skipped.includes(path.join(robot, 'document')) &&
+      skipped.includes(path.join(robot, 'archives')) &&
+      skipped.length === 8,
+    JSON.stringify(skipped)
+  );
   assert.deepStrictEqual(
     mf.mediaFolders(path.join(robot, 'video')),
-    ['image', 'video', 'document'].map((d) => path.join(robot, d)),
+    ['image', 'video', 'document', 'archives'].map((d) => path.join(robot, d)),
     'a scan of a media folder'
   );
   assert.ok(mf.isMediaFolder(path.join(robot, 'image')) && !mf.isMediaFolder(path.join(lib, 'image')));

@@ -5189,6 +5189,26 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
     JSON.stringify(tidied)
   );
   check('the moved model keeps its record', !!(await invoke(base, viewer, 'get-model', [path.join(loose, 'Wheel', 'Wheel.stl')])).result);
+
+  // An uploaded archive is unpacked into the model's folder (src/server/unpack-archives.js): a folder
+  // of parts and a ZIP inside it, the original kept in archives/.
+  const { zipSync } = require('fflate');
+  const kitDir = path.join(uploadLibrary, 'E2E Kit');
+  fs.mkdirSync(kitDir, { recursive: true });
+  const kitZip = Buffer.from(zipSync({ 'arm/upper.stl': new Uint8Array(cubeBytes), 'arm/hands.zip': zipSync({ 'hand.stl': new Uint8Array(cubeBytes) }) }));
+  const sentKit = await uploadAs(base, editor, kitDir, 'Kit.zip', kitZip);
+  const unpackedKit = (await invoke(base, editor, 'add-uploaded-files', [kitDir, [sentKit.filePath]])).result || {};
+  check(
+    'an uploaded archive is unpacked into its model folder, archives inside it too',
+    sentKit.status === 200 &&
+      (unpackedKit.unpacked || []).includes('Kit.zip') &&
+      fs.existsSync(path.join(kitDir, 'Kit', 'upper.stl')) &&
+      fs.existsSync(path.join(kitDir, 'Kit', 'hands', 'hand.stl')) &&
+      fs.existsSync(path.join(kitDir, 'archives', 'Kit.zip')) &&
+      !!(await invoke(base, viewer, 'get-model', [path.join(kitDir, 'Kit', 'hands', 'hand.stl')])).result,
+    JSON.stringify(unpackedKit)
+  );
+  check('the kept archive is not scanned', !(await invoke(base, viewer, 'get-folder-archives', [kitDir])).result?.archives?.length);
 }
 
 /**
