@@ -1399,6 +1399,9 @@
 .thumbnails-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* Rows as tall as their tiles: Firefox could shrink them to the scroll height, so the tiles overlapped. */
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 16px;
   max-height: 500px;
   overflow-y: auto;
