@@ -117,7 +117,9 @@ function keepCurrent(model, by, note) {
   const dir = versionsDir(model.id);
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const stored = path.join(dir, `${stamp}-${path.basename(model.filePath)}`);
+  // Unique even for two versions in the same millisecond (one file would replace the other).
+  const unique = require('crypto').randomBytes(3).toString('hex');
+  const stored = path.join(dir, `${stamp}-${unique}-${path.basename(model.filePath)}`);
   copyInto(model.filePath, stored);
   return Number(
     table()
