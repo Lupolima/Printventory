@@ -337,6 +337,10 @@ body.server-mode #preview-slicer-menu {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
+}
+
+/* Chevron is for selects only — text/file inputs were inheriting it. */
+.form-group select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
@@ -3324,6 +3328,24 @@ dialog:not([open]) {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+#send-logs-dialog {
+  max-width: 520px;
+  width: min(92vw, 520px);
+}
+
+#send-logs-dialog textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.send-logs-status {
+  margin-top: 0.75rem;
+}
+
+.send-logs-status.is-error {
+  color: #ff8f8f;
 }
 
 .dialog-buttons button {

@@ -4,9 +4,37 @@ All notable changes contributed via pull request are documented in this file.
 
 ## [Unreleased]
 
-## [3.0.0] - 2026-10-16
+## [3.0.0] - 2026-10-17
 
-- Prepare for Public Release.
+### Print lifecycle & history
+- Models aren’t just “printed” or not anymore. You get Unprinted / Want / Queued / Printing / Printed / Failed, plus a real print log (date, quantity, notes, filaments). Filter and sort by last printed, print count, or status.
+
+### Filament catalog & Spoolman
+- Assign filaments to models, filter the library by filament, and optionally sync your catalog from Spoolman. Filament chips prefill when you log a print.
+
+### MCP server for AI agents
+- Connect Cursor, Claude Desktop, and similar tools to your library over MCP while Printventory is running — search, update models, tags, thumbnails, and more (trusted networks only).
+
+### Folder-tree explorer
+- Browse your scanned dirs with a folder tree and optional rail next to the grid, so hopping between projects doesn’t mean digging through flat filters only.
+
+### HTTPS / SSL & mobile (PWA)
+- Server and Docker can run with proper certs (custom PEM, Let’s Encrypt, or self-signed). Install as a PWA and use a compact layout on your phone.
+
+### Browser Extension inbox
+- Printventory Watcher can queue model pages/downloads even when the app isn’t open. Import from the inbox when you’re back.
+
+### 3D Preview Studio
+- Lighting, materials, backdrops, reflections, shadows, save image — plus multi-part 3MF part picking and click-to-focus.
+
+### More file formats
+- STEP/STP, OBJ, PLY, IGES, F3D, ChiTuBox, and VOXL get thumbnail/preview support where the format allows.
+
+### Printer Management & Parts Stock
+- Save printers, maintenance logs, and reminders; scan the network for Klipper, PrusaLink, and Bambu. Track parts stock and deduct when you log a print.
+
+### Organize Library
+- Copy models from a scanned folder into a structure you choose, with free-space checks and verified moves (ZIPs can move packed when zip support is on).
 
 ## [2.2.27] - 2026-10-13
 

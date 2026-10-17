@@ -309,6 +309,7 @@ contextBridge.exposeInMainWorld('electron', {
       'open-server-mode-info',
       'open-stats',
       'open-system-report',
+      'open-send-logs',
       'open-backup-restore',
       'open-dedup',
       'open-organize-library',

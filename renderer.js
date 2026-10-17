@@ -80,7 +80,7 @@ const earlyEventChannels = [
   'open-slicer-settings', 'open-browser-extension-settings', 'open-mcp-server-settings', 'open-https-settings', 'open-purge-models',
   'open-metadata-editor', 'open-system-report', 'open-manage-thumbnails',
   'open-settings', 'open-guide', 'open-about', 'open-keyboard-shortcuts',
-  'open-server-mode-info',
+  'open-server-mode-info', 'open-send-logs',
   'puter-ai-chat-request',
   'tags-generated', 'start-single-tag-generation', 'start-batch-tag-generation', 'batch-tag-generation-complete',
   'thumbnail-job-progress', 'thumbnail-job-complete', 'thumbnail-job-error',
@@ -126,6 +126,11 @@ window._openPerformanceSettingsDialog = async function _openPerformanceSettingsD
 };
 window._electronRealEventHandlers['open-performance-settings'] = function() {
   window._openPerformanceSettingsDialog();
+};
+
+window._electronRealEventHandlers['open-send-logs'] = function() {
+  if (typeof bindSendLogsDialog === 'function') bindSendLogsDialog();
+  if (typeof openSendLogsDialog === 'function') openSendLogsDialog();
 };
 
 function selectedTlsMode() {
@@ -7793,28 +7798,168 @@ async function loadAndShowFileTypeSettings() {
   dialog.showModal();
 }
 
-async function sendServerModeSupportLogs() {
-  const confirmed = confirm('This will send the Printventory logs to the support team on Discord.\n\nConsole, app, and server logs will be zipped and uploaded.');
-  if (!confirmed) return;
+const SEND_LOGS_MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
+
+function setSendLogsStatus(message, isError = false) {
+  const status = document.getElementById('send-logs-status');
+  if (!status) return;
+  if (!message) {
+    status.hidden = true;
+    status.textContent = '';
+    status.classList.remove('is-error');
+    return;
+  }
+  status.hidden = false;
+  status.textContent = message;
+  status.classList.toggle('is-error', !!isError);
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Could not read screenshot.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function buildSendLogsScreenshotPayload(file) {
+  if (!file) return null;
+  if (!String(file.type || '').startsWith('image/')) {
+    throw new Error('Screenshot must be a PNG, JPEG, WebP, or GIF image.');
+  }
+  if (file.size > SEND_LOGS_MAX_SCREENSHOT_BYTES) {
+    throw new Error('Screenshot is too large (max 4MB).');
+  }
+  const dataBase64 = await readFileAsBase64(file);
+  return {
+    name: file.name || 'screenshot.png',
+    mimeType: file.type || 'image/png',
+    dataBase64
+  };
+}
+
+function resetSendLogsDialog() {
+  const issue = document.getElementById('send-logs-issue');
+  const screenshotInput = document.getElementById('send-logs-screenshot');
+  const submit = document.getElementById('send-logs-submit');
+  const cancel = document.getElementById('send-logs-cancel');
+  if (issue) issue.value = '';
+  if (screenshotInput) screenshotInput.value = '';
+  setSendLogsStatus('');
+  if (submit) {
+    submit.disabled = false;
+    submit.textContent = 'Send Logs';
+  }
+  if (cancel) cancel.disabled = false;
+}
+
+function openSendLogsDialog() {
+  const dialog = document.getElementById('send-logs-dialog');
+  if (!dialog) {
+    alert('Could not open Send Logs.\n\nThe Send Logs dialog is missing from this page.');
+    return;
+  }
+  resetSendLogsDialog();
   try {
-    const clientConsole = typeof window.__printventoryClientConsole === 'function'
-      ? window.__printventoryClientConsole()
-      : '';
-    if (typeof window.electron.sendSupportLogs !== 'function') {
-      alert('Could not send Printventory logs.\n\nSend Logs is not available in this session.');
-      return;
-    }
-    const result = await window.electron.sendSupportLogs({ clientConsole });
+    dialog.showModal();
+  } catch (error) {
+    console.error('Show Send Logs dialog failed:', error);
+    alert('Could not open Send Logs.');
+  }
+  const issue = document.getElementById('send-logs-issue');
+  if (issue) {
+    setTimeout(() => issue.focus(), 0);
+  }
+}
+
+async function submitSendLogsDialog(event) {
+  if (event) event.preventDefault();
+  const dialog = document.getElementById('send-logs-dialog');
+  const issueEl = document.getElementById('send-logs-issue');
+  const screenshotInput = document.getElementById('send-logs-screenshot');
+  const submit = document.getElementById('send-logs-submit');
+  const cancel = document.getElementById('send-logs-cancel');
+  const issueDescription = issueEl ? String(issueEl.value || '').trim() : '';
+  if (!issueDescription) {
+    setSendLogsStatus('Please describe the issue before sending logs.', true);
+    if (issueEl) issueEl.focus();
+    return;
+  }
+  if (typeof window.electron.sendSupportLogs !== 'function') {
+    setSendLogsStatus('Send Logs is not available in this session.', true);
+    return;
+  }
+
+  let screenshot = null;
+  try {
+    const file = screenshotInput && screenshotInput.files && screenshotInput.files[0]
+      ? screenshotInput.files[0]
+      : null;
+    screenshot = await buildSendLogsScreenshotPayload(file);
+  } catch (error) {
+    setSendLogsStatus(error && error.message ? error.message : String(error), true);
+    return;
+  }
+
+  const clientConsole = typeof window.__printventoryClientConsole === 'function'
+    ? window.__printventoryClientConsole()
+    : '';
+
+  if (submit) {
+    submit.disabled = true;
+    submit.textContent = 'Sending…';
+  }
+  if (cancel) cancel.disabled = true;
+  setSendLogsStatus('Sending logs to the support team…');
+
+  try {
+    const result = await window.electron.sendSupportLogs({
+      clientConsole,
+      issueDescription,
+      screenshot
+    });
     if (result && result.sent) {
+      if (dialog && dialog.open) dialog.close();
       alert('Printventory logs were sent to the support team on Discord.');
       return;
     }
-    const detail = result && result.error ? `\n\n${result.error}` : '';
-    alert(`Could not send Printventory logs.${detail}`);
+    const detail = result && result.error ? result.error : 'Unknown error';
+    setSendLogsStatus(`Could not send Printventory logs. ${detail}`, true);
   } catch (error) {
     console.error('Send Logs failed:', error);
-    alert(`Could not send Printventory logs.\n\n${error && error.message ? error.message : error}`);
+    setSendLogsStatus(`Could not send Printventory logs. ${error && error.message ? error.message : error}`, true);
+  } finally {
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = 'Send Logs';
+    }
+    if (cancel) cancel.disabled = false;
   }
+}
+
+function bindSendLogsDialog() {
+  const form = document.getElementById('send-logs-form');
+  const dialog = document.getElementById('send-logs-dialog');
+  if (form && !form.__sendLogsBound) {
+    form.__sendLogsBound = true;
+    form.addEventListener('submit', submitSendLogsDialog);
+  }
+  if (dialog && !dialog.__sendLogsBound) {
+    dialog.__sendLogsBound = true;
+    dialog.addEventListener('close', () => {
+      setSendLogsStatus('');
+    });
+  }
+}
+
+async function sendServerModeSupportLogs() {
+  bindSendLogsDialog();
+  openSendLogsDialog();
 }
 
 // Function to create server mode menu bar
@@ -9570,6 +9715,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       window._electronRealEventHandlers['open-system-report'].apply(null, args);
     });
     delete window._electronPendingEvents['open-system-report'];
+  }
+
+  bindSendLogsDialog();
+  window._electronRealEventHandlers['open-send-logs'] = function() {
+    bindSendLogsDialog();
+    openSendLogsDialog();
+  };
+  if (window._electronPendingEvents['open-send-logs']) {
+    window._electronPendingEvents['open-send-logs'].forEach((args) => {
+      window._electronRealEventHandlers['open-send-logs'].apply(null, args);
+    });
+    delete window._electronPendingEvents['open-send-logs'];
   }
 
   // Chart instances storage

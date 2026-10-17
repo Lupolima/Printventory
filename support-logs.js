@@ -10,8 +10,18 @@ const crypto = require('crypto');
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const TAIL_BYTES = 2 * 1024 * 1024;
 const MAX_ZIP_BYTES = 8 * 1024 * 1024;
+const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
+const MAX_ISSUE_CHARS = 1500;
 const MAX_BUFFER_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_CHARS = 8000;
+
+const SCREENSHOT_MIME_TYPES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif'
+};
 
 const INSPECT_OPTIONS = { depth: 3, maxArrayLength: 20, maxStringLength: 2000, breakLength: 160 };
 
@@ -68,13 +78,50 @@ function readLogTail(filePath, maxBytes = TAIL_BYTES) {
   }
 }
 
-function buildDiscordMultipart({ payload, filename, fileBuffer, boundary }) {
+function sanitizeAttachmentFilename(name, fallback = 'attachment.bin') {
+  const base = path.basename(String(name || fallback)).replace(/["\r\n\\]/g, '_').trim();
+  return base || fallback;
+}
+
+function normalizeScreenshot(screenshot) {
+  if (!screenshot) return null;
+  const dataBase64 = typeof screenshot.dataBase64 === 'string' ? screenshot.dataBase64.trim() : '';
+  if (!dataBase64) return null;
+  let fileBuffer;
+  try {
+    fileBuffer = Buffer.from(dataBase64, 'base64');
+  } catch (_) {
+    throw new Error('Screenshot data is invalid.');
+  }
+  if (!fileBuffer.length) return null;
+  if (fileBuffer.length > MAX_SCREENSHOT_BYTES) {
+    throw new Error(`Screenshot is too large (max ${Math.floor(MAX_SCREENSHOT_BYTES / (1024 * 1024))}MB).`);
+  }
+  const filename = sanitizeAttachmentFilename(screenshot.name || screenshot.filename || 'screenshot.png', 'screenshot.png');
+  const ext = path.extname(filename).toLowerCase();
+  const mimeType = SCREENSHOT_MIME_TYPES[ext]
+    || (typeof screenshot.mimeType === 'string' && screenshot.mimeType.startsWith('image/') ? screenshot.mimeType : null);
+  if (!mimeType) {
+    throw new Error('Screenshot must be a PNG, JPEG, WebP, or GIF image.');
+  }
+  return { filename, fileBuffer, contentType: mimeType };
+}
+
+function buildDiscordMultipart({ payload, filename, fileBuffer, files, boundary }) {
+  const attachments = Array.isArray(files) && files.length
+    ? files
+    : [{ filename, fileBuffer, contentType: 'application/zip' }];
   const chunks = [];
   const push = (value) => chunks.push(Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8'));
   push(`--${boundary}\r\nContent-Disposition: form-data; name="payload_json"\r\n\r\n${payload}\r\n`);
-  push(`--${boundary}\r\nContent-Disposition: form-data; name="files[0]"; filename="${filename}"\r\nContent-Type: application/zip\r\n\r\n`);
-  push(fileBuffer);
-  push(`\r\n--${boundary}--\r\n`);
+  attachments.forEach((file, index) => {
+    const safeName = sanitizeAttachmentFilename(file.filename, `file-${index}`);
+    const contentType = file.contentType || 'application/octet-stream';
+    push(`--${boundary}\r\nContent-Disposition: form-data; name="files[${index}]"; filename="${safeName}"\r\nContent-Type: ${contentType}\r\n\r\n`);
+    push(file.fileBuffer);
+    push('\r\n');
+  });
+  push(`--${boundary}--\r\n`);
   return Buffer.concat(chunks);
 }
 
@@ -123,11 +170,11 @@ function resolveDiscordWebhookUrl(webhookUrl) {
   return url.toString();
 }
 
-function postDiscordWebhook(webhookUrl, { filename, fileBuffer, content }) {
+function postDiscordWebhook(webhookUrl, { filename, fileBuffer, files, content }) {
   const url = new URL(resolveDiscordWebhookUrl(webhookUrl));
   const boundary = `----PrintventoryLogs${crypto.randomBytes(12).toString('hex')}`;
   const payload = JSON.stringify({ content: String(content || '').slice(0, 2000) });
-  const body = buildDiscordMultipart({ payload, filename, fileBuffer, boundary });
+  const body = buildDiscordMultipart({ payload, filename, fileBuffer, files, boundary });
 
   return new Promise((resolve, reject) => {
     const req = https.request({
@@ -430,7 +477,9 @@ function createCapture(options = {}) {
     return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
   }
 
-  async function uploadLogs({ version, clientConsole } = {}) {
+  async function uploadLogs({ version, clientConsole, issueDescription, screenshot } = {}) {
+    const issue = redactLogText(String(issueDescription || '').trim()).slice(0, MAX_ISSUE_CHARS);
+    const screenshotFile = normalizeScreenshot(screenshot);
     let zipBuffer = await createLogsZip(version, TAIL_BYTES, { clientConsole });
     if (zipBuffer.length > MAX_ZIP_BYTES) {
       const shorter = clientConsole ? String(clientConsole).slice(-256 * 1024) : '';
@@ -438,14 +487,25 @@ function createCapture(options = {}) {
     }
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
     const filename = `printventory-logs-${stamp}.zip`;
-    const content = [
+    const contentParts = [
       'Printventory support logs',
       `Version: ${version || 'unknown'}`,
       `Platform: ${process.platform} ${process.arch} (${os.release()})`,
       `Sent: ${new Date().toISOString()}`
-    ].join('\n');
+    ];
+    if (issue) {
+      contentParts.push('', 'Issue:', issue);
+    }
+    if (screenshotFile) {
+      contentParts.push('', `Screenshot attached: ${screenshotFile.filename}`);
+    }
+    const content = contentParts.join('\n');
+    const files = [
+      { filename, fileBuffer: zipBuffer, contentType: 'application/zip' }
+    ];
+    if (screenshotFile) files.push(screenshotFile);
     const post = options.postZip || ((file) => postDiscordWebhook(resolveDiscordWebhookUrl(options.webhookUrl), file));
-    await post({ filename, fileBuffer: zipBuffer, content });
+    await post({ filename, fileBuffer: zipBuffer, files, content, issueDescription: issue });
   }
 
   async function confirmAndSend({ dialog, parentWindow, version } = {}) {
@@ -487,11 +547,11 @@ function createCapture(options = {}) {
     }
   }
 
-  async function sendCapturedLogs({ version, clientConsole } = {}) {
+  async function sendCapturedLogs({ version, clientConsole, issueDescription, screenshot } = {}) {
     if (state.sending) return { sent: false, error: 'Logs are already being sent.' };
     state.sending = true;
     try {
-      await uploadLogs({ version, clientConsole });
+      await uploadLogs({ version, clientConsole, issueDescription, screenshot });
       return { sent: true };
     } catch (error) {
       const detail = redactLogText(error && error.message ? error.message : String(error)).slice(0, 500);
@@ -519,5 +579,8 @@ module.exports = {
   readLogTail,
   formatLogLine,
   buildDiscordMultipart,
-  resolveDiscordWebhookUrl
+  resolveDiscordWebhookUrl,
+  normalizeScreenshot,
+  MAX_SCREENSHOT_BYTES,
+  MAX_ISSUE_CHARS
 };

@@ -3926,10 +3926,13 @@ function initializeDefaultSettings() {
 }
 
 function sendSupportLogsFromMenu() {
-  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('open-send-logs');
+    return;
+  }
   return supportLogs.confirmAndSend({
     dialog,
-    parentWindow: parent,
+    parentWindow: undefined,
     version
   });
 }
@@ -3937,7 +3940,13 @@ function sendSupportLogsFromMenu() {
 ipcMain.handle('send-support-logs', async (_event, payload = {}) => {
   const raw = payload && typeof payload.clientConsole === 'string' ? payload.clientConsole : '';
   const clientConsole = raw.length > 1024 * 1024 ? raw.slice(-1024 * 1024) : raw;
-  return supportLogs.sendCapturedLogs({ version, clientConsole });
+  const issueDescription = payload && typeof payload.issueDescription === 'string'
+    ? payload.issueDescription
+    : '';
+  const screenshot = payload && payload.screenshot && typeof payload.screenshot === 'object'
+    ? payload.screenshot
+    : null;
+  return supportLogs.sendCapturedLogs({ version, clientConsole, issueDescription, screenshot });
 });
 
 async function createWindow() {

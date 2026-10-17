@@ -87,6 +87,53 @@ async function main() {
     assert.ok(body.includes(fileBuffer));
   });
 
+  await test('multipart body can include a screenshot attachment', () => {
+    const zipBuffer = Buffer.from('PK fake zip');
+    const shotBuffer = Buffer.from('fake-png-bytes');
+    const body = buildDiscordMultipart({
+      payload: JSON.stringify({ content: 'Issue: freeze on scan' }),
+      files: [
+        { filename: 'printventory-logs.zip', fileBuffer: zipBuffer, contentType: 'application/zip' },
+        { filename: 'bug.png', fileBuffer: shotBuffer, contentType: 'image/png' }
+      ],
+      boundary: 'ShotBoundary'
+    });
+    const text = body.toString('utf8');
+    assert.ok(text.includes('name="files[0]"; filename="printventory-logs.zip"'));
+    assert.ok(text.includes('name="files[1]"; filename="bug.png"'));
+    assert.ok(text.includes('Content-Type: image/png'));
+    assert.ok(body.includes(shotBuffer));
+  });
+
+  await test('upload includes issue description and screenshot', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'printventory-logs-'));
+    let posted = null;
+    const capture = createCapture({
+      postZip: async (file) => { posted = file; }
+    });
+    capture.appendApp('error', ['disk full']);
+    capture.openLogDirectory(dir);
+    const screenshot = {
+      name: 'bug.png',
+      mimeType: 'image/png',
+      dataBase64: Buffer.from('fake-png-bytes').toString('base64')
+    };
+    const result = await capture.sendCapturedLogs({
+      version: '2.2.11',
+      issueDescription: 'App freezes during scan sk-abcdefghijklmnopqrstuvwxyz',
+      screenshot
+    });
+    assert.strictEqual(result.sent, true);
+    assert.ok(posted.content.includes('Issue:'));
+    assert.ok(posted.content.includes('App freezes during scan'));
+    assert.strictEqual(posted.content.includes('sk-abcdefghijklmnopqrstuvwxyz'), false);
+    assert.ok(posted.content.includes('Screenshot attached: bug.png'));
+    assert.strictEqual(posted.files.length, 2);
+    assert.strictEqual(posted.files[1].filename, 'bug.png');
+    assert.strictEqual(posted.files[1].contentType, 'image/png');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   await test('requires a valid configured Discord webhook', () => {
     assert.throws(() => resolveDiscordWebhookUrl(''), /not configured/);
     assert.throws(() => resolveDiscordWebhookUrl('http://discord.com/api/webhooks/123/token'), /invalid/);

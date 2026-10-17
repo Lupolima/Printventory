@@ -1408,6 +1408,25 @@
         </div>
       </form>
     </dialog>
+    <dialog id="send-logs-dialog" class="modal send-logs-dialog">
+      <form id="send-logs-form">
+        <h3>Send Logs</h3>
+        <p class="setting-description">Describe the issue and optionally attach a screenshot. Console, app, and server logs will be zipped and sent to the support team on Discord.</p>
+        <div class="form-group">
+          <label for="send-logs-issue">What went wrong?</label>
+          <textarea id="send-logs-issue" rows="5" maxlength="1500" placeholder="Example: Scanning a folder freezes the app after a few minutes…" required></textarea>
+        </div>
+        <div class="form-group">
+          <label for="send-logs-screenshot">Screenshot (optional)</label>
+          <input type="file" id="send-logs-screenshot" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif">
+        </div>
+        <p id="send-logs-status" class="setting-description send-logs-status" hidden></p>
+        <div class="dialog-buttons">
+          <button type="submit" id="send-logs-submit">Send Logs</button>
+          <button type="button" id="send-logs-cancel" onclick="document.getElementById('send-logs-dialog')?.close()">Cancel</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="ai-config-dialog" class="modal">
       <form method="dialog">
         <h3>AI Configuration</h3>
