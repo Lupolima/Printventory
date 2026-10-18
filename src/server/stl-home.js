@@ -59,7 +59,7 @@ let serverStlHomeScanRunning = false;
 /** STL Home scan run by the server (on Node there is no hidden window to start it). */
 async function runServerStlHomeScan(reason) {
   if (serverStlHomeScanRunning || watchScanRunning) return;
-  const dirs = readStlHomeDirectories();
+  const dirs = scanRoots();
   if (!dirs.length) return;
   serverStlHomeScanRunning = true;
   try {
@@ -187,6 +187,31 @@ async function scanUploadedFolder(folder, root, { isStlHomeScan = false } = {}) 
   return newModels;
 }
 
+/**
+ * Run `work` while no scan runs (and none starts): Organize Uploads moves folders, which a scan
+ * of the same files at that moment would add twice.
+ * @template T
+ * @param {() => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function withoutScans(work) {
+  while (serverStlHomeScanRunning || watchScanRunning) await new Promise((resolve) => setTimeout(resolve, 250));
+  watchScanRunning = true;
+  try {
+    return await work();
+  } finally {
+    watchScanRunning = false;
+  }
+}
+
+/** The folders scanned on the schedule and watched: STL Home, and the Upload folder when it is outside them (upload-inbox.js). */
+function scanRoots() {
+  const homes = readStlHomeDirectories();
+  const inbox = require('./upload-inbox').uploadFolder();
+  const { isInsideOrSame } = require('./server-paths');
+  return inbox && !homes.some((home) => isInsideOrSame(inbox, home)) ? [...homes, inbox] : homes;
+}
+
 function stopWatching() {
   for (const watcher of watchers) watcher.close();
   watchers = [];
@@ -198,7 +223,7 @@ function stopWatching() {
 async function startWatching() {
   stopWatching();
   if (!watchingEnabled()) return;
-  const roots = readStlHomeDirectories()
+  const roots = scanRoots()
     .map((dir) => String(dir).trim())
     .filter(Boolean);
   if (!roots.length) return;
@@ -227,7 +252,7 @@ async function startWatching() {
 }
 
 /** Settings that change what is watched (STL Home folders, exclusions, the switch): restart shortly. */
-const WATCH_SETTING_KEYS = new Set(['stlHomeDirectories', 'stlHome', 'stlHomeExcludeDirectories', 'scanExcludeFolders', 'stlHomeWatch']);
+const WATCH_SETTING_KEYS = new Set(['stlHomeDirectories', 'stlHome', 'stlHomeExcludeDirectories', 'scanExcludeFolders', 'stlHomeWatch', 'uploadFolder']);
 
 function settingChanged(key) {
   if (!WATCH_SETTING_KEYS.has(key)) return;
@@ -247,4 +272,4 @@ function watchStatus() {
   };
 }
 
-module.exports = { startServerStlHomeScans, startWatching, stopWatching, settingChanged, watchStatus, scanUploadedFolder };
+module.exports = { startServerStlHomeScans, startWatching, stopWatching, settingChanged, watchStatus, scanRoots, scanUploadedFolder, withoutScans };

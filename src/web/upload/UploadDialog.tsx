@@ -55,8 +55,10 @@ function rememberFolder(folder: string) {
   }
 }
 
-/** Where uploads go first: the folder the library shows, else the last one used, else STL Home. */
+/** Where uploads go first: the Upload folder (Settings), else the folder the library shows, else the last one used, else STL Home. */
 async function defaultFolder(): Promise<string> {
+  const inbox = await callAction<{ uploadFolder: string }>('get-upload-folder').catch(() => null);
+  if (inbox?.uploadFolder) return inbox.uploadFolder;
   const shown = getFilterState().directory;
   if (shown && !shown.includes('::')) return shown;
   const last = rememberedFolder();

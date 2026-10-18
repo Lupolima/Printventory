@@ -111,6 +111,8 @@ function getLibraryRootPaths() {
     if (database.db) {
       for (const home of readStlHomeDirectories()) add(home);
       add(database.db.prepare('SELECT value FROM settings WHERE key = ?').get('directoryPath')?.value);
+      // Where uploads wait for Organize Uploads (src/server/upload-inbox.js).
+      add(database.db.prepare('SELECT value FROM settings WHERE key = ?').get('uploadFolder')?.value);
     }
   } catch (_) {
     /* db not ready */

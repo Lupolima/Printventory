@@ -209,6 +209,10 @@ const NETWORK_IPC_PATH_RULES = {
   'scan-directory': [[0, 'scanDir']],
   'remove-missing-models': [[0, 'scanDir']],
   'save-directory': [[0, 'scanDir']],
+  'save-upload-folder': [
+    [0, 'scanDir'],
+    [1, 'scanDir']
+  ],
   'save-thumbnail': [[0, 'file']],
   'trash-file': [[0, 'file']],
   'rename-model': [[0, 'file']],

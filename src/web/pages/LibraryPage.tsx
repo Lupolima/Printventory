@@ -14,6 +14,7 @@ import { useCan } from '../session';
 import { setSidebarOn, useSidebarOn } from '../details/sidebarPref';
 import { setFoldersAsModels, useFoldersAsModels } from '../library/folderMode';
 import { toggleMultiEdit, useEditMode } from '../library/details';
+import { OrganizeNotice, UnorganizedButton } from '../upload/Organize';
 
 const scanLibrary = () =>
   NAV.flatMap((section) => section.items)
@@ -195,6 +196,7 @@ export function LibraryHeader() {
                 Upload
               </Button>
             )}
+            <UnorganizedButton directory={state.directory} />
             {canUpload && (
               <Button
                 icon={Link2}
@@ -242,6 +244,7 @@ export function LibraryHeader() {
           </div>
         </div>
         <div className="jp-library-header__chips" ref={setChips} />
+        <OrganizeNotice directory={state.directory} />
         {editing && (
           <p className="jp-library-header__editing" id="jp-edit-hint" role="status">
             Editing: click models and groups to choose them. One model shows its details; more open Multi-edit, where you can also make a group.

@@ -496,6 +496,8 @@ export interface LibraryAttention {
   untagged: number;
   unlicensed: number;
   uncategorized: number;
+  /** Models waiting in the Upload folder for Organize (src/server/upload-inbox.js). */
+  unorganized?: number;
   noThumbnail: number;
   /** Sets of identical files (the Duplicates page). */
   duplicateSets: number;

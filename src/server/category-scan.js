@@ -302,9 +302,10 @@ async function aiStep(models, list, event, ask) {
 /**
  * The models a run looks at: without a Subcategory; with the AI also those placed by a guess from
  * words; with `again` every model except the ones a person placed. `hint` is a Category a person
- * chose alone.
+ * chose alone. `only` limits it to those model ids.
+ * @param {{ useAi: boolean, again: boolean, only?: Set<number> | null }} options
  */
-function modelsToSort({ useAi, again }) {
+function modelsToSort({ useAi, again, only = null }) {
   categories.ensureTables();
   const places = new Map();
   for (const row of database.db
@@ -320,6 +321,7 @@ function modelsToSort({ useAi, again }) {
     .prepare('SELECT id, filePath, fileName, source FROM models')
     .all()
     .filter((model) => {
+      if (only && !only.has(model.id)) return false;
       const place = places.get(model.id);
       if (!place || !place.sub) {
         model.hint = place && place.source === 'manual' ? place.main : null;
@@ -334,13 +336,14 @@ function modelsToSort({ useAi, again }) {
 /**
  * Start a run: { useAi } asks the AI about the models the free step leaves, { again } sorts every
  * model again (not the places a person chose). Answers the summary, or null while another run is
- * going. `deps.fetchImpl` and `deps.ask` replace the network and the AI service (tests).
- * @param {{ by?: string | null, useAi?: boolean, again?: boolean, event?: any }} [options]
+ * going. `only` (model ids) sorts just those models (Organize Uploads). `deps.fetchImpl` and
+ * `deps.ask` replace the network and the AI service (tests).
+ * @param {{ by?: string | null, useAi?: boolean, again?: boolean, only?: number[] | null, event?: any }} [options]
  * @param {{ fetchImpl?: Function, ask?: Function }} [deps]
  */
-function start({ by = null, useAi = false, again = false, event = null } = {}, deps = {}) {
+function start({ by = null, useAi = false, again = false, only = null, event = null } = {}, deps = {}) {
   if (running()) return null;
-  const models = modelsToSort({ useAi, again });
+  const models = modelsToSort({ useAi, again, only: only ? new Set(only) : null });
   job = {
     id: nextId++,
     by,

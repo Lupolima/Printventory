@@ -1022,6 +1022,10 @@ button.jp-tag__label:hover {
 .jp-scan-toast-region {
   bottom: calc(var(--jp-space-6) + 56px);
 }
+/* Organize Uploads' notice sits above the scan's (both can show). */
+.jp-organize-toast-region {
+  bottom: calc(var(--jp-space-6) + 112px);
+}
 .jp-scan-toast {
   padding-left: var(--jp-space-3);
 }

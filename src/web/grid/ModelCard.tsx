@@ -29,6 +29,8 @@ export function tileStyle(position: { width: number; height: number }): CSSPrope
 export interface CardHost {
   isSelected(filePath: string): boolean;
   isNew(model: GridModel): boolean;
+  /** Waiting in the Upload folder for Organize (upload/inbox.ts). */
+  isUnorganized?(model: GridModel): boolean;
   directoryLabel(filePath: string): string;
   directoryFullPath(filePath: string): string;
   formatSize(bytes: number): string;
@@ -792,6 +794,11 @@ function ModelTile({ host, model, common, images, current, setRenderSlot }: Tile
           {host.isNew(model) && (
             <span className="new-status jp-model-card__flag" title="New model — clears once you edit it">
               New
+            </span>
+          )}
+          {host.isUnorganized?.(model) && (
+            <span className="unorganized-status jp-model-card__flag" title="Waiting in the Upload folder: Organize moves it to its category">
+              Not organized
             </span>
           )}
           {zipEntry && <span className="archive-status jp-model-card__flag">Archive</span>}
