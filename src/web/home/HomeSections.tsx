@@ -11,6 +11,7 @@ import {
   Cpu,
   DatabaseBackup,
   FolderHeart,
+  FolderInput,
   GraduationCap,
   Gamepad2,
   House,
@@ -24,6 +25,7 @@ import {
   Sparkles,
   Swords,
   Tags,
+  Wand2,
   Wrench,
   type LucideIcon
 } from 'lucide-react';
@@ -58,6 +60,7 @@ import { generateMissing } from '../thumbnails/jobs';
 import { fetchPrimaryThumbnail } from '../thumbnails/cache';
 import { attentionItems, type AttentionKey } from './attention';
 import { timeAgo } from './format';
+import { organizeUploads, showUnorganized, useOrganizeRun } from '../upload/inbox';
 
 /** Show one model in the library with its details. */
 export function openModel(filePath: string) {
@@ -207,6 +210,7 @@ export function ContinueKits() {
 const ATTENTION: Record<AttentionKey, { icon: LucideIcon; run: () => void }> = {
   backup: { icon: DatabaseBackup, run: () => navigate('settings', 'backup') },
   maintenance: { icon: Wrench, run: () => navigate('printers') },
+  unorganized: { icon: FolderInput, run: showUnorganized },
   duplicates: { icon: Copy, run: () => navigate('duplicates') },
   uncategorized: { icon: Shapes, run: () => showLibrary(() => filterActions.search('category', 'none')) },
   untagged: { icon: Tags, run: () => showLibrary(() => filterActions.addValue('tags', '__none__')) },
@@ -218,6 +222,7 @@ const ATTENTION: Record<AttentionKey, { icon: LucideIcon; run: () => void }> = {
 export function NeedsAttention({ printers, models }: { printers: Printer[] | null; models: number | undefined }) {
   const canEdit = useCan('editor');
   const found = useLibraryData<LibraryAttention>(library.attention);
+  const organizing = useOrganizeRun();
   // Nothing to look after in an empty library (and "All caught up" would say so wrongly).
   if (!canEdit || !models) return null;
   const due = (printers || []).filter((p) => Number(p.due_reminders_count) > 0).length;
@@ -239,7 +244,7 @@ export function NeedsAttention({ printers, models }: { printers: Printer[] | nul
           {items.slice(0, 5).map((item) => {
             const { icon: Icon, run } = ATTENTION[item.key];
             return (
-              <li key={item.key}>
+              <li key={item.key} className={item.key === 'unorganized' ? 'jp-attention__with-action' : undefined}>
                 <button type="button" className="jp-activity" data-attention={item.key} onClick={run}>
                   <span className={`jp-activity__icon jp-tone--${item.tone}`}>
                     <Icon size={18} aria-hidden="true" />
@@ -249,6 +254,18 @@ export function NeedsAttention({ printers, models }: { printers: Printer[] | nul
                     <span className="jp-activity__meta">{item.meta}</span>
                   </span>
                 </button>
+                {item.key === 'unorganized' && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={Wand2}
+                    id="jp-home-organize"
+                    disabled={!!organizing?.running}
+                    onClick={() => void organizeUploads()}
+                  >
+                    {organizing?.running ? 'Organizing…' : 'Organize'}
+                  </Button>
+                )}
               </li>
             );
           })}

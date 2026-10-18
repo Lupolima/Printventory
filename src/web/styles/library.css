@@ -457,6 +457,52 @@
 .file-grid .jp-model-card .archive-status.jp-model-card__flag {
   color: var(--jp-warning);
 }
+.file-grid .jp-model-card .unorganized-status.jp-model-card__flag {
+  color: var(--jp-text);
+}
+
+/* Organize Uploads, under the library's header while it shows the Upload folder (upload/Organize.tsx). */
+.jp-organize {
+  display: flex;
+  align-items: center;
+  gap: var(--jp-space-4);
+  margin-top: var(--jp-space-3);
+  padding: var(--jp-space-3) var(--jp-space-4);
+  border: 1px solid var(--jp-border);
+  border-radius: var(--jp-radius-lg);
+  background: var(--jp-accent-soft);
+}
+.jp-organize__text {
+  flex: 1;
+  margin: 0;
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+  text-align: left;
+}
+.jp-organize__text code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .jp-organize {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* A folder field with Choose… beside it (Settings → Upload Folder). */
+.jp-folder-field {
+  display: flex;
+  gap: var(--jp-space-2);
+}
+.jp-folder-field input {
+  flex: 1;
+  min-width: 0;
+}
+.jp-folder-field button {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
 
 /* Favorite and More at the top-right; More appears on hover or focus, Favorite also once set (spec §34). */
 .jp-model-card__actions {

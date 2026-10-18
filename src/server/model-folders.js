@@ -557,6 +557,10 @@ function pathsMoved(from, to) {
         /* the table is not there yet */
       }
     }
+    // Model folders inside it (a kit's folders) move along.
+    swap('path', 'model_folders');
+    swap('folder', 'model_folder_links');
+    swap('folder', 'model_folder_sources');
     moved(a, b);
   })();
 }

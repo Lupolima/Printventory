@@ -5209,6 +5209,64 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
     JSON.stringify(unpackedKit)
   );
   check('the kept archive is not scanned', !(await invoke(base, viewer, 'get-folder-archives', [kitDir])).result?.archives?.length);
+
+  // The Upload folder and Organize Uploads (src/server/upload-inbox.js): uploads wait there, then
+  // each moves to Destination/Category/Subcategory/Model name.
+  const inboxDir = path.join(uploadLibrary, 'Inbox');
+  const sortedDir = path.join(uploadLibrary, 'Sorted');
+  check('only admins choose the Upload folder', (await invoke(base, editor, 'save-upload-folder', [inboxDir, sortedDir])).status === 403);
+  const chosen = (await invoke(base, admin, 'save-upload-folder', [inboxDir, sortedDir])).result || {};
+  check(
+    'the Upload folder is made and saved',
+    chosen.uploadFolder === inboxDir && chosen.destination === sortedDir && fs.existsSync(inboxDir),
+    JSON.stringify(chosen)
+  );
+  check(
+    'the destination may not be inside the Upload folder',
+    (await invoke(base, admin, 'save-upload-folder', [inboxDir, path.join(inboxDir, 'x')])).status !== 200
+  );
+  const dragonDir = (await invoke(base, editor, 'make-model-folder', [inboxDir, 'Dragon Skull'])).result?.folder || '';
+  const sentDragon = await uploadAs(base, editor, dragonDir, 'skull.stl', cubeBytes);
+  await invoke(base, editor, 'add-uploaded-files', [dragonDir, [sentDragon.filePath]]);
+  fs.writeFileSync(path.join(dragonDir, 'photo.png'), png);
+  const sentGear = await uploadAs(base, editor, inboxDir, 'Gear Box.stl', cubeBytes);
+  await invoke(base, editor, 'add-uploaded-files', [inboxDir, [sentGear.filePath]]);
+  const waiting = (await invoke(base, viewer, 'get-upload-folder')).result || {};
+  check('uploads in the Upload folder wait, not organized', waiting.waiting === 2, JSON.stringify(waiting));
+  const attention = (await invoke(base, editor, 'get-library-attention')).result || {};
+  check('Home lists the models not organized', attention.unorganized === 2, JSON.stringify(attention.unorganized));
+  check('viewers cannot organize', (await invoke(base, viewer, 'organize-uploads')).status === 403);
+  check('editors organize', !!(await invoke(base, editor, 'organize-uploads')).result?.running);
+  const run = await waitFor(
+    async () => {
+      const current = (await invoke(base, viewer, 'get-organize-uploads')).result;
+      return current && !current.running ? current : null;
+    },
+    120000,
+    'Organize Uploads'
+  );
+  const dragonTo = (run.moved || []).find((m) => m.name === 'Dragon Skull');
+  const gearTo = (run.moved || []).find((m) => m.name === 'Gear Box.stl');
+  check(
+    'Organize moves each upload to Category/Subcategory/Model name',
+    run.movedCount === 2 &&
+      !!dragonTo &&
+      dragonTo.to === path.join(sortedDir, dragonTo.category, dragonTo.subcategory, 'Dragon Skull') &&
+      fs.existsSync(path.join(dragonTo.to, 'skull.stl')) &&
+      !fs.existsSync(dragonDir),
+    JSON.stringify(run)
+  );
+  check(
+    'a loose model file gets a folder of its own, named after it',
+    !!gearTo && path.basename(gearTo.to) === 'Gear Box' && fs.existsSync(path.join(gearTo.to, 'Gear Box.stl')),
+    JSON.stringify(gearTo)
+  );
+  check('its loose pictures become the model folder’s own', !!dragonTo && fs.existsSync(path.join(dragonTo.to, 'image', 'photo.png')));
+  const movedModel = (await invoke(base, viewer, 'get-model', [path.join(dragonTo?.to || '', 'skull.stl')])).result;
+  check('the moved model keeps its record and has its place', !!movedModel, JSON.stringify(movedModel && movedModel.filePath));
+  check('nothing waits any more', (await invoke(base, viewer, 'get-upload-folder')).result?.waiting === 0);
+  // The Upload folder off again, so the checks after these see the library as before.
+  await invoke(base, admin, 'save-upload-folder', ['', '']);
 }
 
 /**

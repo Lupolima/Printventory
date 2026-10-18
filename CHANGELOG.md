@@ -2,6 +2,14 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.29.0] - 2026-10-18
+
+**Changes:**
+- **Upload folder and Organize:** an admin chooses an **Upload folder** under **Settings → Scanning → Upload Folder**. Uploads go there first (the Upload dialog starts there; another folder can still be chosen), and its models show in the library at once with a **Not organized** badge. **Not organized** in the Library's header shows just them, and Home's **Needs attention** lists them. **Organize** (there and on Home) puts each one where it belongs: every folder in the Upload folder is one model, and a model file or archive on its own gets a folder; its archives are unpacked and its pictures and documents put in place; it gets a Category and Subcategory (the site's, else the AI's when an AI service is set up, else from the words in its names, else Uncategorized › Other); it moves to `Organize into/Category/Subcategory/Model name/` (`Name (2)` when taken) with its tags, notes, history and pictures; and the AI tags its models, applied at once. **Organize into** is set on the same page (empty: the first STL Home folder). The Upload folder is scanned and watched with STL Home. A notice shows the progress (with **Stop**) and a notification what moved; what could not be organized stays and is listed.
+- A model folder moved or renamed now takes the model folders inside it along (their pictures, cover and links).
+
+**Upgrading:** no changes needed. Nothing changes until an admin chooses an Upload folder.
+
 ## [7.28.1] - 2026-10-15
 
 **Fixes:**

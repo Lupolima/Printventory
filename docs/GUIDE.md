@@ -48,7 +48,7 @@ Home greets you with your library's figures (models, printed, in queue, printers
 Below them, when there is something to show:
 
 - **Continue your kits:** kits with some parts printed and some not, with their progress; a click opens the kit. With **Folders as models** on, a folder of two files or more is a kit; otherwise a 3MF with several plates is.
-- **Needs attention** (editors and admins): automatic backups that failed or are late, printers with maintenance due, identical files, and models without a category, tags, a license or a thumbnail. Click one to go where it is fixed, such as the library showing just those models.
+- **Needs attention** (editors and admins): automatic backups that failed or are late, printers with maintenance due, uploads not organized yet (with **Organize**, see [The Upload folder and Organize](#the-upload-folder-and-organize)), identical files, and models without a category, tags, a license or a thumbnail. Click one to go where it is fixed, such as the library showing just those models.
 - **Favorites**, your **Collections** (the most recently changed) and **Browse by category** (a click shows that category's models).
 
 ## Library
@@ -131,7 +131,7 @@ Each model has a status (Unprinted, Want, Queued, Printing, Printed, Failed) and
 Editors and admins can add models from the browser:
 
 - Drop model files anywhere on the page, or click **Upload** in the Library.
-- **Choose Folder** picks the library folder to save into. It starts at the folder the library shows, else the last one you used, else your first STL Home folder.
+- **Choose Folder** picks the library folder to save into. It starts at the **Upload folder** when one is set (below), else the folder the library shows, else the last one you used, else your first STL Home folder.
 - Files of a type the library does not scan are skipped before anything is sent (turn more types on under **Settings → Scanning → File Types**), and so are files over the size limit (2 GB unless `JUSTTPRINT_MAX_UPLOAD_MB` says otherwise).
 - Big files are fine: they go in pieces, with how much has arrived under the progress bar. A piece that fails is sent again; if the connection stays lost, the file shows an error, and **Upload** (or adding the same file again, even after reloading the page) continues where it stopped. Unfinished uploads are deleted after a day.
 - Scans skip files over the size limit under **Settings → General → Performance** (50 MB unless changed). The dialog warns about such files: they are saved, and appear once an admin raises the limit and scans again.
@@ -139,6 +139,20 @@ Editors and admins can add models from the browser:
 - After the upload, the folder is scanned, so the models appear with thumbnails.
 - **Archives** (ZIP, RAR, 7Z) are unpacked into the model's folder: each into a folder of its own named after it (`arm.zip` → `arm/`), archives inside them too, and the original kept in `archives/` (scans skip it). Pictures and PDFs next to them become the model's **Pictures** and **Documents**, so a kit downloaded as a pile of archives becomes one model with all its parts (turn on **Folders as models** to see it as one card). Turn this off under **Settings → Scanning → File Types** (**Unpack uploaded ZIP, RAR and 7Z files**). A password-protected or damaged archive is listed in the summary and stays as it is.
 - **Archives already in the library**: a folder's page lists the archives in it with **Unpack Archives**, which does the same. Models that were found inside a ZIP keep their tags, notes and history once unpacked.
+
+### The Upload folder and Organize
+
+An admin can choose an **Upload folder** under **Settings → Scanning → Upload Folder** (any folder, made if it is not there yet). Uploads go there first, and its models show in the library right away with a **Not organized** badge. **Not organized** in the Library's header shows just them (with how many there are); Home's **Needs attention** lists them too.
+
+**Organize** (in the Not organized view, and next to the item on Home) then puts every one of them where it belongs, without asking:
+
+1. Every folder in the Upload folder is one model, with everything in it; a model file or an archive lying on its own gets a folder named after it.
+2. Its archives are unpacked and its loose pictures and documents go into its **Pictures** and **Documents** (as for uploads, above).
+3. It gets a Category and Subcategory: the one its site gives it, else the AI's (when an AI service is set up under **Settings → AI Tagging**), else from the words in its names, else **Uncategorized › Other**.
+4. It moves to `Organize into/Category/Subcategory/Model name/`, with its tags, notes, history and pictures. A name already taken there gets a number: `Dragon Skull (2)`.
+5. With an AI service set up, the AI tags its models, and the tags are added straight away (with **AI Tagged**).
+
+**Organize into** is set on the same settings page; empty means your first STL Home folder. A notice shows how far Organize is (**Stop** ends it after the model it is on), and a notification says what moved. A folder with no model files in it, or one that could not be moved, stays in the Upload folder and is listed.
 
 ## Adding models from links
 
@@ -263,7 +277,7 @@ Tips: start with a few models, use **merge** to keep the tags you already have, 
 | General | Performance: the largest file a scan processes |
 | Appearance | Theme: accent color, and the background, model color and lighting of thumbnails |
 | Library | Metadata Manager, Library Stats, View Entire Library, Print Roulette, Clear New Flag, Purge Models |
-| Scanning | STL Home, File Types (ZIP files, extra types, skipped folders), Scan a Folder |
+| Scanning | STL Home, Upload Folder (where uploads wait, and where Organize puts them), File Types (ZIP files, extra types, skipped folders), Scan a Folder |
 | Slicer | Your slicers, and the helper for Send to Slicer |
 | Printers | A link to that page, and the Parts Manager |
 | Integrations | MCP Server: connect an AI app to your library |

@@ -11,6 +11,7 @@ import {
   BookOpen,
   Box,
   FolderHeart,
+  FolderInput,
   Shapes,
   Link2,
   Brush,
@@ -294,6 +295,14 @@ export const SETTINGS: SettingsGroup[] = [
         run: menu('STL Home'),
         replaces: ['STL Home'],
         embed: { dialog: 'stl-home-dialog', open: 'openStlHome' }
+      },
+      {
+        id: 'upload-folder',
+        label: 'Upload Folder',
+        description: 'Where uploads wait, and where Organize puts them (Category/Subcategory/Model).',
+        icon: FolderInput,
+        run: open('openUploadFolderSettings'),
+        embed: { dialog: 'upload-folder-dialog', open: 'openUploadFolderSettings' }
       },
       {
         id: 'file-types',

@@ -5,7 +5,7 @@
 import type { LibraryAttention } from '../api';
 import { timeAgo } from './format';
 
-export type AttentionKey = 'backup' | 'maintenance' | 'duplicates' | 'uncategorized' | 'untagged' | 'unlicensed' | 'thumbnails';
+export type AttentionKey = 'backup' | 'maintenance' | 'unorganized' | 'duplicates' | 'uncategorized' | 'untagged' | 'unlicensed' | 'thumbnails';
 
 export interface AttentionItem {
   key: AttentionKey;
@@ -27,6 +27,14 @@ export function attentionItems(found: LibraryAttention, dueMaintenance: number, 
     items.push({ key: 'maintenance', tone: 'warning', title: `${plural(dueMaintenance, 'printer')} with maintenance due`, meta: 'Within the next 7 days' });
   }
   if (!canEdit) return items;
+  if (found.unorganized && found.unorganized > 0) {
+    items.push({
+      key: 'unorganized',
+      tone: 'accent',
+      title: `${plural(found.unorganized, 'model')} not organized`,
+      meta: 'Waiting in the Upload folder: Organize puts them in their categories'
+    });
+  }
   if (found.duplicateSets > 0) {
     items.push({
       key: 'duplicates',

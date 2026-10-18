@@ -29,6 +29,7 @@ import { initPage } from './startup/pageInit';
 import { KeyboardShortcuts, KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { UndoToast } from './library/UndoToast';
 import { ScanToast } from './scan/ScanToast';
+import { OrganizeToast, UploadFolderDialog } from './upload/Organize';
 import { InstallAppDialog } from './InstallAppDialog';
 import { ManageThumbnailsDialog } from './ManageThumbnailsDialog';
 import { McpServerSettingsDialog } from './McpServerSettingsDialog';
@@ -114,11 +115,13 @@ function Screens() {
       <KeyboardShortcuts />
       <UndoToast />
       <ScanToast />
+      <OrganizeToast />
       <InstallAppDialog />
       <AboutDialog />
       <PerformanceSettingsDialog />
       <McpServerSettingsDialog />
       <FileTypeSettingsDialog />
+      <UploadFolderDialog />
       <HttpsSettingsDialog />
       <AiConfigDialog />
       <PurgeModelsDialog />

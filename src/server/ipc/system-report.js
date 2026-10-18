@@ -29,7 +29,9 @@ ipcMain.handle('get-library-attention', async (event) => {
       console.warn('[Home] Could not read the backup status:', error.message);
     }
   }
-  return { ...found, uncategorized, backup };
+  // Models waiting in the Upload folder for Organize Uploads (upload-inbox.js).
+  const unorganized = require('../upload-inbox').waitingCount();
+  return { ...found, uncategorized, unorganized, backup };
 });
 
 // Queue badge and dashboard figures (src/core/library-counts.js).

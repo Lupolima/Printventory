@@ -80,6 +80,12 @@ const ACTIONS = {
   // Uploads (the files arrive on POST /api/upload, src/server/uploads.js)
   'get-upload-info': [],
   'add-uploaded-files': ['string', 'array?'],
+  // The Upload folder and Organize Uploads (ipc/upload-inbox.js)
+  'get-upload-folder': [],
+  'save-upload-folder': ['string', 'string'],
+  'organize-uploads': ['object?'],
+  'get-organize-uploads': [],
+  'stop-organize-uploads': [],
 
   // Bulk import from Printables, Thingiverse and MakerWorld links (ipc/link-import.js)
   'check-model-links': ['string'],
@@ -360,6 +366,8 @@ const VIEWER_ACTIONS = new Set([
   'get-slicers',
   'open-file-in-slicer',
   'get-upload-info',
+  'get-upload-folder',
+  'get-organize-uploads',
   // Each user changes their own password.
   'set-server-password',
   // Settings: non-admins read only what is not secret, and save only display preferences (ipc/settings.js).
@@ -392,6 +400,8 @@ const EDITOR_ACTIONS = new Set([
   'update-models-batch',
   'clear-new-model-flags',
   'add-uploaded-files',
+  'organize-uploads',
+  'stop-organize-uploads',
   'start-geometry-scan',
   'stop-geometry-scan',
   'check-model-links',

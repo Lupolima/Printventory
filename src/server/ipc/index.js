@@ -35,3 +35,4 @@ require('./tags');
 require('./thumbnails');
 require('./updates');
 require('./uploads');
+require('./upload-inbox');

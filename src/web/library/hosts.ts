@@ -36,6 +36,7 @@ import { isModelNew } from './match';
 import { expandedGroups, mergeModel, rebuildGrid, refreshGrid, showModels, shownModels, updateModel } from './models';
 import { directoryLabel, folderFilterFor, formatFileSize, parentDirectory } from './paths';
 import { openSourceUrl, removeFromSelected, saveEngagement, saveModelField, saveSelectedField } from './saving';
+import { isUnorganized } from '../upload/inbox';
 
 const tagNames = (tags: unknown): string[] =>
   (Array.isArray(tags) ? tags : [])
@@ -78,6 +79,7 @@ window.gridHost = {
 
   // Model cards
   isNew: (model) => isModelNew(model as { isNew?: unknown }),
+  isUnorganized: (model) => isUnorganized(String(model.filePath || '')),
   directoryLabel,
   directoryFullPath: parentDirectory,
   formatSize: formatFileSize,
