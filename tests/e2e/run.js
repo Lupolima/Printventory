@@ -2461,10 +2461,16 @@ async function browserChecks(base, wsUrl, session) {
           );
           await page.click('#jp-group-models .jp-group-part .jp-btn--primary');
           await page.waitForSelector('#jp-model-page-title', { timeout: 10000 }).catch(() => {});
-          check(
-            "a model's page shows the groups it is in",
-            /E2E Group\s*›\s*E2E Inner/.test((await page.textContent('.jp-model-page__in-group').catch(() => '')) || '')
-          );
+          // The groups line loads after the title (slower on GitHub's runners).
+          const inGroups = await page
+            .waitForFunction(() => /E2E Group\s*›\s*E2E Inner/.test(document.querySelector('.jp-model-page__in-group')?.textContent || ''), null, {
+              timeout: 10000
+            })
+            .then(
+              () => true,
+              () => false
+            );
+          check("a model's page shows the groups it is in", inGroups, (await page.textContent('.jp-model-page__in-group').catch(() => '')) || 'no groups line');
           const innerId = (await invoke(base, session, 'find-group', ['E2E Group'])).result;
           const parentModels = await Promise.all(
             grouped.map(async (filePath) => ((await invoke(base, session, 'get-model', [filePath])).result || {}).parentModel)
