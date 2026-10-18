@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.28.1] - 2026-10-15
+
+**Fixes:**
+- **Tests on GitHub:** the test machines install `bsdtar`, which the archive-unpacking checks need (7.28.0 failed them there; the app and the Docker image were not affected). The README says that running without Docker needs `bsdtar` for unpacking.
+
 ## [7.28.0] - 2026-10-15
 
 **Changes:**
