@@ -196,7 +196,7 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
         const filteredMetadata = filter3MFMetadataBySettings(parsedMetadata);
 
         // Update database if we found any metadata
-        if (filteredMetadata.designer || filteredMetadata.parentModel || filteredMetadata.notes || filteredMetadata.license) {
+        if (filteredMetadata.designer || filteredMetadata.title || filteredMetadata.notes || filteredMetadata.license) {
           log('Parsed metadata from 3dmodel.model:', filteredMetadata);
 
           // Use original filePath for database lookup (not actualFilePath which might be a temp file)
@@ -216,7 +216,7 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
             database.db
               .prepare(
                 `
-              INSERT INTO models (filePath, fileName, designer, parentModel, description, license, dateAdded, isNew)
+              INSERT INTO models (filePath, fileName, designer, title, description, license, dateAdded, isNew)
               VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `
               )
@@ -224,7 +224,7 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
                 dbFilePath,
                 finalFileName,
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 dateAdded
@@ -243,10 +243,10 @@ ipcMain.handle('get3MFImages', async (event, filePath, options = {}) => {
               conditions.push('designer = ?');
             }
 
-            if (filteredMetadata.parentModel && (!existingModel.parentModel || existingModel.parentModel.trim() === '')) {
-              updates.parentModel = filteredMetadata.parentModel;
-              values.push(filteredMetadata.parentModel);
-              conditions.push('parentModel = ?');
+            if (filteredMetadata.title && (!existingModel.title || existingModel.title.trim() === '')) {
+              updates.title = filteredMetadata.title;
+              values.push(filteredMetadata.title);
+              conditions.push('title = ?');
             }
 
             if (filteredMetadata.notes && (!existingModel.description || existingModel.description.trim() === '')) {

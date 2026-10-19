@@ -68,7 +68,7 @@ const TOOL_DEFINITIONS = [
         notes: { type: 'string', description: 'Your own notes about the model' },
         description: { type: 'string', description: "What the model is (the site's or the 3MF's description)" },
         license: { type: 'string' },
-        parentModel: { type: 'string' },
+        title: { type: 'string', description: "The model's Title (shown instead of its file name)" },
         printStatus: { type: 'string', description: 'unprinted, want, queued, printing, printed, failed' },
         rating: { type: 'integer', description: '0-5' },
         favorite: { type: 'boolean' },
@@ -203,17 +203,17 @@ const TOOL_DEFINITIONS = [
     }
   },
   {
-    name: 'list_parent_models',
-    description: 'List distinct parent-model values in the library.',
+    name: 'list_titles',
+    description: 'List the distinct model Titles in the library.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'rename_metadata',
-    description: 'Rename a designer, parentModel, or license value across all models. Merges if the new name already exists.',
+    description: 'Rename a designer, title, or license value across all models. Merges if the new name already exists.',
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', description: 'designer, parentModel, or license' },
+        type: { type: 'string', description: 'designer, title, or license' },
         oldName: { type: 'string' },
         newName: { type: 'string' }
       },
@@ -222,11 +222,11 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_metadata',
-    description: 'Clear a designer, parentModel, or license value from all models that use it.',
+    description: 'Clear a designer, title, or license value from all models that use it.',
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', description: 'designer, parentModel, or license' },
+        type: { type: 'string', description: 'designer, title, or license' },
         name: { type: 'string' }
       },
       required: ['type', 'name']
@@ -498,7 +498,7 @@ const TOOL_DEFINITIONS = [
               source: { type: 'string' },
               notes: { type: 'string' },
               license: { type: 'string' },
-              parentModel: { type: 'string' },
+              title: { type: 'string', description: "The model's Title (shown instead of its file name)" },
               printStatus: { type: 'string' },
               rating: { type: 'integer' },
               favorite: { type: 'boolean' },
@@ -857,8 +857,10 @@ async function callTool(name, args, ctx) {
       return ctx.logPrintEvent(a);
     case 'delete_print_event':
       return ctx.deletePrintEvent(a.eventId);
+    // list_parent_models: its name before 8.0.
+    case 'list_titles':
     case 'list_parent_models':
-      return ctx.listParentModels();
+      return ctx.listTitles();
     case 'rename_metadata':
       return ctx.renameMetadata({ type: a.type, oldName: a.oldName, newName: a.newName });
     case 'delete_metadata':

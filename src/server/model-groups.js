@@ -2,13 +2,13 @@
 
 /**
  * Groups: models kept together under a name (a set, a multi-part print), with groups inside
- * groups. Made in Multi-edit (Create Group), or the models that share a Parent Model.
+ * groups. Made in Multi-edit (Create Group).
  *
  * `model_groups` holds the groups (name, description, the group each is in) and
  * `model_group_members` the group each model is in (one per model: the innermost). A top group's
- * name is the Parent Model of every model under it: the grid groups by it, and filters and search
- * use it. reconcile() keeps the two in step, so a Parent Model typed in Edit, read from a 3MF or
- * cleared moves the model to that group (or out).
+ * name is kept on every model under it, in models.parentModel: the grid groups cards by it. Only
+ * this module writes it (since 8.0 it is not a field people see or edit: the Title replaced it), and
+ * reconcile() keeps the two in step.
  */
 
 const path = require('path');

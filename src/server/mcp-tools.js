@@ -81,13 +81,20 @@ function getModelTagNamesForMcp(modelId) {
     .map((row) => row.name);
 }
 
-const MCP_METADATA_TYPES = new Set(['designer', 'parentModel', 'license']);
+const MCP_METADATA_TYPES = new Set(['designer', 'title', 'license']);
+/** A metadata type of an MCP call; 'parentModel' (before 8.0) is the Title. */
+const mcpMetadataType = (value) => {
+  const type = String(value || '').trim();
+  return type === 'parentModel' ? 'title' : type;
+};
+/** An MCP call's fields with 'parentModel' (before 8.0) taken as the Title. */
+const withTitle = (item) => (item && item.title === undefined && item.parentModel !== undefined ? { ...item, title: item.parentModel } : item);
 
 function renameMetadataForMcp(args) {
-  const type = String((args && args.type) || '').trim();
+  const type = mcpMetadataType(args && args.type);
   const oldName = String((args && args.oldName) || '').trim();
   const newName = String((args && args.newName) || '').trim();
-  if (!MCP_METADATA_TYPES.has(type)) throw new Error('type must be designer, parentModel, or license');
+  if (!MCP_METADATA_TYPES.has(type)) throw new Error('type must be designer, title, or license');
   if (!oldName || !newName) throw new Error('oldName and newName are required');
   const existing = database.db
     .prepare(
@@ -108,9 +115,9 @@ function renameMetadataForMcp(args) {
 }
 
 function deleteMetadataForMcp(args) {
-  const type = String((args && args.type) || '').trim();
+  const type = mcpMetadataType(args && args.type);
   const name = String((args && args.name) || '').trim();
-  if (!MCP_METADATA_TYPES.has(type)) throw new Error('type must be designer, parentModel, or license');
+  if (!MCP_METADATA_TYPES.has(type)) throw new Error('type must be designer, title, or license');
   if (!name) throw new Error('name is required');
   const result = database.db.prepare(`UPDATE models SET ${type} = NULL WHERE ${type} = ?`).run(name);
   return { success: true, updated: result.changes };
@@ -244,7 +251,8 @@ function getMcpToolContext() {
       }
       return { ...model, tags };
     },
-    updateModel: async (args) => {
+    updateModel: async (rawArgs) => {
+      const args = withTitle(rawArgs);
       const existing = resolveModelForMcp(args);
       const payload = {
         id: existing.id,
@@ -255,12 +263,12 @@ function getMcpToolContext() {
         notes: existing.notes,
         printed: existing.printed,
         printStatus: existing.print_status,
-        parentModel: existing.parentModel,
+        title: existing.title,
         license: existing.license,
         rating: existing.rating,
         favorite: existing.favorite
       };
-      for (const key of ['designer', 'source', 'notes', 'description', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
+      for (const key of ['designer', 'source', 'notes', 'description', 'license', 'title', 'printStatus', 'rating', 'favorite', 'tags']) {
         if (args[key] !== undefined) payload[key] = args[key];
       }
       await saveModel(payload);
@@ -327,9 +335,9 @@ function getMcpToolContext() {
       });
     },
     deletePrintEvent: async (eventId) => printEvents.deletePrintEvent(database.db, eventId),
-    listParentModels: async () => {
-      const rows = database.db.prepare("SELECT DISTINCT parentModel FROM models WHERE parentModel IS NOT NULL AND parentModel != ''").all();
-      return rows.map((row) => row.parentModel);
+    listTitles: async () => {
+      const rows = database.db.prepare("SELECT DISTINCT title FROM models WHERE title IS NOT NULL AND title != ''").all();
+      return rows.map((row) => row.title);
     },
     renameMetadata: async (args) => renameMetadataForMcp(args),
     deleteMetadata: async (args) => deleteMetadataForMcp(args),
@@ -471,10 +479,10 @@ function getMcpToolContext() {
       WHERE designer IS NOT NULL AND designer != ''
       GROUP BY designer
       UNION ALL
-      SELECT 'parentModel' as type, parentModel as name, COUNT(*) as model_count
+      SELECT 'title' as type, title as name, COUNT(*) as model_count
       FROM models
-      WHERE parentModel IS NOT NULL AND parentModel != ''
-      GROUP BY parentModel
+      WHERE title IS NOT NULL AND title != ''
+      GROUP BY title
       UNION ALL
       SELECT 'license' as type, license as name, COUNT(*) as model_count
       FROM models
@@ -498,11 +506,11 @@ function getMcpToolContext() {
         if (!model) continue;
         const hasData =
           (model.designer && String(model.designer).trim()) ||
-          (model.parentModel && String(model.parentModel).trim()) ||
+          (model.title && String(model.title).trim()) ||
           (model.description && String(model.description).trim()) ||
           (model.license && String(model.license).trim());
         if (hasData) {
-          modelsWithData.push({ filePath, fileName: model.fileName, designer: model.designer, parentModel: model.parentModel, license: model.license });
+          modelsWithData.push({ filePath, fileName: model.fileName, designer: model.designer, title: model.title, license: model.license });
         }
       }
       if (modelsWithData.length && !args.overwrite) {
@@ -521,7 +529,7 @@ function getMcpToolContext() {
         try {
           const metadata = await extract3MFMetadata(filePath);
           const filteredMetadata = filter3MFMetadataBySettings(metadata);
-          if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.parentModel || filteredMetadata.notes || filteredMetadata.license)) {
+          if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.title || filteredMetadata.notes || filteredMetadata.license)) {
             const existingModel = getModelByFilePath(filePath, { includeThumbnail: false });
             if (!existingModel) {
               results.push({ filePath, success: false, error: 'Model not in library' });
@@ -531,12 +539,12 @@ function getMcpToolContext() {
             database.db
               .prepare(
                 `
-              UPDATE models SET designer = ?, parentModel = ?, description = ?, license = ? WHERE filePath = ?
+              UPDATE models SET designer = ?, title = ?, description = ?, license = ? WHERE filePath = ?
             `
               )
               .run(
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 filePath
@@ -575,10 +583,11 @@ function getMcpToolContext() {
     },
     updateModelsBatch: async (models) => {
       if (!Array.isArray(models) || !models.length) throw new Error('models is required');
-      const batch = models.map((item) => {
+      const batch = models.map((raw) => {
+        const item = withTitle(raw);
         const existing = resolveModelForMcp(item);
         const payload = { filePath: existing.filePath };
-        for (const key of ['designer', 'source', 'notes', 'description', 'license', 'parentModel', 'printStatus', 'rating', 'favorite', 'tags']) {
+        for (const key of ['designer', 'source', 'notes', 'description', 'license', 'title', 'printStatus', 'rating', 'favorite', 'tags']) {
           if (item[key] !== undefined) payload[key] = item[key];
         }
         return payload;

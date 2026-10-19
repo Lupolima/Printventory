@@ -7,7 +7,7 @@ const { repairModelTags } = require('./db-repair');
 
 /** What lists of models carry (not the description: it can be long). */
 const MODEL_BASE_COLUMNS =
-  'id, filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, parentModel, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite, bundleKey, bundleLabel, bundleKind';
+  'id, filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, parentModel, title, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite, bundleKey, bundleLabel, bundleKind';
 
 /** One model's details: also its description. */
 const MODEL_DETAIL_COLUMNS = `${MODEL_BASE_COLUMNS}, description`;
@@ -23,7 +23,7 @@ const MODEL_LIST_THUMB_FLAGS_QUALIFIED =
 
 const MODEL_LIST_COLUMNS = `${MODEL_BASE_COLUMNS}, ${MODEL_LIST_THUMB_FLAGS}`;
 
-const MODEL_LIST_COLUMNS_QUALIFIED = `models.id, models.filePath, models.fileName, models.designer, models.source, models.notes, models.printed, models.print_status, models.print_count, models.last_printed_at, models.parentModel, models.hash, models.size, models.license, models.modifiedDate, models.dateAdded, models.isNew, models.rating, models.favorite, models.bundleKey, models.bundleLabel, models.bundleKind, ${MODEL_LIST_THUMB_FLAGS_QUALIFIED}`;
+const MODEL_LIST_COLUMNS_QUALIFIED = `models.id, models.filePath, models.fileName, models.designer, models.source, models.notes, models.printed, models.print_status, models.print_count, models.last_printed_at, models.parentModel, models.title, models.hash, models.size, models.license, models.modifiedDate, models.dateAdded, models.isNew, models.rating, models.favorite, models.bundleKey, models.bundleLabel, models.bundleKind, ${MODEL_LIST_THUMB_FLAGS_QUALIFIED}`;
 
 function getModelByFilePath(filePath, { includeThumbnail = false } = {}) {
   if (!database.db || !filePath) return null;
@@ -122,7 +122,7 @@ function modelUserFieldsChanged(existing, finals) {
     norm(finals.notes) !== norm(existing.notes) ||
     Number(finals.printed ? 1 : 0) !== Number(existing.printed ? 1 : 0) ||
     String(finals.print_status || '') !== String(existing.print_status || '') ||
-    norm(finals.parentModel) !== norm(existing.parentModel) ||
+    norm(finals.title) !== norm(existing.title) ||
     norm(finals.license) !== norm(existing.license)
   );
 }

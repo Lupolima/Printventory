@@ -66,7 +66,7 @@ The library shows your models as cards: preview, name, designer (or folder), fil
 
 ![The Filter popover](images/filters.png)
 
-Type in the top bar to search names, designers, tags and (optionally) notes. **Filter** opens every filter: folder, designer, parent model, license, tags, print status, new models, favorites, rating, file type and sort order. Active filters show as chips under the tabs; click a chip's × to remove one, or **Clear all**.
+Type in the top bar to search names, designers, tags and (optionally) notes. **Filter** opens every filter: folder, designer, title, license, tags, print status, new models, favorites, rating, file type and sort order. Active filters show as chips under the tabs; click a chip's × to remove one, or **Clear all**.
 
 ### Folder and ZIP bundles
 
@@ -82,11 +82,13 @@ Single files in a folder are not grouped.
 
 ### Groups
 
-Models kept together under a name (a set, a kit, a multi-part print) are a **group**: one stacked card with how many of its models are printed. Click it for the group's page: the pictures of all its models, its description, the groups inside it, and its models with their print status; on the right **Open All in Slicer**, **Log Print** for every model, **Rename**, **Ungroup** and the totals. **Choose** on the page picks models to put in a new group inside it (**Create Group Inside**), move into a group inside it, or take out of it. Make groups in [Edit mode](#edit-mode). A group's name is its models' parent model: models that share a parent model are a group, and changing a model's parent model moves it to that group. Ungrouping changes no files.
+Models kept together under a name (a set, a kit, a multi-part print) are a **group**: one stacked card with how many of its models are printed. Click it for the group's page: the pictures of all its models, its description, the groups inside it, and its models with their print status; on the right **Open All in Slicer**, **Log Print** for every model, **Rename**, **Ungroup** and the totals. **Choose** on the page picks models to put in a new group inside it (**Create Group Inside**), move into a group inside it, or take out of it. Make groups in [Edit mode](#edit-mode). Ungrouping changes no files.
 
 ## Model details
 
 ![The details panel](images/details.png)
+
+A model's **Title** is the name cards and its page show instead of its file name (hover over a card's name for the file's). A 3MF's own title fills it when the model is added (**Settings → Scanning → File Types → 3MF Metadata**), and you change it in the details, **Edit** or Multi-edit. Search, the **Title** filter and sort, Organize Library's folder levels and the Metadata Manager use it too.
 
 Click a model to see it in the details panel, which shows the sections of its page in one column:
 
@@ -102,7 +104,7 @@ On a model's own page (**Open Page**) editors and admins change things in place 
 Click **Edit** next to **Filter** above the grid (or press Ctrl/⌘ E). A click on a card now chooses it instead of opening it:
 
 - **One model**: its details in the sidebar, with **Edit** for the Edit dialog.
-- **Two or more, or a group**: the **Multi-edit** panel. Changes there apply to every chosen model (and every model of the chosen groups) as soon as you make them: print status, source, designer, parent model, license, Category, and adding or removing a tag. **Log a Print on Selected** records one print for all of them.
+- **Two or more, or a group**: the **Multi-edit** panel. Changes there apply to every chosen model (and every model of the chosen groups) as soon as you make them: print status, source, designer, title, license, Category, and adding or removing a tag. **Log a Print on Selected** records one print for all of them.
 - **Create Group** puts the chosen models in a new group: type its name or click a suggestion (what their names, folder, site or designer share). Chosen groups go inside the new one.
 - **Add to** picks any group already in the library (a group inside a group shows as Robot › Arms) and puts the chosen models, and any chosen groups, in it. With a group and models chosen, **Add to** that group does the same.
 - **One group**: its editor: rename it, write its description, take models out (×), **Open Group Page** or **Ungroup**.
@@ -200,9 +202,9 @@ Opening the bell marks them read for your account, in every browser; a notificat
 
 ## Undo
 
-After you change a model's designer, parent model, license, source, notes or tags, a notice at the bottom of the page says what changed: click **Undo** to put it back. It works for multi-edit too (for example "Added tags to 12 models"). **Ctrl/⌘ Z**, when you are not typing in a field, undoes your last 20 edits one by one, newest first. Rating, favorite and print status are a click to change back, so they are not in the list.
+After you change a model's designer, title, license, source, notes or tags, a notice at the bottom of the page says what changed: click **Undo** to put it back. It works for multi-edit too (for example "Added tags to 12 models"). **Ctrl/⌘ Z**, when you are not typing in a field, undoes your last 20 edits one by one, newest first. Rating, favorite and print status are a click to change back, so they are not in the list.
 
-Renaming, merging and deleting a tag (in the Tag Manager or on the Tags page) can be undone the same way; the Tag Manager shows its own **Undo** line, since the notice is behind it. Undoing a delete or a merge puts the tag back on the models that had it. The same goes for the **Metadata Editor** (renaming, merging and clearing designers, parent models and licenses): it has its own **Undo** line too, and undoing a merge or a clear puts the old name back on just the models that had it.
+Renaming, merging and deleting a tag (in the Tag Manager or on the Tags page) can be undone the same way; the Tag Manager shows its own **Undo** line, since the notice is behind it. Undoing a delete or a merge puts the tag back on the models that had it. The same goes for the **Metadata Editor** (renaming, merging and clearing designers, titles and licenses): it has its own **Undo** line too, and undoing a merge or a clear puts the old name back on just the models that had it.
 
 Undo respects other people's work: undoing a tag edit takes back only the tags you added or removed, and if someone changed a field after you, you are asked whose value stays. Undoing a Metadata Editor change leaves models whose value was edited since.
 
@@ -210,7 +212,7 @@ Undo respects other people's work: undoing a tag edit takes back only the tags y
 
 Everyone who has JusttPrint open sees changes as they happen: when someone edits a model, logs a print or changes its status, its card and the details panel update in every other browser (the details panel waits while you are typing in it).
 
-If two people edit the same field of the same model, nobody's work is lost silently. When you save a designer, parent model, license, source or notes that someone else changed after you started, JusttPrint shows both versions: **Keep Mine** or **Keep Theirs** (for notes also **Keep Both**, theirs then yours). Tags never clash: what each person added or removed is kept.
+If two people edit the same field of the same model, nobody's work is lost silently. When you save a designer, title, license, source or notes that someone else changed after you started, JusttPrint shows both versions: **Keep Mine** or **Keep Theirs** (for notes also **Keep Both**, theirs then yours). Tags never clash: what each person added or removed is kept.
 
 ## Collections
 
@@ -249,9 +251,9 @@ Change a role with its menu; **Set Password** gives someone a new password and l
 
 - **Tags** lists every tag with how many models use it. Create, rename (renaming onto an existing tag merges the two), delete, or show a tag's models.
 - **Duplicates** finds identical files by their contents and shows each group side by side. **Find: Same geometry** finds the same model saved as different files instead (an STL and its 3MF, a re-export, a copy turned on the plate); JusttPrint reads each STL and 3MF once for it, and mirrored left and right parts are not matched. **Find: Same shape, any resolution** also finds the same design exported with more or fewer triangles (a smooth and a coarse STL of one part); since a part a few percent bigger, or one that differs only in small details, looks the same to it, check those groups before deleting. **Keep this** marks the other copies for deletion; **Easy** keeps one copy of each group for you (preferring a folder you choose). Nothing is deleted until you confirm **Delete Selected**. You can limit the search to the models currently shown.
-- **Organize** moves the models in a scanned folder into a folder structure you choose (up to four levels, such as designer / parent model / license). **Preview** shows what will happen first; each original is removed only after its copy is checked, and files that are not in the library stay where they are. The models folder must be mounted without `:ro`.
+- **Organize** moves the models in a scanned folder into a folder structure you choose (up to four levels, such as designer / title / license). **Preview** shows what will happen first; each original is removed only after its copy is checked, and files that are not in the library stay where they are. The models folder must be mounted without `:ro`.
 - **AI Tagging** sets up the AI service; then choose models with **Edit**, open a chosen card's **⋯** menu and choose **Generate Tags**, and tick the tags to keep. See [AI tagging](#ai-tagging).
-- **Settings → Library** has the Metadata Manager (rename or remove designers, licenses and parent models everywhere), Library Stats, Print Roulette (random models to print), Clear New Flag and Purge Models.
+- **Settings → Library** has the Metadata Manager (rename or remove designers, licenses and titles everywhere), Library Stats, Print Roulette (random models to print), Clear New Flag and Purge Models.
 
 ## AI tagging
 
@@ -314,7 +316,7 @@ AI apps (Claude Code, Claude Desktop, Cursor, VS Code and others) can connect to
 
 ## Tips
 
-- Use tags, designers and parent models consistently; the Metadata Manager and the Tags page clean them up later.
+- Use tags, designers and titles consistently; the Metadata Manager and the Tags page clean them up later.
 - Generate Missing Thumbnails is much faster than regenerating all of them.
 - Check **Duplicates** now and then, limited to the models in view for a large library.
 - Print Roulette (**Settings → Library**) finds forgotten models worth printing.

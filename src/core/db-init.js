@@ -49,6 +49,7 @@ function initializeDatabase() {
           last_printed_at DATETIME,
           thumbnail TEXT,
           parentModel TEXT,
+          title TEXT,
           hash TEXT,
           size INTEGER,
           license TEXT,
@@ -140,6 +141,7 @@ function initializeDatabase() {
     migrateBundleColumns();
     migratePrintLifecycleColumns();
     migrateDescriptionColumn();
+    migrateTitleColumn();
     clearFailurePlaceholderThumbnails();
 
     // Create index for dateAdded after migration (in case it was just added)
@@ -274,6 +276,55 @@ function migratePrintLifecycleColumns() {
  * Notes (what you write about it). Once, every model's notes so far become its description (they
  * were mostly descriptions), and the notes start empty.
  */
+/**
+ * 8.0: a model's Title (from a 3MF's Title, or typed in Edit) replaces Parent Model. The
+ * parentModel column stays, as the name of the model's top group (model-groups.js keeps it; it is
+ * no longer shown or edited), so 7.x can still open the database. Once: every Parent Model is
+ * copied to the Title, and settings that named Parent Model name Title.
+ */
+function migrateTitleColumn() {
+  try {
+    const names = new Set(
+      database.db
+        .prepare('PRAGMA table_info(models)')
+        .all()
+        .map((col) => col.name)
+    );
+    if (!names.has('title')) {
+      database.db.prepare('ALTER TABLE models ADD COLUMN title TEXT').run();
+      console.log('Added models.title');
+    }
+    database.db.prepare('CREATE INDEX IF NOT EXISTS idx_models_title ON models(title)').run();
+    const done = database.db.prepare("SELECT value FROM settings WHERE key = 'titleFromParentModel'").get();
+    if (done && done.value === '1') return;
+    database.db.transaction(() => {
+      const copied = database.db
+        .prepare(
+          "UPDATE models SET title = TRIM(parentModel) WHERE (title IS NULL OR TRIM(title) = '') AND parentModel IS NOT NULL AND TRIM(parentModel) != ''"
+        )
+        .run().changes;
+      const setting = database.db.prepare('SELECT value FROM settings WHERE key = ?');
+      const save = database.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+      // Settings → File Types → 3MF Metadata: the Title checkbox takes the Parent Model one's choice.
+      const fill = setting.get('enable3MFParentModel');
+      if (fill && !setting.get('enable3MFTitle')) save.run('enable3MFTitle', fill.value);
+      // Organize Library's folder layers.
+      const layers = setting.get('organizeLibraryLayers');
+      if (layers && layers.value && layers.value.includes('parentModel')) save.run('organizeLibraryLayers', layers.value.replace(/parentModel/g, 'title'));
+      // History: Parent Model changes are Title changes.
+      try {
+        database.db.prepare("UPDATE model_changes SET field = 'title' WHERE field = 'parentModel'").run();
+      } catch (_) {
+        /* no history table yet */
+      }
+      save.run('titleFromParentModel', '1');
+      if (copied) console.log(`Copied the Parent Model of ${copied} model(s) to their Title`);
+    })();
+  } catch (error) {
+    console.error('Title column migration failed:', error);
+  }
+}
+
 function migrateDescriptionColumn() {
   try {
     const names = new Set(

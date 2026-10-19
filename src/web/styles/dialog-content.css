@@ -169,7 +169,7 @@
 /* Phone Docker layout forces 44px on every dialog button, which made each
    exclude row tall enough that a short list showed only two folders. */
 
-/* STL Home: Designer and Parent model in columns side by side */
+/* STL Home: Designer and Title in columns side by side */
 .path-metadata-indices {
   display: flex;
   flex-direction: row;

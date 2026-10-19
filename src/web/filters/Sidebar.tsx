@@ -27,7 +27,7 @@ declare global {
 interface Options {
   designers: string[];
   licenses: string[];
-  parents: string[];
+  titles: string[];
   tags: { name: string; count: number }[];
   fileTypes: { value: string; label: string }[];
   /** Each Category with its Subcategories' names. */
@@ -62,10 +62,10 @@ async function loadFileTypes(): Promise<{ value: string; label: string }[]> {
 
 async function loadOptions(): Promise<Options> {
   const clean = (list: (string | null)[]) => [...new Set(list.filter((v): v is string => !!v))];
-  const [designers, licenses, parents, allTags, fileTypes, list] = await Promise.all([
+  const [designers, licenses, titles, allTags, fileTypes, list] = await Promise.all([
     libraryValues.designers().catch(() => []),
     libraryValues.licenses().catch(() => []),
-    libraryValues.parentModels().catch(() => []),
+    libraryValues.titles().catch(() => []),
     tagApi.list().catch(() => []),
     loadFileTypes(),
     categoryApi.list().catch(() => ({ categories: [], uncategorized: 0 }))
@@ -73,7 +73,7 @@ async function loadOptions(): Promise<Options> {
   return {
     designers: clean(designers),
     licenses: clean(licenses),
-    parents: clean(parents),
+    titles: clean(titles),
     tags: allTags.map((t) => ({ name: t.name, count: t.model_count })).sort((a, b) => a.name.localeCompare(b.name)),
     fileTypes,
     categories: list.categories
@@ -406,22 +406,22 @@ function FilterControls({ container, options }: { container: HTMLElement; option
   const state = useFilters();
   const { loading } = useSearchStatus();
   const disabledClass = loading ? 'disabled-during-loading' : undefined;
-  const pick = async (field: 'designer' | 'parent' | 'license' | 'tag', use: (value: string) => void) => {
+  const pick = async (field: 'designer' | 'title' | 'license' | 'tag', use: (value: string) => void) => {
     const value = await pickFromList(field);
     if (value) applyFilterChange(() => use(value));
   };
-  const listButton = (field: 'designer' | 'parent' | 'license' | 'tag', title: string, use: (value: string) => void) => (
+  const listButton = (field: 'designer' | 'title' | 'license' | 'tag', title: string, use: (value: string) => void) => (
     <button type="button" className="list-button icon-button" title={title} disabled={loading} onClick={() => pick(field, use)}>
       ☰
     </button>
   );
   const valueSelect = (
-    kind: 'designer' | 'license' | 'parentModel',
+    kind: 'designer' | 'license' | 'title',
     id: string,
     label: string,
     all: string,
     values: string[],
-    field: 'designer' | 'parent' | 'license',
+    field: 'designer' | 'title' | 'license',
     listTitle: string
   ) => {
     const current = state[kind].length === 1 ? state[kind][0] : '';
@@ -474,7 +474,7 @@ function FilterControls({ container, options }: { container: HTMLElement; option
   return createPortal(
     <>
       {valueSelect('designer', 'designer-select', 'Select Designer:', 'All Designers', options.designers, 'designer', 'Search existing designers')}
-      {valueSelect('parentModel', 'parent-select', 'Select Parent Model:', 'All Parent Models', options.parents, 'parent', 'Search existing parent models')}
+      {valueSelect('title', 'title-select', 'Select Title:', 'All Titles', options.titles, 'title', 'Search existing titles')}
       {valueSelect('license', 'license-select', 'Select License:', 'All Licenses', options.licenses, 'license', 'Search existing licenses')}
       <div className="form-group">
         <label htmlFor="category-select">Select Category:</label>
@@ -650,7 +650,7 @@ export function Sidebar() {
     filters: document.getElementById('sidebar-filters-slot'),
     stackToggle: document.getElementById('filter-stack-toggle-slot')
   }));
-  const [options, setOptions] = useState<Options>({ designers: [], licenses: [], parents: [], tags: [], fileTypes: [], categories: [] });
+  const [options, setOptions] = useState<Options>({ designers: [], licenses: [], titles: [], tags: [], fileTypes: [], categories: [] });
   const { loading } = useSearchStatus();
   const state = useFilters();
 

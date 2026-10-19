@@ -171,7 +171,7 @@ test('the public page escapes library text, keeps unsafe links out and shows no 
 test('a smart collection shows what its saved search finds now, and is shared that way', () => {
   const db = createDb();
   db.exec(
-    'ALTER TABLE models ADD COLUMN dateAdded TEXT; ALTER TABLE models ADD COLUMN isNew INTEGER; ALTER TABLE models ADD COLUMN parentModel TEXT; ALTER TABLE models ADD COLUMN modifiedDate TEXT'
+    'ALTER TABLE models ADD COLUMN dateAdded TEXT; ALTER TABLE models ADD COLUMN isNew INTEGER; ALTER TABLE models ADD COLUMN parentModel TEXT; ALTER TABLE models ADD COLUMN title TEXT; ALTER TABLE models ADD COLUMN modifiedDate TEXT'
   );
   const query = { designer: ['CreativeTools'] };
   const smart = c.createCollection(

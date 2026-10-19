@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
-  NO_PARENT_FOLDER,
+  NO_TITLE_FOLDER,
   SPACE_MARGIN_BYTES,
   SKIP,
   directoriesOverlap,
@@ -36,7 +36,7 @@ function model(filePath, extra) {
       id: 1,
       filePath,
       fileName: path.basename(filePath),
-      parentModel: 'Articulated Dragon',
+      title: 'Articulated Dragon',
       size: 12
     },
     extra || {}
@@ -52,20 +52,20 @@ test('nests files as destination / parent model / file name', () => {
   assert.strictEqual(plan.moves.length, 1);
   assert.strictEqual(plan.moves[0].action, 'copy');
   assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, 'Articulated Dragon', 'head.stl'));
-  assert.strictEqual(plan.noParentCount, 0);
+  assert.strictEqual(plan.noTitleCount, 0);
 });
 
 test('stacks the folders the user chooses', () => {
   const filePath = path.join(dirs.source, 'head.stl');
-  const plan = planOrganize([model(filePath, { designer: 'Alice', parentModel: 'Dragon', license: 'CC-BY' })], dirs.source, dirs.dest, {
-    layers: ['designer', 'parentModel']
+  const plan = planOrganize([model(filePath, { designer: 'Alice', title: 'Dragon', license: 'CC-BY' })], dirs.source, dirs.dest, {
+    layers: ['designer', 'title']
   });
   assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, 'Alice', 'Dragon', 'head.stl'));
 });
 
 test('uses an empty-value folder for a missing layer', () => {
   const filePath = path.join(dirs.source, 'head.stl');
-  const plan = planOrganize([model(filePath, { designer: '', parentModel: 'Dragon' })], dirs.source, dirs.dest, { layers: ['designer', 'parentModel'] });
+  const plan = planOrganize([model(filePath, { designer: '', title: 'Dragon' })], dirs.source, dirs.dest, { layers: ['designer', 'title'] });
   assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, 'No Designer', 'Dragon', 'head.stl'));
   assert.strictEqual(plan.emptyLayers[0].folder, 'No Designer');
   assert.strictEqual(plan.emptyLayers[0].count, 1);
@@ -77,11 +77,11 @@ test('puts files in the destination root when no folders are chosen', () => {
   assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, 'head.stl'));
 });
 
-test('puts files with no parent model in No Parent Model', () => {
+test('puts files with no parent model in No Title', () => {
   const filePath = path.join(dirs.source, 'widget.stl');
-  const plan = planOrganize([model(filePath, { parentModel: '   ' })], dirs.source, dirs.dest);
-  assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, NO_PARENT_FOLDER, 'widget.stl'));
-  assert.strictEqual(plan.noParentCount, 1);
+  const plan = planOrganize([model(filePath, { title: '   ' })], dirs.source, dirs.dest);
+  assert.strictEqual(plan.moves[0].to, path.join(dirs.dest, NO_TITLE_FOLDER, 'widget.stl'));
+  assert.strictEqual(plan.noTitleCount, 1);
 });
 
 test('skips zip entries and browser links that live under the source', () => {
@@ -89,7 +89,7 @@ test('skips zip entries and browser links that live under the source', () => {
   const urlPath = 'url::https://example.com/model';
   const loose = path.join(dirs.source, 'kept.stl');
   const plan = planOrganize(
-    [model(zipPath, { fileName: 'part.stl' }), model(urlPath, { fileName: 'remote.stl' }), model(loose, { fileName: 'kept.stl', parentModel: 'Kept' })],
+    [model(zipPath, { fileName: 'part.stl' }), model(urlPath, { fileName: 'remote.stl' }), model(loose, { fileName: 'kept.stl', title: 'Kept' })],
     dirs.source,
     dirs.dest
   );
@@ -106,9 +106,9 @@ test('moves each zip once and rewrites the entry paths when includeZips is set',
   const zip = path.join(dirs.source, 'pack.zip');
   const plan = planOrganize(
     [
-      model(zip + '::a.stl', { id: 1, fileName: 'a.stl', parentModel: 'Dragon', size: 10 }),
-      model(zip + '::b.stl', { id: 2, fileName: 'b.stl', parentModel: 'Dragon', size: 20 }),
-      model(zip + '::c.stl', { id: 3, fileName: 'c.stl', parentModel: 'Other', size: 4 })
+      model(zip + '::a.stl', { id: 1, fileName: 'a.stl', title: 'Dragon', size: 10 }),
+      model(zip + '::b.stl', { id: 2, fileName: 'b.stl', title: 'Dragon', size: 20 }),
+      model(zip + '::c.stl', { id: 3, fileName: 'c.stl', title: 'Other', size: 4 })
     ],
     dirs.source,
     dirs.dest,
@@ -151,8 +151,8 @@ test('copies the zip file and leaves it packed', async () => {
   fs.writeFileSync(zip, 'zip-bytes-not-extracted');
   const plan = planOrganize(
     [
-      model(zip + '::a.stl', { id: 1, fileName: 'a.stl', parentModel: 'Dragon', size: 4 }),
-      model(zip + '::b.stl', { id: 2, fileName: 'b.stl', parentModel: 'Dragon', size: 4 })
+      model(zip + '::a.stl', { id: 1, fileName: 'a.stl', title: 'Dragon', size: 4 }),
+      model(zip + '::b.stl', { id: 2, fileName: 'b.stl', title: 'Dragon', size: 4 })
     ],
     source,
     dest,
@@ -212,7 +212,7 @@ test('rejects overlapping source and destination folders', () => {
 
 test('strips parent names that would escape the destination root', () => {
   const filePath = path.join(dirs.source, 'head.stl');
-  const plan = planOrganize([model(filePath, { parentModel: '..\\..\\Windows' })], dirs.source, dirs.dest);
+  const plan = planOrganize([model(filePath, { title: '..\\..\\Windows' })], dirs.source, dirs.dest);
   assert.strictEqual(plan.ok, true);
   assert.ok(plan.moves[0].to.startsWith(dirs.dest));
   assert.strictEqual(plan.moves[0].to.includes('..'), false);

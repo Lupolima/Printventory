@@ -86,8 +86,8 @@ export const filterActions = {
     userChange({ ...state, printed, favorite });
   },
 
-  /** Designer, license or parent model select (one value, or '' for all). */
-  setValue(kind: 'designer' | 'license' | 'parentModel', value: string) {
+  /** Designer, license or title select (one value, or '' for all). */
+  setValue(kind: 'designer' | 'license' | 'title', value: string) {
     if (value) {
       const consumed = consumeIntoQuery(state, { t: 'filter', kind, value });
       if (consumed) return userChange(consumed);

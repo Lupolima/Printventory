@@ -12,7 +12,7 @@ import { GroupNameDialog } from '../groups/GroupNameDialog';
 import { groupSelection, type ChosenGroup } from '../library/groupSelection';
 import { parentModelKey } from '../grid/layout';
 
-type Field = 'designer' | 'parentModel' | 'license' | 'source' | 'tags';
+type Field = 'designer' | 'title' | 'license' | 'source' | 'tags';
 
 /** What the multi-edit panel asks of the library (library/hosts.ts), which owns the selection and the panel's visibility. */
 export interface MultiEditHost {
@@ -49,7 +49,7 @@ const sortNames = (names: (string | null | undefined)[]) =>
 
 interface Options {
   designers: string[];
-  parents: string[];
+  titles: string[];
   licenses: string[];
   tags: string[];
   /** Each Category with its Subcategories' names. */
@@ -61,16 +61,16 @@ interface OnSelected {
 }
 
 async function loadOptions(): Promise<Options> {
-  const [designers, parents, licenses, allTags, list] = await Promise.all([
+  const [designers, titles, licenses, allTags, list] = await Promise.all([
     libraryValues.designers().catch(() => []),
-    libraryValues.parentModels().catch(() => []),
+    libraryValues.titles().catch(() => []),
     libraryValues.licenses().catch(() => []),
     tagApi.list().catch(() => []),
     categoryApi.list().catch(() => ({ categories: [], uncategorized: 0 }))
   ]);
   return {
     designers: sortNames(designers),
-    parents: sortNames(parents),
+    titles: sortNames(titles),
     licenses: sortNames(licenses),
     tags: sortNames(allTags.map((t) => t.name)),
     categories: list.categories
@@ -89,9 +89,9 @@ async function loadOnSelected(paths: string[]): Promise<OnSelected> {
   return { tags: sortNames(tagNames) };
 }
 
-const PROMPTS: Record<'designer' | 'parentModel' | 'license', string> = {
+const PROMPTS: Record<'designer' | 'title' | 'license', string> = {
   designer: 'designer',
-  parentModel: 'parent model',
+  title: 'title',
   license: 'license'
 };
 
@@ -111,10 +111,10 @@ export function MultiEditPanel() {
   /** Every group in the library (Add to Group), and the one picked. */
   const [allGroups, setAllGroups] = useState<{ id: number; name: string; path: string; modelCount: number }[]>([]);
   const [existing, setExisting] = useState('');
-  const [options, setOptions] = useState<Options>({ designers: [], parents: [], licenses: [], tags: [], categories: [] });
+  const [options, setOptions] = useState<Options>({ designers: [], titles: [], licenses: [], tags: [], categories: [] });
   const [onSelected, setOnSelected] = useState<OnSelected>({ tags: [] });
   const [source, setSource] = useState('');
-  const [picked, setPicked] = useState({ designer: '', parentModel: '', license: '' });
+  const [picked, setPicked] = useState({ designer: '', title: '', license: '' });
   const sourceTimer = useRef<number | undefined>(undefined);
   const selectionLoad = useRef(0);
   const host = window.multiEditHost;
@@ -154,7 +154,7 @@ export function MultiEditPanel() {
         open: () => {
           window.clearTimeout(sourceTimer.current);
           setSource('');
-          setPicked({ designer: '', parentModel: '', license: '' });
+          setPicked({ designer: '', title: '', license: '' });
           reloadOptions();
           loadGroups();
           setExisting('');
@@ -173,13 +173,13 @@ export function MultiEditPanel() {
     return ok;
   }
 
-  async function pickValue(field: 'designer' | 'parentModel' | 'license', value: string) {
+  async function pickValue(field: 'designer' | 'title' | 'license', value: string) {
     setPicked((current) => ({ ...current, [field]: value }));
     if (!value) return;
     await save(field, value);
   }
 
-  async function addNewValue(field: 'designer' | 'parentModel' | 'license') {
+  async function addNewValue(field: 'designer' | 'title' | 'license') {
     const typed = (await askText(`New ${PROMPTS[field]}`, `Enter a ${PROMPTS[field]} for the selected models:`))?.trim();
     if (!typed) return;
     setPicked((current) => ({ ...current, [field]: typed }));
@@ -320,7 +320,7 @@ export function MultiEditPanel() {
     </button>
   );
 
-  const valueRow = (field: 'designer' | 'parentModel' | 'license', id: string, title: string, empty: string, values: string[], list: ListField) => (
+  const valueRow = (field: 'designer' | 'title' | 'license', id: string, title: string, empty: string, values: string[], list: ListField) => (
     <div className="jp-multi__row">
       <label htmlFor={id}>{title}</label>
       <div className="jp-multi__control">
@@ -501,7 +501,7 @@ export function MultiEditPanel() {
             </div>
           </div>
           {valueRow('designer', 'multi-designer', 'Designer', 'No change', options.designers, 'designer')}
-          {valueRow('parentModel', 'multi-parent', 'Parent model', 'No change', options.parents, 'parent')}
+          {valueRow('title', 'multi-title', 'Title', 'No change', options.titles, 'title')}
           {valueRow('license', 'multi-license', 'License', 'No change', options.licenses, 'license')}
           <div className="jp-multi__row">
             <label htmlFor="multi-category">Category</label>

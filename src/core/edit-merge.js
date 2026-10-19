@@ -13,7 +13,7 @@
  */
 
 /** Fields a save checks against its base (rating and favorite are single clicks: the last one counts). */
-const CHECKED_FIELDS = ['designer', 'source', 'notes', 'parentModel', 'license'];
+const CHECKED_FIELDS = ['designer', 'source', 'notes', 'title', 'license'];
 
 /** Empty, null and missing are the same value; surrounding spaces do not count. */
 const norm = (value) => (value == null ? '' : String(value).trim());

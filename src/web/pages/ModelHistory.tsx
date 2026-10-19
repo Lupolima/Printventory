@@ -11,7 +11,7 @@ export const FIELD_LABELS: Record<string, string> = {
   fileName: 'Name',
   designer: 'Designer',
   source: 'Source',
-  parentModel: 'Parent model',
+  title: 'Title',
   license: 'License',
   notes: 'Notes',
   description: 'Description',

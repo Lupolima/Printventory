@@ -4,14 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const NO_PARENT_FOLDER = 'No Parent Model';
+const NO_TITLE_FOLDER = 'No Title';
 const SPACE_MARGIN_BYTES = 64 * 1024 * 1024;
 const PREVIEW_SAMPLE_LIMIT = 20;
 const MAX_STRUCTURE_LAYERS = 4;
 
 const STRUCTURE_FIELDS = {
   designer: { id: 'designer', label: 'Designer', empty: 'No Designer', column: 'designer' },
-  parentModel: { id: 'parentModel', label: 'Parent Model', empty: 'No Parent Model', column: 'parentModel' },
+  title: { id: 'title', label: 'Title', empty: 'No Title', column: 'title' },
   license: { id: 'license', label: 'License', empty: 'No License', column: 'license' },
   source: { id: 'source', label: 'Source', empty: 'No Source', column: 'source' },
   printStatus: { id: 'printStatus', label: 'Print Status', empty: 'No Print Status', column: 'print_status' }
@@ -33,7 +33,7 @@ function emptyPlan(error) {
     moves: [],
     skipped: [],
     reasonCounts: {},
-    noParentCount: 0,
+    noTitleCount: 0,
     copyBytes: 0,
     copyCount: 0,
     resumeCount: 0,
@@ -106,16 +106,17 @@ function sanitizeFileName(fileName) {
   return safeStem + safeExt;
 }
 
-function parentFolderName(parentModel) {
-  return sanitizePathSegment(parentModel) || NO_PARENT_FOLDER;
+function titleFolderName(title) {
+  return sanitizePathSegment(title) || NO_TITLE_FOLDER;
 }
 
 function resolveLayers(layers) {
-  if (!Array.isArray(layers)) return ['parentModel'];
+  if (!Array.isArray(layers)) return ['title'];
   const seen = new Set();
   const out = [];
   for (const id of layers) {
-    const key = String(id || '');
+    // 'parentModel' (before 8.0) is the Title layer.
+    const key = String(id || '') === 'parentModel' ? 'title' : String(id || '');
     if (!STRUCTURE_FIELDS[key] || seen.has(key)) continue;
     seen.add(key);
     out.push(key);
@@ -157,7 +158,7 @@ function placementFor(dest, layers, valuesByColumn) {
   return {
     folder: segments.length ? path.join(dest, ...segments) : dest,
     emptyLayers,
-    noParent: emptyLayers.some((layer) => layer.id === 'parentModel')
+    noTitle: emptyLayers.some((layer) => layer.id === 'title')
   };
 }
 
@@ -344,11 +345,11 @@ function planOrganize(models, sourceDir, destDir, options = {}) {
       moves.push({
         from: archive,
         to: allocated.to,
-        parentModel: placement.folder,
+        folder: placement.folder,
         fileName: path.basename(allocated.to),
         bytes: bytes == null ? 0 : bytes,
         action: allocated.action,
-        noParent: placement.noParent,
+        noTitle: placement.noTitle,
         emptyLayers: placement.emptyLayers,
         kind: 'zip',
         zipEntryCount: group.entries.length,
@@ -407,11 +408,11 @@ function planOrganize(models, sourceDir, destDir, options = {}) {
       id: model.id,
       from: filePath,
       to: allocated.to,
-      parentModel: placement.folder,
+      folder: placement.folder,
       fileName: path.basename(allocated.to),
       bytes: bytes == null ? 0 : bytes,
       action: allocated.action,
-      noParent: placement.noParent,
+      noTitle: placement.noTitle,
       emptyLayers: placement.emptyLayers
     });
   }
@@ -424,7 +425,7 @@ function planOrganize(models, sourceDir, destDir, options = {}) {
     moves,
     skipped,
     reasonCounts: countReasons(skipped),
-    noParentCount: moves.filter((move) => move.noParent).length,
+    noTitleCount: moves.filter((move) => move.noTitle).length,
     emptyLayers: tallyEmptyLayers(moves),
     layers,
     copyBytes: copyMoves.reduce((sum, move) => sum + (Number(move.bytes) || 0), 0),
@@ -626,13 +627,13 @@ async function runOrganizePlan(plan, deps = {}) {
 }
 
 module.exports = {
-  NO_PARENT_FOLDER,
+  NO_TITLE_FOLDER,
   SPACE_MARGIN_BYTES,
   PREVIEW_SAMPLE_LIMIT,
   SKIP,
   sanitizePathSegment,
   sanitizeFileName,
-  parentFolderName,
+  titleFolderName,
   directoriesOverlap,
   fileIsInsideDirectory,
   pathsAreSame,

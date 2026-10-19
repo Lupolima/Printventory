@@ -42,7 +42,7 @@ function folderFiles(db, dir) {
   const sep = folder.includes('\\') && !folder.includes('/') ? '\\' : '/';
   return db
     .prepare(
-      `SELECT id, filePath, fileName, size, designer, license, source, parentModel, rating, favorite, print_status, print_count, printed, dateAdded
+      `SELECT id, filePath, fileName, size, designer, license, source, parentModel, title, rating, favorite, print_status, print_count, printed, dateAdded
     FROM models WHERE filePath LIKE ? ESCAPE '\\' AND filePath NOT LIKE '%::%'`
     )
     .all(`${escapeLike(folder)}${sep}%`)

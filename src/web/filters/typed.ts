@@ -6,7 +6,7 @@
  *   (category:Toys OR category:Art) is:unprinted rating:4+
  *
  * Fields (`field:value`, a value with spaces in quotes): tag, creator/designer/by, category, name,
- * notes, folder/path, source, license, parent. Filters: is:printed, is:unprinted, is:want,
+ * notes, folder/path, source, license, title (parent, its name before 8.0). Filters: is:printed, is:unprinted, is:want,
  * is:queued, is:printing, is:failed, is:favorite, is:new, rating:N (N+ for at least N), type:3mf.
  * AND, OR and NOT (in capitals), "-" before a term for NOT, brackets, and terms side by side
  * mean AND. Plain words search every field, as before.
@@ -32,7 +32,8 @@ export const TYPED_FIELDS: Record<string, string> = {
   source: 'source',
   src: 'source',
   license: 'license',
-  parent: 'parentModel'
+  title: 'title',
+  parent: 'title'
 };
 
 const IS_VALUES: Record<string, [AtomKind, string]> = {

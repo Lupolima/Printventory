@@ -2,6 +2,15 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [8.0.0] - 2026-10-19
+
+**Breaking changes:**
+- **Title replaces Parent Model.** A model has a **Title**: the name its card, its page, Home and the Queue show instead of the file's name (hover over a card's name for the file's). A 3MF's `Title` fills it when the model is added or with Pull 3MF Metadata (**Settings → Scanning → File Types → 3MF Metadata → Title**); you change it in the details, Edit and Multi-edit. Search, the **Title** filter and sort (and `title:` in the search box; `parent:` still works), the list view's **Title** column, Organize Library's **Title** folder level, the Metadata Manager, Library Stats, History and the STL Home option that fills a field from a folder name all use the Title now. **Parent Model is gone**: it is no longer shown, filtered on or edited anywhere.
+- **Groups have their own names.** A group is made with **Create Group** (Multi-edit) and keeps its name and models as before, but models are no longer grouped because they share a name, and a Title never puts a model in a group.
+- **MCP:** `update_model` and `update_models_batch` take `title`, `list_titles` replaces `list_parent_models`, and `rename_metadata`/`delete_metadata` take the type `title`. The old names (`parentModel`, `list_parent_models`) still work and mean the Title.
+
+**Upgrading:** take a backup first (**Settings → Backup**). On the first start every model's Parent Model is copied to its Title (once), and the settings that named Parent Model (the 3MF checkbox, Organize Library's folder levels) name Title. Saved searches and smart collections that filter on Parent Model now filter on the Title. Your groups stay as they are. The database keeps the old column, so 7.x can still open it, but Titles set in 8.0 do not show there. Reload open browser tabs, and reconnect MCP clients.
+
 ## [7.30.0] - 2026-10-18
 
 **Changes:**

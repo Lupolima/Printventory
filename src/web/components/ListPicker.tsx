@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { libraryValues, models, tags as tagApi } from '../api';
 import { selection } from '../selection';
 
-/** The lists the ☰ buttons search: designers, parent models, licenses and tags. */
-export type ListField = 'designer' | 'parent' | 'license' | 'tag';
+/** The lists the ☰ buttons search: designers, titles, licenses and tags. */
+export type ListField = 'designer' | 'title' | 'license' | 'tag';
 
 interface Item {
   label: string;
@@ -19,7 +19,7 @@ interface Request {
 
 const TITLES: Record<ListField, [string, string?]> = {
   designer: ['Select Designer'],
-  parent: ['Select Parent Model'],
+  title: ['Select Title'],
   license: ['Select License'],
   tag: ['Select Tag', 'Remove Tag']
 };
@@ -36,8 +36,8 @@ async function loadItems(field: ListField, remove: boolean): Promise<Item[]> {
   switch (field) {
     case 'designer':
       return named(await libraryValues.designers());
-    case 'parent':
-      return named(await libraryValues.parentModels());
+    case 'title':
+      return named(await libraryValues.titles());
     case 'license':
       return named(await libraryValues.licenses());
     case 'tag':

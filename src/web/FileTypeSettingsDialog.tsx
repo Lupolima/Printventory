@@ -11,7 +11,7 @@ declare global {
 
 const METADATA_FIELDS = [
   ['enable3MFDesigner', 'enable-3mf-designer', 'Designer'],
-  ['enable3MFParentModel', 'enable-3mf-parent-model', 'Parent Model'],
+  ['enable3MFTitle', 'enable-3mf-title', 'Title'],
   ['enable3MFLicense', 'enable-3mf-license', 'License Type'],
   ['enable3MFNotes', 'enable-3mf-notes', 'Notes']
 ] as const;
@@ -34,7 +34,7 @@ const DEFAULTS: FileTypeSettings = {
   scanTypes: [],
   excludeFolders: '',
   autoTagFromFolder: false,
-  metadata: { enable3MFDesigner: true, enable3MFParentModel: true, enable3MFLicense: true, enable3MFNotes: true }
+  metadata: { enable3MFDesigner: true, enable3MFTitle: true, enable3MFLicense: true, enable3MFNotes: true }
 };
 
 function parseIds(raw: string | null): string[] {

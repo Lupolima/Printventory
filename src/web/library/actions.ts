@@ -32,7 +32,7 @@ export async function viewEntireLibrary() {
 
 // ---- After changes in the managers ----
 
-/** Reload every picker and filter that lists tags, designers, parent models or licenses. */
+/** Reload every picker and filter that lists tags, designers, titles or licenses. */
 function reloadAllPickers() {
   window.libraryFilters?.reloadOptions();
   window.detailsFields?.reloadOptions();

@@ -19,7 +19,7 @@ describe('modelMatchesFilters', () => {
 
   it('checks license and parent model exactly, and skips several values (the search decides)', () => {
     expect(modelMatchesFilters(model({ license: 'CC-BY' }), state({ license: ['CC-BY'] }))).toBe(true);
-    expect(modelMatchesFilters(model({ parentModel: 'Kit' }), state({ parentModel: ['kit'] }))).toBe(false);
+    expect(modelMatchesFilters(model({ title: 'Kit' }), state({ title: ['kit'] }))).toBe(false);
     expect(modelMatchesFilters(model({ designer: 'Zed' }), state({ designer: ['Ann', 'Bob'] }))).toBe(true);
   });
 

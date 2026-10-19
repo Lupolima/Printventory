@@ -24,7 +24,8 @@ export const COLUMNS: ColumnDef[] = [
   { id: 'dateadded', label: 'Date Added', defaultWidth: 110, min: 90, max: 240, sortKey: 'dateadded', center: true },
   { id: 'directory', label: 'Parent Directory', defaultWidth: 150, min: 90, max: 500, sortKey: 'directory' },
   { id: 'designer', label: 'Designer', defaultWidth: 120, min: 60, max: 400, sortKey: 'designer' },
-  { id: 'parentmodel', label: 'Parent Model', defaultWidth: 120, min: 60, max: 400, sortKey: 'parentmodel' },
+  // The Title column (its id from before 8.0 keeps saved widths).
+  { id: 'parentmodel', label: 'Title', defaultWidth: 120, min: 60, max: 400, sortKey: 'title' },
   { id: 'printed', label: 'Print Status', defaultWidth: 140, min: 100, max: 260, sortKey: 'printstatus', center: true },
   { id: 'tags', label: 'Tags', defaultWidth: 180, min: 80, max: 600 },
   { id: 'archive', label: 'Archive', defaultWidth: 100, min: 70, max: 200, center: true }

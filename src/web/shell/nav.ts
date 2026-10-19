@@ -215,7 +215,7 @@ export const SETTINGS: SettingsGroup[] = [
       {
         id: 'metadata',
         label: 'Metadata Manager',
-        description: 'Rename or remove designers, licenses and parent models across the library.',
+        description: 'Rename or remove designers, licenses and titles across the library.',
         icon: FileCog,
         run: menu('Metadata Manager'),
         replaces: ['Metadata Manager'],

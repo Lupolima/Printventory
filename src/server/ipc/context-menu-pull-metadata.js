@@ -31,7 +31,7 @@ async function pullMetadataFromMenu(event, filePaths) {
       if (model) {
         const hasData =
           (model.designer && model.designer.trim()) ||
-          (model.parentModel && model.parentModel.trim()) ||
+          (model.title && model.title.trim()) ||
           (model.description && model.description.trim()) ||
           (model.license && model.license.trim());
         if (hasData) {
@@ -39,7 +39,7 @@ async function pullMetadataFromMenu(event, filePaths) {
             filePath,
             fileName: model.fileName || path.basename(filePath),
             designer: model.designer,
-            parentModel: model.parentModel,
+            title: model.title,
             description: model.description,
             license: model.license
           });
@@ -51,7 +51,7 @@ async function pullMetadataFromMenu(event, filePaths) {
     if (modelsWithData.length > 0) {
       const message =
         modelsWithData.length === 1
-          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].parentModel ? `Parent Model: ${modelsWithData[0].parentModel}\n` : ''}${modelsWithData[0].description ? `Description: ${modelsWithData[0].description.substring(0, 50)}${modelsWithData[0].description.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
+          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].title ? `Title: ${modelsWithData[0].title}\n` : ''}${modelsWithData[0].description ? `Description: ${modelsWithData[0].description.substring(0, 50)}${modelsWithData[0].description.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
           : `This will overwrite existing metadata for ${modelsWithData.length} model(s).\n\nContinue?`;
 
       const confirm = await clientDialogs.messageBox(event, {
@@ -81,7 +81,7 @@ async function pullMetadataFromMenu(event, filePaths) {
         // Filter metadata based on user settings
         const filteredMetadata = filter3MFMetadataBySettings(metadata);
 
-        if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.parentModel || filteredMetadata.notes || filteredMetadata.license)) {
+        if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.title || filteredMetadata.notes || filteredMetadata.license)) {
           // Get or create model in database
           const existingModel = getModelByFilePath(filePath, { includeThumbnail: true });
 
@@ -94,7 +94,7 @@ async function pullMetadataFromMenu(event, filePaths) {
             database.db
               .prepare(
                 `
-              INSERT INTO models (filePath, fileName, designer, parentModel, description, license, dateAdded, isNew)
+              INSERT INTO models (filePath, fileName, designer, title, description, license, dateAdded, isNew)
               VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `
               )
@@ -102,7 +102,7 @@ async function pullMetadataFromMenu(event, filePaths) {
                 filePath,
                 finalFileName,
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 dateAdded
@@ -116,13 +116,13 @@ async function pullMetadataFromMenu(event, filePaths) {
               .prepare(
                 `
               UPDATE models 
-              SET designer = ?, parentModel = ?, description = ?, license = ?
+              SET designer = ?, title = ?, description = ?, license = ?
               WHERE filePath = ?
             `
               )
               .run(
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 filePath

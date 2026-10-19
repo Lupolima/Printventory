@@ -68,7 +68,7 @@ ipcMain.handle('get-stats', async () => {
 
     // Models with metadata
     const withDesigner = database.db.prepare("SELECT COUNT(*) as count FROM models WHERE designer IS NOT NULL AND designer != ''").get();
-    const withParentModel = database.db.prepare("SELECT COUNT(*) as count FROM models WHERE parentModel IS NOT NULL AND parentModel != ''").get();
+    const withTitle = database.db.prepare("SELECT COUNT(*) as count FROM models WHERE title IS NOT NULL AND title != ''").get();
     const withLicense = database.db.prepare("SELECT COUNT(*) as count FROM models WHERE license IS NOT NULL AND license != ''").get();
     const withTags = database.db.prepare('SELECT COUNT(DISTINCT model_id) as count FROM model_tags').get();
 
@@ -112,7 +112,7 @@ ipcMain.handle('get-stats', async () => {
       archivedModels: archivedCount ? archivedCount.count : 0,
       percentages: {
         withDesigner: calculatePercentage(withDesigner ? withDesigner.count : 0),
-        withParentModel: calculatePercentage(withParentModel ? withParentModel.count : 0),
+        withTitle: calculatePercentage(withTitle ? withTitle.count : 0),
         withLicense: calculatePercentage(withLicense ? withLicense.count : 0),
         withTags: calculatePercentage(withTags ? withTags.count : 0)
       },

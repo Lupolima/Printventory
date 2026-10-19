@@ -184,7 +184,7 @@ export function onReloadOptions(reload: () => void): () => void {
 const SELECT_IDS: Record<string, (value: string) => void> = {
   'designer-select': (v) => filterActions.setValue('designer', v),
   'license-select': (v) => filterActions.setValue('license', v),
-  'parent-select': (v) => filterActions.setValue('parentModel', v),
+  'title-select': (v) => filterActions.setValue('title', v),
   'printed-select': (v) => filterActions.setSingle('printed', v),
   'new-select': (v) => filterActions.setSingle('isNew', v),
   'favorite-select': (v) => filterActions.setSingle('favorite', v),

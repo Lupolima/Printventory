@@ -63,8 +63,9 @@ async function getMaxFileSize() {
 }
 
 // Apply path-based metadata for STL Home scan: segments from root (From Root) or from model up (From Model).
-// Only sets designer/parentModel when current value is empty. Uses pathMetadataStlHomeEnabled, pathMetadataStlHomeDirection,
-// pathMetadataUseDesigner, pathMetadataUseParentModel, pathMetadataDesignerIndex, pathMetadataParentModelIndex.
+// Only sets the designer and the Title when they are empty. Uses pathMetadataStlHomeEnabled, pathMetadataStlHomeDirection,
+// pathMetadataUseDesigner, pathMetadataUseParentModel, pathMetadataDesignerIndex, pathMetadataParentModelIndex (the
+// ParentModel settings, named before 8.0, choose the folder for the Title).
 function applyPathMetadataFromSegments(scanRootPath, filePaths) {
   if (!database.db || !database.db.prepare) return;
   const enabledRow = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('pathMetadataStlHomeEnabled');
@@ -82,8 +83,8 @@ function applyPathMetadataFromSegments(scanRootPath, filePaths) {
   const rawParent = parseInt(parentModelIndexRow?.value, 10);
   const designerIndex = Math.max(0, Number.isInteger(rawDesigner) ? rawDesigner : 0);
   const parentModelIndex = Math.max(0, Number.isInteger(rawParent) ? rawParent : 0);
-  const getModel = database.db.prepare('SELECT id, designer, parentModel FROM models WHERE filePath = ?');
-  const updateModel = database.db.prepare('UPDATE models SET designer = ?, parentModel = ? WHERE id = ?');
+  const getModel = database.db.prepare('SELECT id, designer, title FROM models WHERE filePath = ?');
+  const updateModel = database.db.prepare('UPDATE models SET designer = ?, title = ? WHERE id = ?');
   const normalizedRoot = normalizePath(scanRootPath).replace(/\/$/, '');
   const rootSegment = normalizedRoot.split('/').filter(Boolean).pop() || '';
   for (const filePath of filePaths) {
@@ -104,7 +105,7 @@ function applyPathMetadataFromSegments(scanRootPath, filePaths) {
     const model = getModel.get(filePath);
     if (!model) continue;
     const currentDesigner = model.designer == null || String(model.designer).trim() === '' ? null : model.designer;
-    const currentParentModel = model.parentModel == null || String(model.parentModel).trim() === '' ? null : model.parentModel;
+    const currentParentModel = model.title == null || String(model.title).trim() === '' ? null : model.title;
     const newDesigner = currentDesigner == null && derivedDesigner ? derivedDesigner : currentDesigner;
     const newParentModel = currentParentModel == null && derivedParentModel ? derivedParentModel : currentParentModel;
     if (newDesigner !== currentDesigner || newParentModel !== currentParentModel) {

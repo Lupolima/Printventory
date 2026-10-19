@@ -21,7 +21,7 @@ export interface SaveConflict {
 
 const FIELD_NAMES: Record<string, string> = {
   designer: 'designer',
-  parentModel: 'parent model',
+  title: 'title',
   license: 'license',
   source: 'source',
   notes: 'notes',

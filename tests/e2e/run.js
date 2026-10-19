@@ -2410,19 +2410,16 @@ async function browserChecks(base, wsUrl, session) {
         check('closing Manage Thumbnails redraws the card with the active image', !(await page.isVisible('#manage-thumbnails-dialog')) && cardShowsActive);
       }
     }
-    // Group cards (React, GroupCard.tsx): two models with one parent model show as a group.
+    // Group cards (React, GroupCard.tsx): two models in a group show as one card.
     const grouped = (await page.$$eval('.file-grid .file-item-detailed[data-filepath]', (els) => els.map((el) => el.getAttribute('data-filepath')))).slice(
       0,
       2
     );
-    await invoke(base, session, 'update-models-batch', [grouped.map((filePath) => ({ filePath, parentModel: 'E2E Group' }))]);
+    await invoke(base, session, 'create-group', [{ name: 'E2E Group', filePaths: grouped }]);
     await page.evaluate(() => window.performCombinedSearch({ force: true }));
     const groupCard = '.file-grid .parent-model-group-detailed[data-group-key="parent:e2e group"]';
     const groupShown = await page.waitForSelector(groupCard, { timeout: 15000 }).catch(() => null);
-    check(
-      'models with one parent model show as a group card',
-      !!groupShown && /2 models/.test(await page.textContent(`${groupCard} .parent-model-group-meta`))
-    );
+    check('models in a group show as a group card', !!groupShown && /2 models/.test(await page.textContent(`${groupCard} .parent-model-group-meta`)));
     if (groupShown) {
       check(
         'a group card is a stack that does not expand',
@@ -2501,7 +2498,25 @@ async function browserChecks(base, wsUrl, session) {
       await page.click('#jp-edit-button');
       check('Done leaves Edit mode', !(await page.isVisible('#multi-edit-panel')) && !(await page.isVisible('#jp-edit-hint')));
     }
-    await invoke(base, session, 'update-models-batch', [grouped.map((filePath) => ({ filePath, parentModel: null, rating: 0 }))]);
+    const madeGroup = (await invoke(base, session, 'find-group', ['E2E Group'])).result;
+    if (madeGroup) await invoke(base, session, 'ungroup', [madeGroup]);
+    await invoke(base, session, 'update-models-batch', [grouped.map((filePath) => ({ filePath, rating: 0 }))]);
+    // 8.0: a model's Title is its name on cards (the file's name otherwise), and a Title alone makes no group.
+    await invoke(base, session, 'update-models-batch', [[{ filePath: grouped[0], title: 'E2E Shown Title' }]]);
+    await page.evaluate(() => window.performCombinedSearch({ force: true }));
+    const titledCard = `.file-grid .file-item-detailed[data-filepath="${grouped[0].replace(/"/g, '\\"')}"] .file-name`;
+    const titleShown = await page
+      .waitForFunction((sel) => document.querySelector(sel)?.textContent?.trim() === 'E2E Shown Title', titledCard, { timeout: 15000 })
+      .then(
+        () => true,
+        () => false
+      );
+    check(
+      "a model's Title is its name on its card, and makes no group",
+      titleShown && !(await page.$('.file-grid .parent-model-group[data-group-key="parent:e2e shown title"]')),
+      (await page.textContent(titledCard).catch(() => '')) || ''
+    );
+    await invoke(base, session, 'update-models-batch', [[{ filePath: grouped[0], title: null }]]);
     await page.evaluate(() => window.performCombinedSearch({ force: true }));
 
     // Wall view: a ZIP entry's Archive label sits beside its name, not on top of it.
@@ -5161,12 +5176,12 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   );
   const thumb = ((await invoke(base, viewer, 'get-model', [model.filePath])).result || {}).thumbnail || '';
   check('the cover is the first thumbnail', thumb.startsWith('data:image/'), thumb.slice(0, 40));
-  // The model page: the title is the model folder's name; each file shows its own picture, not the cover.
+  // The model page: without a Title, its title is the model folder's name; each file shows its own picture, not the cover.
   const asPage = (await invoke(base, viewer, 'get-model', [model.filePath])).result || {};
   check(
     'a model in a model folder is titled after the folder',
-    asPage.title === 'E2E Robot Mk 2' && asPage.modelFolder === robot,
-    JSON.stringify({ title: asPage.title })
+    asPage.pageTitle === 'E2E Robot Mk 2' && asPage.modelFolder === robot,
+    JSON.stringify({ pageTitle: asPage.pageTitle })
   );
   const fileCards = (await invoke(base, viewer, 'get-folder-models', [model.filePath])).result || [];
   check(
