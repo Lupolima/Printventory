@@ -156,6 +156,7 @@
     },
     "files": [
       "main.js",
+      "i18n/**/*",
       "db-repair.js",
       "bundle-keys.js",
       "zip-extract.js",

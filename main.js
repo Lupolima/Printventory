@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, screen, dialog, Menu, shell, contextBridge } = require('electron');
+require('./i18n/main'); // Tradução (pt-BR): menus, diálogos e seletor de idioma
 const fs = require('fs');
 const path = require('path');
 const supportLogs = require('./support-logs').createCapture();
