@@ -21,7 +21,7 @@ const database = require('../core/database');
 const { getDatabasePath } = require('../core/db-path');
 
 /** The details whose changes are written down, and how each reads. */
-const TRACKED = ['fileName', 'designer', 'source', 'parentModel', 'license', 'notes', 'description', 'tags', 'rating', 'categories'];
+const TRACKED = ['fileName', 'designer', 'source', 'title', 'license', 'notes', 'description', 'tags', 'rating', 'categories'];
 const MAX_VALUE = 20000;
 const MAX_CHANGES_SHOWN = 200;
 

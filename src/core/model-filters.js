@@ -86,7 +86,7 @@ function appendAllFieldsSearchSql(params, term, includeNotes) {
   return `(
           LOWER(COALESCE(fileName, '')) LIKE ? OR 
           LOWER(COALESCE(designer, '')) LIKE ? OR 
-          LOWER(COALESCE(parentModel, '')) LIKE ? OR 
+          LOWER(COALESCE(title, '')) LIKE ? OR 
           ${notesClause}LOWER(COALESCE(filePath, '')) LIKE ? OR
           LOWER(COALESCE(source, '')) LIKE ? OR
           LOWER(COALESCE(license, '')) LIKE ? OR
@@ -104,9 +104,9 @@ function pushSearchClauseFragment(field, rawValue, params, filters) {
     case 'designer':
       params.push(term);
       return "LOWER(COALESCE(designer, '')) LIKE ?";
-    case 'parentModel':
+    case 'title':
       params.push(term);
-      return "LOWER(COALESCE(parentModel, '')) LIKE ?";
+      return "LOWER(COALESCE(title, '')) LIKE ?";
     case 'notes':
       params.push(term, term);
       return "(LOWER(COALESCE(notes, '')) LIKE ? OR LOWER(COALESCE(description, '')) LIKE ?)";
@@ -156,7 +156,7 @@ function sanitizeSearchTokensForCompile(raw) {
       out.push({ t: x.t });
     } else if (x.t === 'filter') {
       const kind = String(x.kind || '').trim();
-      if (!kind || !['designer', 'license', 'parentModel', 'tag', 'fileType', 'printed', 'isNew', 'favorite', 'rating', 'ratingMin'].includes(kind)) continue;
+      if (!kind || !['designer', 'license', 'title', 'tag', 'fileType', 'printed', 'isNew', 'favorite', 'rating', 'ratingMin'].includes(kind)) continue;
       const valRaw = String(x.value != null ? x.value : '').trim();
       if (kind === 'printed') {
         const allowed = ['printed', 'not-printed', 'unprinted', 'want', 'queued', 'printing', 'failed', 'ever-printed', 'never-printed', 'in-queue'];
@@ -182,7 +182,7 @@ function sanitizeSearchTokensForCompile(raw) {
       }
     } else if (x.t === 'filterMulti') {
       const kind = String(x.kind || '').trim();
-      if (!kind || !['designer', 'license', 'parentModel', 'tag'].includes(kind)) continue;
+      if (!kind || !['designer', 'license', 'title', 'tag'].includes(kind)) continue;
       const vals = Array.isArray(x.values) ? x.values.map((v) => String(v).trim()).filter(Boolean) : [];
       if (vals.length === 0) continue;
       const combine = String(x.combine || 'OR').toUpperCase() === 'AND' ? 'AND' : 'OR';
@@ -229,9 +229,9 @@ function compileSidebarFilterClauseToSQL(tok, filters, params) {
       pushEqualityListCondition(cond, params, 'license', tok.values.slice(), combine, !!filters.licenseInverted, false);
       return cond[0] || '1';
     }
-    if (tok.kind === 'parentModel') {
+    if (tok.kind === 'title') {
       const cond = [];
-      pushEqualityListCondition(cond, params, 'parentModel', tok.values.slice(), combine, !!filters.parentModelInverted, false);
+      pushEqualityListCondition(cond, params, 'title', tok.values.slice(), combine, !!filters.titleInverted, false);
       return cond[0] || '1';
     }
     if (tok.kind === 'tag') {
@@ -248,10 +248,10 @@ function compileSidebarFilterClauseToSQL(tok, filters, params) {
     return null;
   }
   if (tok.t !== 'filter') return null;
-  if (tok.kind === 'designer' || tok.kind === 'license' || tok.kind === 'parentModel') {
+  if (tok.kind === 'designer' || tok.kind === 'license' || tok.kind === 'title') {
     const cond = [];
-    const col = tok.kind === 'designer' ? 'designer' : tok.kind === 'license' ? 'license' : 'parentModel';
-    const inverted = !!(tok.kind === 'designer' ? filters.designerInverted : tok.kind === 'license' ? filters.licenseInverted : filters.parentModelInverted);
+    const col = tok.kind === 'designer' ? 'designer' : tok.kind === 'license' ? 'license' : 'title';
+    const inverted = !!(tok.kind === 'designer' ? filters.designerInverted : tok.kind === 'license' ? filters.licenseInverted : filters.titleInverted);
     const useLowerTrim = tok.kind === 'designer';
     pushEqualityListCondition(cond, params, col, [tok.value], 'OR', inverted, useLowerTrim);
     return cond[0] || '1';
@@ -388,7 +388,7 @@ function compileSearchTokensToSQL(tokens, params, filters) {
   }
 }
 
-/** Multi-value designer / parentModel / license (matches legacy single-value SQL for invert + NULL). */
+/** Multi-value designer / title / license (matches legacy single-value SQL for invert + NULL). */
 function pushEqualityListCondition(conditions, params, column, values, combineOp, inverted, useLowerTrim) {
   if (!values.length) return;
   const posJoin = combineOp === 'AND' ? ' AND ' : ' OR ';
@@ -459,12 +459,36 @@ function pushTagListSQL(conditions, params, filters) {
   return true;
 }
 
-function buildModelFilterConditions(filters) {
+/**
+ * Filters saved before 8.0 (smart collections, saved searches) name the Title "parentModel":
+ * the same filter under its new names.
+ */
+function withTitleNames(filters) {
+  const legacy = ['parentModels', 'parentModel', 'parentModelCombine', 'parentModelInverted'].some((key) => filters[key] !== undefined);
+  const renameTokens = (list) =>
+    Array.isArray(list)
+      ? list.map((tok) =>
+          tok && tok.kind === 'parentModel' ? { ...tok, kind: 'title' } : tok && tok.field === 'parentModel' ? { ...tok, field: 'title' } : tok
+        )
+      : list;
+  const renameClauses = (list) =>
+    Array.isArray(list) ? list.map((clause) => (clause && clause.field === 'parentModel' ? { ...clause, field: 'title' } : clause)) : list;
+  if (!legacy && !Array.isArray(filters.searchTokens) && !Array.isArray(filters.searchClauses)) return filters;
+  const out = { ...filters, searchTokens: renameTokens(filters.searchTokens), searchClauses: renameClauses(filters.searchClauses) };
+  if (out.titles === undefined && filters.parentModels !== undefined) out.titles = filters.parentModels;
+  if (out.title === undefined && filters.parentModel !== undefined) out.title = filters.parentModel;
+  if (out.titleCombine === undefined && filters.parentModelCombine !== undefined) out.titleCombine = filters.parentModelCombine;
+  if (out.titleInverted === undefined && filters.parentModelInverted !== undefined) out.titleInverted = filters.parentModelInverted;
+  return out;
+}
+
+function buildModelFilterConditions(rawFilters) {
   const conditions = [];
   const params = [];
-  if (!filters || typeof filters !== 'object') {
+  if (!rawFilters || typeof rawFilters !== 'object') {
     return { conditions, params };
   }
+  const filters = withTitleNames(rawFilters);
 
   // Designer filter (multi-value + legacy single)
   const designers = normalizeFilterValueList(filters.designers, filters.designer);
@@ -478,18 +502,10 @@ function buildModelFilterConditions(filters) {
     pushEqualityListCondition(conditions, params, 'license', licenses, filters.licenseCombine === 'AND' ? 'AND' : 'OR', !!filters.licenseInverted, false);
   }
 
-  // Parent model filter
-  const parentModels = normalizeFilterValueList(filters.parentModels, filters.parentModel);
-  if (parentModels.length) {
-    pushEqualityListCondition(
-      conditions,
-      params,
-      'parentModel',
-      parentModels,
-      filters.parentModelCombine === 'AND' ? 'AND' : 'OR',
-      !!filters.parentModelInverted,
-      false
-    );
+  // Title filter
+  const titles = normalizeFilterValueList(filters.titles, filters.title);
+  if (titles.length) {
+    pushEqualityListCondition(conditions, params, 'title', titles, filters.titleCombine === 'AND' ? 'AND' : 'OR', !!filters.titleInverted, false);
   }
 
   // Print status / history filter

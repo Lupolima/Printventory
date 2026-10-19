@@ -306,8 +306,10 @@ export function formatOf(model: GridModel): string {
   return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1).toUpperCase() : '';
 }
 
-/** The card title: the file name without its type, which the format badge shows. */
+/** A model's name on cards and pages: its Title when it has one, else its file's name without its type (the format badge shows it). */
 export function cardTitle(model: GridModel): string {
+  const title = typeof model.title === 'string' ? model.title.trim() : '';
+  if (title) return title;
   const name = displayFileName(model);
   const dot = name.lastIndexOf('.');
   return dot > 0 ? name.slice(0, dot) : name;
@@ -596,7 +598,7 @@ export function ModelCard({ host, model, view, layoutKey, index, parentGroupKey,
   if (view === 'list') {
     const directory = host.directoryLabel(model.filePath);
     const designer = text(model.designer);
-    const parentModel = text(model.parentModel);
+    const modelTitle = text(model.title);
     const added = model.dateAdded ? new Date(String(model.dateAdded)) : null;
     const badgeStyle: CSSProperties = {
       position: 'static',
@@ -680,10 +682,10 @@ export function ModelCard({ host, model, view, layoutKey, index, parentGroupKey,
           <div className="parent-model-column" data-list-col="parentmodel" style={{ ...column, overflow: 'hidden' }}>
             <span
               className="parent-model-info"
-              title={parentModel || undefined}
-              style={{ ...small, color: parentModel ? 'var(--jp-text-2)' : 'var(--jp-text-3)' }}
+              title={modelTitle || undefined}
+              style={{ ...small, color: modelTitle ? 'var(--jp-text-2)' : 'var(--jp-text-3)' }}
             >
-              {model.parentModel ? String(model.parentModel) : ''}
+              {modelTitle}
             </span>
           </div>
           <div className="print-status-column" data-list-col="printed" style={{ ...column, justifyContent: 'center' }}>

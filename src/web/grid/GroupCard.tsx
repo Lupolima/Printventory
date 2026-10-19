@@ -17,7 +17,7 @@ export interface GroupCardHost {
     directory: string;
     directoryFull: string;
     designer: string;
-    parentModel: string;
+    title: string;
   };
   groupPrintSummary(children: GridModel[]): { printedCount: number; label: string };
   groupTagNames(record: GroupRecord): Promise<string[]>;
@@ -178,7 +178,7 @@ function FolderKit({ folder, fallback, printed }: { folder: string; fallback: st
   );
 }
 
-/** A ZIP bundle, parent-model group or folder (Folders as models) in the library grid. */
+/** A ZIP bundle, group or folder (Folders as models) in the library grid. */
 export function GroupCard({ host, record, view, index, position, fixedHeight }: GroupCardProps) {
   const tile = view === 'detailed';
   const cardRef = useRef<HTMLDivElement>(null);
@@ -191,7 +191,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
   const bundleKind = kind === 'bundle' ? String(record.children[0]?.bundleKind || 'folder') : '';
   const isBundle = kind === 'bundle';
   const isFolder = kind === 'folder';
-  // Models sharing a Parent Model are a group: a stack that opens the group's page, never expands.
+  // A group's models: a stack that opens the group's page, never expands.
   const isGroup = kind === 'parentModel';
   const subcategory = mostCommon(record.children.map((child) => (typeof child.subcategory === 'string' ? child.subcategory : '')));
   const kindLabel = bundleKind === 'zip' ? 'zip archive' : isBundle ? 'folder' : '';
@@ -406,7 +406,7 @@ export function GroupCard({ host, record, view, index, position, fixedHeight }: 
           {cell('dateadded', 'date-added-column', cols.dateAdded || '—', cols.dateAddedTitle || undefined)}
           {cell('directory', 'directory-info-column', cols.directory || '—', cols.directoryFull || cols.directory || undefined)}
           {cell('designer', 'designer-info-column', cols.designer || '—', cols.designer || undefined)}
-          {cell('parentmodel', 'parent-model-column', cols.parentModel || '—', cols.parentModel || undefined)}
+          {cell('parentmodel', 'parent-model-column', cols.title || '—', cols.title || undefined)}
           <div className="print-status-column" data-list-col="printed">
             {isFolder ? (
               <FolderKit folder={folderOf(record.children[0] || { filePath: '' })} fallback={print.label} printed={print.printedCount > 0} />

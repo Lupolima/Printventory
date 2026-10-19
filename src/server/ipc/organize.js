@@ -111,15 +111,15 @@ function buildOrganizePlan(sourceDir, destDir, includeZips, layers) {
       copyCount: 0,
       resumeCount: 0,
       copyBytes: 0,
-      noParentCount: 0,
+      noTitleCount: 0,
       reasonCounts: {}
     };
   }
   const dest = inspectOrganizeDirectory(destDir, true);
   if (!dest.ok) {
-    return { ok: false, error: dest.error, moves: [], skipped: [], sample: [], copyCount: 0, resumeCount: 0, copyBytes: 0, noParentCount: 0, reasonCounts: {} };
+    return { ok: false, error: dest.error, moves: [], skipped: [], sample: [], copyCount: 0, resumeCount: 0, copyBytes: 0, noTitleCount: 0, reasonCounts: {} };
   }
-  const rows = database.db.prepare('SELECT id, filePath, fileName, designer, parentModel, license, source, print_status, size FROM models').all();
+  const rows = database.db.prepare('SELECT id, filePath, fileName, designer, title, license, source, print_status, size FROM models').all();
   const plan = planOrganize(rows, source.path, dest.path, {
     sourceStat: statOrganizeFile,
     destStat: statOrganizeFile,
@@ -147,7 +147,7 @@ function publicOrganizePreview(plan) {
     resumeCount: plan.resumeCount || 0,
     zipCount: plan.zipCount || 0,
     zipEntryCount: plan.zipEntryCount || 0,
-    noParentCount: plan.noParentCount || 0,
+    noTitleCount: plan.noTitleCount || 0,
     emptyLayers: Array.isArray(plan.emptyLayers) ? plan.emptyLayers : [],
     layers: Array.isArray(plan.layers) ? plan.layers : [],
     skippedCount: Array.isArray(plan.skipped) ? plan.skipped.length : 0,

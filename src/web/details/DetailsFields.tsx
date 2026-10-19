@@ -11,12 +11,12 @@ export interface DetailsModel {
   fileName?: string | null;
   source?: string | null;
   designer?: string | null;
-  parentModel?: string | null;
+  title?: string | null;
   license?: string | null;
   tags?: unknown[] | null;
 }
 
-type PickerField = 'designer' | 'parentModel' | 'license';
+type PickerField = 'designer' | 'title' | 'license';
 
 /** What this section asks of the library (library/hosts.ts). */
 export interface DetailsHost {
@@ -25,7 +25,7 @@ export interface DetailsHost {
   saveField(filePath: string, field: PickerField | 'source' | 'tags' | 'notes', value: string | string[], base?: string | string[] | null): Promise<boolean>;
   /** Open the source URL in a new tab (checks it is http/https). */
   openSource(url: string): void;
-  /** A new designer, parent model, license or tag exists: refresh the filters and other pickers. */
+  /** A new designer, title, license or tag exists: refresh the filters and other pickers. */
   valuesChanged(kind: PickerField | 'tag'): Promise<void>;
 }
 
@@ -54,24 +54,24 @@ const tagNames = (list: unknown[] | null | undefined) =>
 
 interface Options {
   designers: string[];
-  parents: string[];
+  titles: string[];
   licenses: string[];
   tags: string[];
 }
 
-const EMPTY_OPTIONS: Options = { designers: [], parents: [], licenses: [], tags: [] };
+const EMPTY_OPTIONS: Options = { designers: [], titles: [], licenses: [], tags: [] };
 
 async function loadOptions(): Promise<Options> {
-  const [designers, parents, licenses, allTags] = await Promise.all([
+  const [designers, titles, licenses, allTags] = await Promise.all([
     libraryValues.designers().catch(() => []),
-    libraryValues.parentModels().catch(() => []),
+    libraryValues.titles().catch(() => []),
     libraryValues.licenses().catch(() => []),
     tagApi.list().catch(() => [])
   ]);
   const clean = (list: (string | null)[]) => [...new Set(list.filter((value): value is string => !!value))];
   return {
     designers: clean(designers),
-    parents: clean(parents),
+    titles: clean(titles),
     licenses: clean(licenses),
     tags: allTags.map((tag) => tag.name).sort((a, b) => a.localeCompare(b))
   };
@@ -79,13 +79,13 @@ async function loadOptions(): Promise<Options> {
 
 const LABELS: Record<PickerField, { label: string; empty: string; list: ListField; prompt: string }> = {
   designer: { label: 'Designer', empty: 'Select Designer', list: 'designer', prompt: 'New designer' },
-  parentModel: { label: 'Parent Model', empty: 'None', list: 'parent', prompt: 'New parent model' },
+  title: { label: 'Title', empty: 'None', list: 'title', prompt: 'New title' },
   license: { label: 'License', empty: 'Select License', list: 'license', prompt: 'New license' }
 };
-const IDS: Record<PickerField, string> = { designer: 'model-designer', parentModel: 'model-parent', license: 'model-license' };
+const IDS: Record<PickerField, string> = { designer: 'model-designer', title: 'model-title', license: 'model-license' };
 
 /**
- * The details panel's name, source, designer, parent model, license and tags. Each change is
+ * The details panel's name, source, designer, title, license and tags. Each change is
  * saved at once. Rendered into three places in #model-details (the path row between them is
  * still static markup). Registers window.detailsFields.
  */
@@ -162,7 +162,7 @@ export function DetailsFields() {
     if (!typed) return;
     if (await save(field, typed)) {
       setOptions((previous) => {
-        const key = field === 'designer' ? 'designers' : field === 'parentModel' ? 'parents' : 'licenses';
+        const key = field === 'designer' ? 'designers' : field === 'title' ? 'titles' : 'licenses';
         return previous[key].includes(typed) ? previous : { ...previous, [key]: [...previous[key], typed].sort((a, b) => a.localeCompare(b)) };
       });
       await host?.valuesChanged(field);
@@ -184,7 +184,7 @@ export function DetailsFields() {
 
   function picker(field: PickerField) {
     const value = (model?.[field] || '') as string;
-    const list = field === 'designer' ? options.designers : field === 'parentModel' ? options.parents : options.licenses;
+    const list = field === 'designer' ? options.designers : field === 'title' ? options.titles : options.licenses;
     const values = value && !list.includes(value) ? [...list, value] : list;
     return (
       <div className="form-group" key={field}>
@@ -209,7 +209,7 @@ export function DetailsFields() {
               <button
                 type="button"
                 className="list-button icon-button"
-                title={`Search existing ${LABELS[field].list === 'parent' ? 'parent models' : `${LABELS[field].list}s`}`}
+                title={`Search existing ${LABELS[field].list === 'title' ? 'titles' : `${LABELS[field].list}s`}`}
                 disabled={!model}
                 onClick={() => pick(field)}
               >
@@ -276,7 +276,7 @@ export function DetailsFields() {
         </div>
       </div>
       {picker('designer')}
-      {picker('parentModel')}
+      {picker('title')}
       {picker('license')}
     </>
   );

@@ -480,7 +480,7 @@ export interface LibraryStats {
   fileTypes: { stl: number; threeMf: number; other: number; stlBytes: number; threeMfBytes: number; otherBytes: number };
   archivedModels: number;
   /** Percent of models with each field set, as strings with one decimal ("12.5"), or 0 for an empty library. */
-  percentages: { withDesigner: string | number; withParentModel: string | number; withLicense: string | number; withTags: string | number };
+  percentages: { withDesigner: string | number; withTitle: string | number; withLicense: string | number; withTags: string | number };
   tags: { total: number; mostUsed: { name: string; count: number } | null };
 }
 
@@ -733,7 +733,7 @@ export const slicers = {
   replaceAll: (list: Slicer[]) => callAction<unknown>('clear-and-save-slicers', list)
 };
 
-export type MetadataType = 'designer' | 'parentModel' | 'license';
+export type MetadataType = 'designer' | 'title' | 'license';
 
 export interface MetadataEntry {
   type: MetadataType;
@@ -761,7 +761,7 @@ export const notifications = {
 };
 
 export const metadata = {
-  /** Every designer, parent model and license in use, with how many models use it. */
+  /** Every designer, title and license in use, with how many models use it. */
   list: () => callAction<MetadataEntry[]>('get-all-metadata'),
   /** Renaming onto an existing name merges the two. */
   rename: (type: MetadataType, oldName: string, newName: string) =>
@@ -777,7 +777,7 @@ export interface OrganizeJob {
   sourceDir: string;
   destDir: string;
   includeZips: boolean;
-  /** Folder levels under the destination, e.g. ['designer', 'parentModel']. */
+  /** Folder levels under the destination, e.g. ['designer', 'title']. */
   layers: string[];
 }
 
@@ -792,7 +792,7 @@ export interface OrganizePreview {
   resumeCount?: number;
   zipCount?: number;
   zipEntryCount?: number;
-  noParentCount?: number;
+  noTitleCount?: number;
   emptyLayers?: { label?: string; folder: string; count: number }[];
   freeBytes?: number | null;
   marginBytes?: number;
@@ -869,7 +869,7 @@ export const dedup = {
 /** Values in use across the library, for the details panel's pickers. */
 export const libraryValues = {
   designers: () => callAction<string[]>('get-designers'),
-  parentModels: () => callAction<string[]>('get-parent-models'),
+  titles: () => callAction<string[]>('get-titles'),
   licenses: () => callAction<string[]>('get-licenses')
 };
 

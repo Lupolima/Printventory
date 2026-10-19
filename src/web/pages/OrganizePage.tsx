@@ -13,7 +13,7 @@ declare global {
 
 const FIELDS = [
   { id: 'designer', label: 'Designer' },
-  { id: 'parentModel', label: 'Parent Model' },
+  { id: 'title', label: 'Title' },
   { id: 'license', label: 'License' },
   { id: 'source', label: 'Source' },
   { id: 'printStatus', label: 'Print Status' }
@@ -97,8 +97,8 @@ function summaryLines(preview: OrganizePreview): string[] {
     for (const layer of preview.emptyLayers) {
       lines.push(`${plural(layer.count, 'file')} have no ${String(layer.label || 'value').toLowerCase()} and will go in "${layer.folder}".`);
     }
-  } else if (preview.noParentCount) {
-    lines.push(`${plural(preview.noParentCount, 'file')} have no parent model and will go in "No Parent Model".`);
+  } else if (preview.noTitleCount) {
+    lines.push(`${plural(preview.noTitleCount, 'file')} have no title and will go in "No Title".`);
   }
   return lines;
 }
@@ -203,7 +203,7 @@ type PreviewState = { kind: 'none' } | { kind: 'stale' } | { kind: 'preview'; pr
 
 /**
  * Settings → Organize Library: copy the models in a scanned folder into a new folder structure
- * (Designer / Parent Model / ...), removing each original once its copy is checked. Preview
+ * (Designer / Title / ...), removing each original once its copy is checked. Preview
  * first; any change asks for a new preview. Registers window.openOrganizeLibrary.
  */
 /**
@@ -216,7 +216,7 @@ function OrganizeLibrary({ actions }: { actions: (buttons: ReactNode) => ReactNo
   const [root, setRoot] = useState('');
   const [sub, setSub] = useState('');
   const [dest, setDest] = useState('');
-  const [layers, setLayers] = useState<string[]>(['parentModel']);
+  const [layers, setLayers] = useState<string[]>(['title']);
   const [zipEnabled, setZipEnabled] = useState(false);
   const [includeZips, setIncludeZips] = useState(false);
   const [state, setState] = useState<PreviewState>({ kind: 'none' });

@@ -55,7 +55,7 @@ async function main() {
   database.db = new Database(path.join(tmp, 'test.db'));
   database.db.exec(`
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
-    CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, size INTEGER, designer TEXT, license TEXT, source TEXT, parentModel TEXT,
+    CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, size INTEGER, designer TEXT, license TEXT, source TEXT, parentModel TEXT, title TEXT,
       rating INTEGER, favorite INTEGER, print_status TEXT, print_count INTEGER, printed INTEGER, dateAdded TEXT);
     CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE model_tags (model_id INTEGER, tag_id INTEGER);
   `);

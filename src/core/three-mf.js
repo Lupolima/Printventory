@@ -50,7 +50,7 @@ function cleanDescriptionText(text) {
 function parse3MFModelXML(xmlContent) {
   const metadata = {
     designer: null,
-    parentModel: null,
+    title: null,
     notes: null,
     license: null
   };
@@ -74,7 +74,7 @@ function parse3MFModelXML(xmlContent) {
       if (fieldName === 'Designer' && fieldValue) {
         metadata.designer = fieldValue;
       } else if (fieldName === 'Title' && fieldValue) {
-        metadata.parentModel = fieldValue;
+        metadata.title = fieldValue;
       } else if (fieldName === 'Description' && fieldValue) {
         metadata.notes = cleanDescriptionText(fieldValue);
       } else if (fieldName === 'License' && fieldValue) {
@@ -92,7 +92,7 @@ function parse3MFModelXML(xmlContent) {
 function filter3MFMetadataBySettings(metadata) {
   const filtered = {
     designer: null,
-    parentModel: null,
+    title: null,
     notes: null,
     license: null
   };
@@ -100,7 +100,7 @@ function filter3MFMetadataBySettings(metadata) {
   try {
     // Get settings from database (default to '1' if not set)
     const enableDesigner = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enable3MFDesigner');
-    const enableParentModel = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enable3MFParentModel');
+    const enableTitle = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enable3MFTitle');
     const enableLicense = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enable3MFLicense');
     const enableNotes = database.db.prepare('SELECT value FROM settings WHERE key = ?').get('enable3MFNotes');
 
@@ -108,8 +108,8 @@ function filter3MFMetadataBySettings(metadata) {
     if (metadata.designer && (enableDesigner?.value === '1' || !enableDesigner)) {
       filtered.designer = metadata.designer;
     }
-    if (metadata.parentModel && (enableParentModel?.value === '1' || !enableParentModel)) {
-      filtered.parentModel = metadata.parentModel;
+    if (metadata.title && (enableTitle?.value === '1' || !enableTitle)) {
+      filtered.title = metadata.title;
     }
     if (metadata.license && (enableLicense?.value === '1' || !enableLicense)) {
       filtered.license = metadata.license;

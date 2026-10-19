@@ -10,7 +10,7 @@ database.db = new Database(':memory:');
 database.db.exec(`
   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
   CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, source TEXT, notes TEXT, printed INTEGER DEFAULT 0,
-    print_status TEXT, print_count INTEGER DEFAULT 0, last_printed_at TEXT, parentModel TEXT, hash TEXT, size INTEGER, license TEXT, modifiedDate TEXT,
+    print_status TEXT, print_count INTEGER DEFAULT 0, last_printed_at TEXT, parentModel TEXT, title TEXT, hash TEXT, size INTEGER, license TEXT, modifiedDate TEXT,
     dateAdded TEXT, isNew INTEGER, rating INTEGER DEFAULT 0, favorite INTEGER DEFAULT 0, bundleKey TEXT, bundleLabel TEXT, bundleKind TEXT, thumbnail TEXT);
   CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE model_tags (model_id INTEGER, tag_id INTEGER);
   CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, parent_id INTEGER);

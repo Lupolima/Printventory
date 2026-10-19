@@ -16,7 +16,7 @@ async function main() {
   database.db = new Database(process.env.JUSTTPRINT_DB_PATH);
   database.db.exec(`
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
-    CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, source TEXT, parentModel TEXT, license TEXT, notes TEXT,
+    CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, designer TEXT, source TEXT, parentModel TEXT, title TEXT, license TEXT, notes TEXT,
       rating INTEGER DEFAULT 0, size INTEGER, modifiedDate TEXT, hash TEXT);
     CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE model_tags (model_id INTEGER, tag_id INTEGER);
   `);

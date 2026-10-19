@@ -42,7 +42,7 @@ function mockCtx(overrides) {
       getPrintEvents: async () => ({ events: [] }),
       logPrintEvent: async (args) => ({ eventId: 1, outcome: args.outcome }),
       deletePrintEvent: async (eventId) => ({ deleted: true, eventId }),
-      listParentModels: async () => ['kit'],
+      listTitles: async () => ['kit'],
       renameMetadata: async (args) => ({ success: true, type: args.type }),
       deleteMetadata: async (args) => ({ success: true, type: args.type }),
       listDesigners: async () => ['A'],

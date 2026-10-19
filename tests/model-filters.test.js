@@ -22,7 +22,7 @@ function createDb() {
   db.exec(`
     CREATE TABLE models (
       id INTEGER PRIMARY KEY AUTOINCREMENT, filePath TEXT, fileName TEXT, designer TEXT, license TEXT,
-      parentModel TEXT, notes TEXT, source TEXT, printed INTEGER, print_status TEXT, print_count INTEGER,
+      parentModel TEXT, title TEXT, notes TEXT, source TEXT, printed INTEGER, print_status TEXT, print_count INTEGER,
       isNew INTEGER, favorite INTEGER, rating INTEGER, dateAdded TEXT
     );
     CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE);

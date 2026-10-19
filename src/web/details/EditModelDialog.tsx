@@ -24,7 +24,7 @@ interface LibraryForm {
   name: string;
   designer: string;
   source: string;
-  parentModel: string;
+  title: string;
   license: string;
   tags: string;
   notes: string;
@@ -49,7 +49,7 @@ function libraryForm(model: ModelRecord, stem: string): LibraryForm {
     name: stem,
     designer: text(model.designer),
     source: text(model.source),
-    parentModel: text(model.parentModel),
+    title: text(model.title),
     license: text(model.license),
     tags: listText(tagNames(model.tags)),
     notes: text(model.notes),
@@ -73,7 +73,7 @@ function siteForm(details: MakerWorldDetails): SiteForm {
 
 /**
  * The details panel's Edit dialog: everything the library keeps about a model (its name, which
- * renames its file, designer, source, parent model, license, tags, notes and rating), and for a
+ * renames its file, designer, source, title, license, tags, notes and rating), and for a
  * model from MakerWorld, Printables or Thingiverse what the site says about it. Site edits are kept
  * apart and laid over the site's details, so Refresh does not undo them. Registers window.openEditModel.
  */
@@ -91,7 +91,7 @@ export function EditModelDialog() {
   /** The model's place: its Subcategory's name (or its Category's when it has only that), '' for none. */
   const [categoryStart, setCategoryStart] = useState('');
   const [chosen, setChosen] = useState('');
-  const [options, setOptions] = useState<{ designers: string[]; parents: string[]; licenses: string[] }>({ designers: [], parents: [], licenses: [] });
+  const [options, setOptions] = useState<{ designers: string[]; titles: string[]; licenses: string[] }>({ designers: [], titles: [], licenses: [] });
   const [saving, setSaving] = useState(false);
 
   useEffect(
@@ -132,9 +132,9 @@ export function EditModelDialog() {
         ),
       () => {}
     );
-    Promise.all([libraryValues.designers(), libraryValues.parentModels(), libraryValues.licenses()]).then(
-      ([designers, parents, licenses]) =>
-        setOptions({ designers: designers.filter(Boolean), parents: parents.filter(Boolean), licenses: licenses.filter(Boolean) }),
+    Promise.all([libraryValues.designers(), libraryValues.titles(), libraryValues.licenses()]).then(
+      ([designers, titles, licenses]) =>
+        setOptions({ designers: designers.filter(Boolean), titles: titles.filter(Boolean), licenses: licenses.filter(Boolean) }),
       () => {}
     );
     if (found) {
@@ -219,7 +219,7 @@ export function EditModelDialog() {
         await callAction('save-site-edits', details.url, changes);
       }
       close();
-      for (const kind of ['designer', 'parentModel', 'license'] as const) if (fields.includes(kind)) void window.detailsHost?.valuesChanged(kind);
+      for (const kind of ['designer', 'title', 'license'] as const) if (fields.includes(kind)) void window.detailsHost?.valuesChanged(kind);
       if (fields.includes('tags')) void window.detailsHost?.valuesChanged('tag');
       await updateModel(filePath);
       if (currentModelPath() === model.filePath || currentModelPath() === filePath) await showModelDetails(filePath);
@@ -297,8 +297,8 @@ export function EditModelDialog() {
             <input id="edit-model-source" type="url" value={form.source} onChange={set('source')} placeholder="https://" />
           </div>
           <div className="form-group">
-            <label htmlFor="edit-model-parent">Parent model</label>
-            <input id="edit-model-parent" type="text" list="edit-model-parents" value={form.parentModel} onChange={set('parentModel')} />
+            <label htmlFor="edit-model-title">Title</label>
+            <input id="edit-model-title" type="text" list="edit-model-titles" value={form.title} onChange={set('title')} />
           </div>
           <div className="form-group">
             <label htmlFor="edit-model-license">License</label>
@@ -354,8 +354,8 @@ export function EditModelDialog() {
               <option key={value} value={value} />
             ))}
           </datalist>
-          <datalist id="edit-model-parents">
-            {options.parents.map((value) => (
+          <datalist id="edit-model-titles">
+            {options.titles.map((value) => (
               <option key={value} value={value} />
             ))}
           </datalist>

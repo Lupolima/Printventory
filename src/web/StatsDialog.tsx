@@ -130,7 +130,7 @@ export function StatsDialog() {
   const percent = (value: string | number | undefined) => Number(value) || 0;
   const completion = [
     { label: 'Designer', percent: percent(stats?.percentages.withDesigner) },
-    { label: 'Parent', percent: percent(stats?.percentages.withParentModel) },
+    { label: 'Title', percent: percent(stats?.percentages.withTitle) },
     { label: 'License', percent: percent(stats?.percentages.withLicense) },
     { label: 'Tags', percent: percent(stats?.percentages.withTags) }
   ];

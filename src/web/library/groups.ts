@@ -1,5 +1,5 @@
 /**
- * Group cards: a ZIP archive's models (bundle) or models sharing a parent model. Their images
+ * Group cards: a ZIP archive's models (bundle) or a group's models. Their images
  * (one per model, cached so recycled cards do not flash), their tags, the list view's shared
  * values, and expanding or collapsing them.
  */
@@ -230,7 +230,7 @@ export function groupListColumns(record: GroupRecord) {
     directory: archiveOrFile ? directoryLabel(archiveOrFile) : '',
     directoryFull: archiveOrFile ? parentDirectory(archiveOrFile) || directoryLabel(archiveOrFile) : '',
     designer: shared((c) => c.designer),
-    parentModel: record.groupKind === 'parentModel' ? record.groupLabel || '' : shared((c) => c.parentModel)
+    title: shared((c) => c.title)
   };
 }
 

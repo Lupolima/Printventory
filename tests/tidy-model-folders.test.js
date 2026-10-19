@@ -16,7 +16,7 @@ const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwA
 async function main() {
   const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-tidy-')));
   database.db = new Database(path.join(tmp, 'test.db'));
-  database.db.exec(`CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, parentModel TEXT, thumbnail TEXT);
+  database.db.exec(`CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, parentModel TEXT, title TEXT, thumbnail TEXT);
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);`);
   const lib = path.join(tmp, 'lib');
   const add = (rel, { parent = null, thumbnail = null, content = 'solid x' } = {}) => {

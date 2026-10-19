@@ -191,7 +191,7 @@ function DirList({
 
 /**
  * Settings → STL Home: the library directories scanned on a timer, directories to skip, and
- * reading Designer and Parent model from folder names. Registers window.openStlHome.
+ * reading Designer and Title from folder names. Registers window.openStlHome.
  */
 export function StlHomeDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -339,7 +339,7 @@ export function StlHomeDialog() {
             checked={form.pathMetadata}
             onChange={(event) => set('pathMetadata', event.target.checked)}
           />
-          <label htmlFor="stl-home-path-metadata-enabled">Enable: use folder path to set Designer and Parent model</label>
+          <label htmlFor="stl-home-path-metadata-enabled">Enable: use folder path to set Designer and Title</label>
         </div>
         <div id="stl-home-path-metadata-options" className={`stl-home-path-metadata-options${form.pathMetadata ? '' : ' grayed'}`}>
           <div className="form-group stl-home-path-direction-row">
@@ -350,7 +350,7 @@ export function StlHomeDialog() {
             </select>
           </div>
           <p className="setting-description stl-home-path-intro">
-            When you run “Scan STL Home”, folder names are used to set Designer and Parent model. Values are only applied when the field is empty.
+            When you run “Scan STL Home”, folder names are used to set Designer and Title. Values are only applied when the field is empty.
           </p>
           <p className="setting-description stl-home-path-direction-desc">
             {form.direction === 'fromRoot'
@@ -363,7 +363,7 @@ export function StlHomeDialog() {
           </p>
           <div className="path-metadata-indices">
             {indexField('useDesigner', 'designerIndex', 'designer', 'Designer')}
-            {indexField('useParentModel', 'parentModelIndex', 'parent-model', 'Parent model')}
+            {indexField('useParentModel', 'parentModelIndex', 'parent-model', 'Title')}
           </div>
         </div>
       </div>

@@ -14,7 +14,7 @@ declare global {
 
 const TABS: { type: MetadataType; tab: string; heading: string; one: string }[] = [
   { type: 'designer', tab: 'Designer', heading: 'Designers', one: 'designer' },
-  { type: 'parentModel', tab: 'Parent Model', heading: 'Parent Models', one: 'parent model' },
+  { type: 'title', tab: 'Title', heading: 'Titles', one: 'title' },
   { type: 'license', tab: 'License', heading: 'Licenses', one: 'license' }
 ];
 
@@ -60,7 +60,7 @@ function rowsFor(entries: MetadataEntry[], type: MetadataType, search: string): 
 }
 
 /**
- * Settings → Metadata Manager: rename (or merge) and clear designers, parent models and licenses
+ * Settings → Metadata Manager: rename (or merge) and clear designers, titles and licenses
  * across the library. Registers window.openMetadataEditor.
  */
 export function MetadataEditorDialog() {
@@ -176,7 +176,7 @@ export function MetadataEditorDialog() {
       footerClassName="jp-mgr__footer dialog-buttons"
       description={
         <>
-          <p className="jp-meta">Rename, merge or clear a designer, parent model or license on every model that has it.</p>
+          <p className="jp-meta">Rename, merge or clear a designer, title or license on every model that has it.</p>
           <div className="jp-tabs jp-mgr__tabs" role="tablist" aria-label="Metadata">
             {TABS.map((candidate) => (
               <button

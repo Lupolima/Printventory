@@ -32,10 +32,11 @@ type PageModel = PanelModel &
     /** What the model is (its site's or its 3MF's description), apart from your notes. */
     description?: string | null;
     license?: string | null;
-    parentModel?: string | null;
     tags?: unknown[];
-    /** The page's title: the site's title, else its model folder's name (null: the file's name). */
+    /** The model's Title (from its 3MF, or typed in Edit). */
     title?: string | null;
+    /** The page's title: the Title, else the site's title, else its model folder's name (null: the file's name). */
+    pageTitle?: string | null;
     /** Its model folder, when it is in one. */
     modelFolder?: string | null;
     /** In a model folder: the file's own pictures (its 3D renders), without the cover. */
@@ -408,7 +409,7 @@ export function ModelView({
   const favorite = !!model.favorite;
   const source = typeof model.source === 'string' ? model.source.trim() : '';
   const sourceIsLink = /^https?:\/\//i.test(source);
-  const title = model.title || cardTitle(model);
+  const title = model.pageTitle || cardTitle(model);
   const Heading = compact ? 'h2' : 'h1';
 
   const header = (
@@ -585,7 +586,7 @@ export function ModelView({
               {group.crumbs.map((crumb) => crumb.name).join(' › ')}
             </button>
           ) : (
-            model.parentModel || '—'
+            '—'
           )}
         </Prop>
         <Prop label="License">{model.license || '—'}</Prop>

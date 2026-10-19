@@ -147,7 +147,7 @@ function buildLibraryExportData() {
   const models = database.db
     .prepare(
       `
-    SELECT id, filePath, fileName, designer, source, notes, description, printed, print_status, print_count, last_printed_at, parentModel, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite
+    SELECT id, filePath, fileName, designer, source, notes, description, printed, print_status, print_count, last_printed_at, parentModel, title, hash, size, license, modifiedDate, dateAdded, isNew, rating, favorite
     FROM models
   `
     )
@@ -344,7 +344,7 @@ function buildLibraryExportData() {
       print_status: model.print_status || (model.printed ? 'printed' : 'unprinted'),
       print_count: model.print_count || 0,
       last_printed_at: model.last_printed_at || null,
-      parentModel: model.parentModel,
+      title: model.title,
       license: model.license,
       rating: model.rating || 0,
       favorite: model.favorite ? 1 : 0,
@@ -403,7 +403,8 @@ ipcMain.handle('import-library', async (event, /** @type {{ json?: string } | nu
           notes: modelData.notes || null,
           ...(modelData.description !== undefined ? { description: modelData.description || null } : {}),
           printed: modelData.printed || 0,
-          parentModel: modelData.parentModel || null,
+          // A library export from before 8.0 has the Title as parentModel.
+          title: modelData.title || modelData.parentModel || null,
           license: modelData.license || null,
           tags: modelData.tags || []
         });

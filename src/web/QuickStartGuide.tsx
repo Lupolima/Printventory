@@ -49,8 +49,8 @@ const PAGES: GuidePage[] = [
     content: (
       <>
         <p>
-          Search from the box at the top (<strong>Ctrl/⌘ K</strong>). <strong>Filter</strong> narrows the library by folder, designer, parent model, license,
-          tags, print status and more; the active filters show as chips you can remove.
+          Search from the box at the top (<strong>Ctrl/⌘ K</strong>). <strong>Filter</strong> narrows the library by folder, designer, title, license, tags,
+          print status and more; the active filters show as chips you can remove.
         </p>
         <p>
           Switch between <strong>Grid</strong>, <strong>Wall</strong> and <strong>List</strong>, and open the folder panel to browse your folders.

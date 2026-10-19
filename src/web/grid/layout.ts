@@ -11,7 +11,10 @@ export type PreviewTileSize = 's' | 'm' | 'l';
 export interface GridModel {
   id?: number | string | null;
   filePath: string;
+  /** The name of the model's top group (the server keeps it; since 8.0 not a field people edit). */
   parentModel?: string | null;
+  /** The model's Title (shown instead of its file name when set). */
+  title?: string | null;
   bundleKey?: string | null;
   bundleLabel?: string | null;
   bundleKind?: string | null;

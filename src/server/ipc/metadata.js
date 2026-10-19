@@ -9,7 +9,9 @@ const { getModelByFilePath } = require('../../core/models');
 const { clientDialogs } = require('../dialogs');
 const { extract3MFMetadata, filter3MFMetadataBySettings } = require('../../core/three-mf');
 
-const METADATA_TYPES = ['designer', 'parentModel', 'license'];
+const METADATA_TYPES = ['designer', 'title', 'license'];
+/** The Metadata Manager's types; 'parentModel' (before 8.0) is the Title now. */
+const metadataType = (type) => (type === 'parentModel' ? 'title' : type);
 
 /** Set `type` to `to` on every model that has `from`. Answers the UPDATE's result and the changed models' ids. */
 function changeModels(type, from, to) {
@@ -56,10 +58,10 @@ ipcMain.handle('get-all-metadata', async () => {
       WHERE designer IS NOT NULL AND designer != '' 
       GROUP BY designer
       UNION ALL
-      SELECT 'parentModel' as type, parentModel as name, COUNT(*) as model_count 
+      SELECT 'title' as type, title as name, COUNT(*) as model_count 
       FROM models 
-      WHERE parentModel IS NOT NULL AND parentModel != '' 
-      GROUP BY parentModel
+      WHERE title IS NOT NULL AND title != '' 
+      GROUP BY title
       UNION ALL
       SELECT 'license' as type, license as name, COUNT(*) as model_count 
       FROM models 
@@ -75,7 +77,8 @@ ipcMain.handle('get-all-metadata', async () => {
   }
 });
 
-ipcMain.handle('rename-metadata', async (event, type, oldName, newName) => {
+ipcMain.handle('rename-metadata', async (event, rawType, oldName, newName) => {
+  const type = metadataType(rawType);
   try {
     if (!oldName || !newName || oldName.trim() === '' || newName.trim() === '') {
       throw new Error('Name cannot be empty');
@@ -116,7 +119,8 @@ ipcMain.handle('rename-metadata', async (event, type, oldName, newName) => {
   }
 });
 
-ipcMain.handle('delete-metadata', async (event, type, name) => {
+ipcMain.handle('delete-metadata', async (event, rawType, name) => {
+  const type = metadataType(rawType);
   try {
     if (!name || name.trim() === '') {
       throw new Error('Name cannot be empty');
@@ -163,7 +167,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
       if (model) {
         const hasData =
           (model.designer && model.designer.trim()) ||
-          (model.parentModel && model.parentModel.trim()) ||
+          (model.title && model.title.trim()) ||
           (model.description && model.description.trim()) ||
           (model.license && model.license.trim());
         if (hasData) {
@@ -171,7 +175,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
             filePath,
             fileName: model.fileName || path.basename(filePath),
             designer: model.designer,
-            parentModel: model.parentModel,
+            title: model.title,
             description: model.description,
             license: model.license
           });
@@ -183,7 +187,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
     if (modelsWithData.length > 0) {
       const message =
         modelsWithData.length === 1
-          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].parentModel ? `Parent Model: ${modelsWithData[0].parentModel}\n` : ''}${modelsWithData[0].description ? `Description: ${modelsWithData[0].description.substring(0, 50)}${modelsWithData[0].description.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
+          ? `This will overwrite existing metadata for:\n\n${modelsWithData[0].fileName}\n\nExisting data:\n${modelsWithData[0].designer ? `Designer: ${modelsWithData[0].designer}\n` : ''}${modelsWithData[0].title ? `Title: ${modelsWithData[0].title}\n` : ''}${modelsWithData[0].description ? `Description: ${modelsWithData[0].description.substring(0, 50)}${modelsWithData[0].description.length > 50 ? '...' : ''}\n` : ''}${modelsWithData[0].license ? `License: ${modelsWithData[0].license}\n` : ''}\n\nContinue?`
           : `This will overwrite existing metadata for ${modelsWithData.length} model(s).\n\nContinue?`;
 
       const confirm = await clientDialogs.messageBox(event, {
@@ -213,7 +217,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
         // Filter metadata based on user settings
         const filteredMetadata = filter3MFMetadataBySettings(metadata);
 
-        if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.parentModel || filteredMetadata.notes || filteredMetadata.license)) {
+        if (filteredMetadata && (filteredMetadata.designer || filteredMetadata.title || filteredMetadata.notes || filteredMetadata.license)) {
           // Get or create model in database
           const existingModel = getModelByFilePath(filePath, { includeThumbnail: true });
 
@@ -226,7 +230,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
             database.db
               .prepare(
                 `
-              INSERT INTO models (filePath, fileName, designer, parentModel, description, license, dateAdded, isNew)
+              INSERT INTO models (filePath, fileName, designer, title, description, license, dateAdded, isNew)
               VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `
               )
@@ -234,7 +238,7 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
                 filePath,
                 finalFileName,
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 dateAdded
@@ -248,13 +252,13 @@ ipcMain.handle('pull-3mf-metadata', async (event, filePaths) => {
               .prepare(
                 `
               UPDATE models 
-              SET designer = ?, parentModel = ?, description = ?, license = ?
+              SET designer = ?, title = ?, description = ?, license = ?
               WHERE filePath = ?
             `
               )
               .run(
                 filteredMetadata.designer || null,
-                filteredMetadata.parentModel || null,
+                filteredMetadata.title || null,
                 filteredMetadata.notes || null,
                 filteredMetadata.license || null,
                 filePath

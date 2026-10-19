@@ -74,22 +74,23 @@ ipcMain.handle('get-model', async (event, filePath, options) => {
       .all(model.id)
       .map((t) => t.name);
 
-    // The page's title: the site's title (a model from a link), else its model folder's name.
+    // The page's title: the model's Title, else the site's title (a model from a link), else its
+    // model folder's name (null: the page shows the file's name). `title` is the Title field itself.
     const modelFolders = require('../model-folders');
     const folder = modelFolders.folderOfFile(model.filePath);
     /** @type {string | null} */
-    let title = null;
+    let pageTitle = model.title && String(model.title).trim() ? String(model.title).trim() : null;
     try {
-      title = require('../site-details').siteTitleOf(model);
+      if (!pageTitle) pageTitle = require('../site-details').siteTitleOf(model);
     } catch (_) {
       /* no site details kept */
     }
-    if (!title && folder) title = require('path').basename(folder);
+    if (!pageTitle && folder) pageTitle = require('path').basename(folder);
     return {
       ...model,
       tags: tags || [],
       categories: require('../../core/categories').modelCategoryNames(model.id),
-      title,
+      pageTitle,
       modelFolder: folder,
       // The file's own pictures (its 3D renders), without the model folder's cover.
       renders: withPictures && folder ? modelFolders.ownPictures(model.filePath, model.thumbnail) : null
@@ -356,11 +357,14 @@ const getModelsFilteredHandler = async (event, filters) => {
       case 'designer-desc':
         orderClause = 'ORDER BY designer DESC';
         break;
+      // 'parentmodel-…' from before 8.0 (saved searches) sorts by the Title.
+      case 'title-asc':
       case 'parentmodel-asc':
-        orderClause = 'ORDER BY parentModel ASC';
+        orderClause = 'ORDER BY title ASC';
         break;
+      case 'title-desc':
       case 'parentmodel-desc':
-        orderClause = 'ORDER BY parentModel DESC';
+        orderClause = 'ORDER BY title DESC';
         break;
       case 'directory-asc':
         orderClause = 'ORDER BY filePath ASC';
@@ -403,10 +407,10 @@ const getModelsFilteredHandler = async (event, filters) => {
 
 ipcMain.handle('get-models-filtered', getModelsFilteredHandler);
 
-ipcMain.handle('get-parent-models', async () => {
+ipcMain.handle('get-titles', async () => {
   try {
-    const rows = database.db.prepare("SELECT DISTINCT parentModel FROM models WHERE parentModel IS NOT NULL AND parentModel != ''").all();
-    return rows.map((row) => row.parentModel);
+    const rows = database.db.prepare("SELECT DISTINCT title FROM models WHERE title IS NOT NULL AND title != ''").all();
+    return rows.map((row) => row.title);
   } catch (error) {
     console.error('Error getting parent models:', error);
     throw error;

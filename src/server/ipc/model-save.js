@@ -71,7 +71,7 @@ async function updateModelsBatch(modelDataBatch) {
           print_status = ?,
           print_count = ?,
           last_printed_at = ?,
-          parentModel = ?,
+          title = ?,
           license = ?,
           rating = ?,
           favorite = ?,
@@ -87,10 +87,10 @@ async function updateModelsBatch(modelDataBatch) {
 
       for (let i = 0; i < modelDataBatch.length; i++) {
         const modelData = modelDataBatch[i];
-        const { filePath, fileName, designer, source, notes, printed, printStatus, parentModel, license, rating, favorite, tags } = modelData;
+        const { filePath, fileName, designer, source, notes, printed, printStatus, title, license, rating, favorite, tags } = modelData;
 
         console.debug(`[Batch ${i}] Processing model: ${filePath}`);
-        console.debug(`[Batch ${i}] Field values:`, { fileName, designer, source, notes, printed, parentModel, license, tags });
+        console.debug(`[Batch ${i}] Field values:`, { fileName, designer, source, notes, printed, title, license, tags });
 
         // Get existing model to preserve values that aren't being updated
         const existingModel = getExistingModelStmt.get(filePath);
@@ -111,7 +111,7 @@ async function updateModelsBatch(modelDataBatch) {
         const finalPrintStatus = printFields.print_status;
         const finalPrintCount = printFields.print_count;
         const finalLastPrintedAt = printFields.last_printed_at;
-        const finalParentModel = parentModel !== undefined ? parentModel || null : existingModel.parentModel;
+        const finalTitle = title !== undefined ? title || null : existingModel.title;
         const finalLicense = license !== undefined ? license || null : existingModel.license;
         const finalRating = rating !== undefined ? normalizeModelRating(rating) : normalizeModelRating(existingModel.rating);
         const finalFavorite = favorite !== undefined ? (favorite ? 1 : 0) : existingModel.favorite ? 1 : 0;
@@ -123,7 +123,7 @@ async function updateModelsBatch(modelDataBatch) {
           notes: finalNotes,
           printed: finalPrinted,
           print_status: finalPrintStatus,
-          parentModel: finalParentModel,
+          title: finalTitle,
           license: finalLicense
         };
         let clearIsNew = modelUserFieldsChanged(existingModel, finals);
@@ -139,7 +139,7 @@ async function updateModelsBatch(modelDataBatch) {
           finalSource,
           finalNotes,
           finalPrinted,
-          finalParentModel,
+          finalTitle,
           finalLicense,
           filePath,
           clearIsNew
@@ -153,7 +153,7 @@ async function updateModelsBatch(modelDataBatch) {
           finalPrintStatus,
           finalPrintCount,
           finalLastPrintedAt,
-          finalParentModel,
+          finalTitle,
           finalLicense,
           finalRating,
           finalFavorite,
@@ -244,7 +244,7 @@ async function saveModel(modelData) {
       notes,
       printed,
       printStatus,
-      parentModel,
+      title,
       license,
       rating,
       favorite,
@@ -287,7 +287,7 @@ async function saveModel(modelData) {
         source,
         notes,
         printed,
-        parentModel,
+        title,
         license,
         rating,
         favorite,
@@ -339,7 +339,7 @@ async function saveModel(modelData) {
         const finalPrintStatus = printFields.print_status;
         const finalPrintCount = printFields.print_count;
         const finalLastPrintedAt = printFields.last_printed_at;
-        const finalParentModel = parentModel !== undefined ? parentModel || null : existingModelData.parentModel;
+        const finalTitle = title !== undefined ? title || null : existingModelData.title;
         const finalLicense = license !== undefined ? license || null : existingModelData.license;
         const finalRating = rating !== undefined ? normalizeModelRating(rating) : normalizeModelRating(existingModelData.rating);
         const finalFavorite = favorite !== undefined ? (favorite ? 1 : 0) : existingModelData.favorite ? 1 : 0;
@@ -351,7 +351,7 @@ async function saveModel(modelData) {
           notes: finalNotes,
           printed: finalPrinted,
           print_status: finalPrintStatus,
-          parentModel: finalParentModel,
+          title: finalTitle,
           license: finalLicense
         };
         let clearIsNew = !markAsNew && modelUserFieldsChanged(existingModelData, finals);
@@ -381,7 +381,7 @@ async function saveModel(modelData) {
             print_status = ?,
             print_count = ?,
             last_printed_at = ?,
-            parentModel = ?,
+            title = ?,
             license = ?,
             rating = ?,
             favorite = ?,
@@ -401,7 +401,7 @@ async function saveModel(modelData) {
           finalPrintStatus,
           finalPrintCount,
           finalLastPrintedAt,
-          finalParentModel,
+          finalTitle,
           finalLicense,
           finalRating,
           finalFavorite,
@@ -423,7 +423,7 @@ async function saveModel(modelData) {
         const bundle = deriveBundleFromFilePath(filePath);
         const insertStmt = database.db.prepare(`
           INSERT INTO models (
-            filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, parentModel, license,
+            filePath, fileName, designer, source, notes, printed, print_status, print_count, last_printed_at, title, license,
             dateAdded, isNew, rating, favorite, bundleKey, bundleLabel, bundleKind
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
         `);
@@ -438,7 +438,7 @@ async function saveModel(modelData) {
           printFields.print_status,
           printFields.print_count,
           printFields.last_printed_at,
-          parentModel || null,
+          title || null,
           license || null,
           dateAdded,
           normalizeModelRating(rating),

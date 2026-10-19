@@ -10,7 +10,7 @@ export interface MatchModel extends PrintModel {
   fileName?: string | null;
   designer?: string | null;
   license?: string | null;
-  parentModel?: string | null;
+  title?: string | null;
   isNew?: number | boolean | string | null;
   favorite?: number | boolean | null;
   rating?: number | string | null;
@@ -33,8 +33,8 @@ export function modelMatchesFilters(model: MatchModel, f: FilterState): boolean 
     return false;
   const license = only(f.license);
   if (license && (license === '__none__' ? !blank(model.license) : model.license !== license)) return false;
-  const parent = only(f.parentModel);
-  if (parent && (parent === '__none__' ? !blank(model.parentModel) : model.parentModel !== parent)) return false;
+  const title = only(f.title);
+  if (title && (title === '__none__' ? !blank(model.title) : model.title !== title)) return false;
   if (f.printed && f.printed !== 'all' && !modelMatchesPrintFilter(model, f.printed)) return false;
   if (f.isNew === 'new' && !isModelNew(model)) return false;
   if (f.isNew === 'not-new' && isModelNew(model)) return false;
