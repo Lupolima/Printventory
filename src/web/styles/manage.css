@@ -475,3 +475,20 @@
 .jp-dup-more strong {
   color: var(--jp-text);
 }
+
+/* Phones: a folder-structure layer's choice and the preferred directory get a line of their own,
+   the buttons below them (they were cut to "Parent Mo…" and "Folder whos…"). */
+@media (max-width: 700px) {
+  .jp-organize .organize-structure-row {
+    flex-wrap: wrap;
+  }
+  .jp-organize .organize-structure-row select {
+    flex: 1 1 100%;
+  }
+  .jp-dup .dedup-preferred-row {
+    flex-wrap: wrap;
+  }
+  .jp-dup .dedup-preferred-row .jp-input {
+    flex: 1 1 100%;
+  }
+}

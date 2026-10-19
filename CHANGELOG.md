@@ -2,6 +2,12 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.29.4] - 2026-10-18
+
+**Fixes:**
+- **Settings forms had buttons that did nothing:** inside the Settings page, the forms' **Close** and **Cancel** only reopened them (Sharing, Integrations and Authentication showed a Close that seemed dead). They are gone there; the same forms opened as pop-ups keep them. A form left without buttons (Share Links) shows none.
+- **Phones:** the search box says **Search…** (the long text showed as "Search moc"); on the Organize page a folder layer's choice, and on Duplicates the preferred directory, get the full width, their buttons below them (they were cut to "Parent Mo…" and "Folder whos…").
+
 ## [7.29.3] - 2026-10-18
 
 **Fixes:**
