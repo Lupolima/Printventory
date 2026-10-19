@@ -4665,6 +4665,17 @@ async function browserChecks(base, wsUrl, session) {
       'Organize opens the Organize Library page',
       /#\/organize$/.test(page.url()) && (await page.isVisible('#organize-library-page h1:text-is("Organize Library")'))
     );
+    // One column: the title above the cards (7.29.0 laid them out side by side, squeezed).
+    const organizeLayout = await page.evaluate(() => {
+      const title = document.querySelector('#organize-library-page .jp-page__header')?.getBoundingClientRect();
+      const card = document.querySelector('#organize-library-page .jp-organize__card')?.getBoundingClientRect();
+      return title && card ? { titleBottom: Math.round(title.bottom), cardTop: Math.round(card.top) } : null;
+    });
+    check(
+      'the Organize page is one column, the title above its cards',
+      !!organizeLayout && organizeLayout.cardTop >= organizeLayout.titleBottom,
+      JSON.stringify(organizeLayout)
+    );
     check(
       'Organize Library lists the scanned folders',
       await page.waitForSelector('#organize-source-button:not([disabled])', { timeout: 10000 }).then(

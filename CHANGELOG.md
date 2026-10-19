@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.29.2] - 2026-10-18
+
+**Fixes:**
+- **Organize page squeezed (7.29.0):** the Organize Library page was laid out in a narrow row, its title, form and Tidy Into Model Folders side by side. The Organize Uploads panel added in 7.29.0 used the same style name as the page. The page is one column again.
+
 ## [7.29.1] - 2026-10-18
 
 **Fixes:**

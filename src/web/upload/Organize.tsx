@@ -102,8 +102,8 @@ export function OrganizeNotice({ directory }: { directory: string }) {
   if (!canEdit || !info || !showsUnorganized(directory, info)) return null;
   const busy = !!run?.running;
   return (
-    <div className="jp-organize" id="jp-organize-uploads" role="region" aria-label="Organize Uploads">
-      <p className="jp-organize__text">
+    <div className="jp-upload-organize" id="jp-organize-uploads" role="region" aria-label="Organize Uploads">
+      <p className="jp-upload-organize__text">
         {info.waiting
           ? `${info.waiting.toLocaleString()} ${info.waiting === 1 ? 'model is' : 'models are'} waiting in the Upload folder. `
           : 'Nothing is waiting in the Upload folder. '}
