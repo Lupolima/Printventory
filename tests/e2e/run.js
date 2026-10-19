@@ -395,6 +395,14 @@ async function apiChecks(base, wsUrl) {
     !JSON.stringify((await invoke(base, ctxCookie(), 'get-setting', ['scannedDirectories'])).result || '').includes('Designer B')
   );
   check('home after login', (await http.request('/')).status === 200);
+  // The page links app.js and app.css with the version, so caches (Cloudflare's, for one) cannot serve an updated page old files.
+  const pageHtml = await (await fetch(`${base}/`, { headers: { cookie: http.cookie() } })).text();
+  const appVersion = require(path.join(ROOT, 'package.json')).version;
+  check(
+    'the page asks for this build’s script and app.css of this version',
+    pageHtml.includes(`web-build/app.css?v=${appVersion}-`) && /web-build\/app-[A-Za-z0-9_-]+\.js/.test(pageHtml),
+    (pageHtml.match(/web-build\/app\.(?:css|js)[^"']*/g) || []).join(' ')
+  );
   check('web asset served', (await http.request('/slicer-protocol.js')).status === 200);
   for (const hidden of ['/main.js', '/spoolman.js', '/src/core/spoolman.js', '/package.json', '/node_modules/express/package.json', '/src/server/index.js']) {
     check(`${hidden} not served`, (await http.request(hidden)).status === 404);
@@ -5588,11 +5596,13 @@ async function accountChecks(base, wsUrl, admin) {
       /^inline/.test(sharedMesh.headers.get('content-disposition') || '')
   );
   const viewerScript = await fetch(`${base}/share-viewer/share-viewer.js`);
+  // three.js is a chunk with a fingerprint in its name (vite.config.mjs), imported by the viewer.
+  const threeChunk = ((await viewerScript.clone().text()).match(/three-[A-Za-z0-9_-]+\.js/) || [])[0] || 'three-missing.js';
   check(
     "the 3D view's script loads without a login, and nothing else of the app",
     viewerScript.status === 200 &&
       /javascript/.test(viewerScript.headers.get('content-type') || '') &&
-      (await fetch(`${base}/share-viewer/three.js`)).status === 200 &&
+      (await fetch(`${base}/share-viewer/${threeChunk}`)).status === 200 &&
       (await fetch(`${base}/share-viewer/app.js`)).status === 404
   );
   const viewOnly = (await invoke(base, editor, 'create-share-link', [{ kind: 'model', filePath: uploadedPath, allowDownload: false }])).result || {};

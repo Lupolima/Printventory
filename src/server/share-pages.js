@@ -23,9 +23,9 @@ const path = require('path');
 const { sendModelFile } = require('./model-file');
 const { jsonStringifyForWs } = require('./ws-json');
 
-/** The built viewer (vite.config.mjs: share-viewer.js, and the three.js chunk it imports). */
+/** The built viewer (vite.config.mjs: share-viewer.js, and the three-<fingerprint>.js chunk it imports). */
 const VIEWER_DIR = path.join(__dirname, '..', '..', 'web-build');
-const VIEWER_FILES = new Set(['share-viewer.js', 'three.js']);
+const VIEWER_FILES = /^(share-viewer|three-[A-Za-z0-9_-]+)\.js$/;
 
 function escapeHtml(text) {
   return String(text == null ? '' : text).replace(
@@ -293,7 +293,7 @@ function registerSharePages(expressApp) {
   });
 
   expressApp.get('/share-viewer/:file', (req, res) => {
-    if (!VIEWER_FILES.has(req.params.file)) {
+    if (!VIEWER_FILES.test(req.params.file)) {
       res.status(404).end();
       return;
     }

@@ -153,10 +153,43 @@ function startHttpServer(port = 5000, localhostOnly = false, options = {}) {
   const appDir = path.join(__dirname, '..', '..');
 
   /** The page. index.html loads server-bridge.js itself; nothing is inlined (CSP script-src 'self'). */
+  /**
+   * The page, linking this build's files: the script by its fingerprinted name (app-<hash>.js,
+   * vite.config.mjs) and app.css with the version and build ("app.css?v=7.29.3-…"). Every update
+   * asks for new addresses, so a cache that keeps files longer than the server asks (Cloudflare's
+   * Browser Cache TTL, for one) never serves an updated page its old script or styles.
+   */
+  let indexPage = { stamp: '', html: '' };
+  function builtScript() {
+    try {
+      const dir = path.join(appDir, 'web-build');
+      const found = fs
+        .readdirSync(dir)
+        .filter((name) => /^app-[A-Za-z0-9_-]+\.js$/.test(name))
+        .map((name) => ({ name, mtimeMs: fs.statSync(path.join(dir, name)).mtimeMs }))
+        .sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+      return found || null;
+    } catch (_) {
+      return null;
+    }
+  }
   function sendIndexHtml(res) {
-    res.sendFile(path.join(appDir, 'src', 'web', 'public', 'index.html'), (err) => {
-      if (err && !res.headersSent) res.status(500).send('Error loading index.html');
-    });
+    try {
+      const script = builtScript();
+      const stamp = `${require('../../package.json').version}-${script ? Math.round(script.mtimeMs).toString(36) : ''}`;
+      if (indexPage.stamp !== stamp) {
+        const html = fs
+          .readFileSync(path.join(appDir, 'src', 'web', 'public', 'index.html'), 'utf8')
+          .replace(/(["'])web-build\/app\.js\1/g, (match, quote) => `${quote}web-build/${script ? script.name : 'app.js'}${quote}`)
+          .replace(/(["'])web-build\/app\.css\1/g, (match, quote) => `${quote}web-build/app.css?v=${encodeURIComponent(stamp)}${quote}`);
+        indexPage = { stamp, html };
+      }
+      res.setHeader('Cache-Control', 'no-cache');
+      res.type('html').send(indexPage.html);
+    } catch (error) {
+      console.error('[HTTP] Could not send index.html:', error.message);
+      if (!res.headersSent) res.status(500).send('Error loading index.html');
+    }
   }
 
   expressApp.get('/', (req, res) => sendIndexHtml(res));

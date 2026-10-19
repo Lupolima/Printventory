@@ -133,8 +133,10 @@ async function main() {
     check(`the STL Home scan finds the ${FIXTURE_MODELS} fixture models`, !!scanned, JSON.stringify(await action('get-stats').catch((e) => e.message)));
     const page = await fetch(`${base}/`, { headers: { cookie, accept: 'text/html' } });
     const html = await page.text();
-    check('the web UI page loads', page.ok && /web-build\/app\.js/.test(html), `HTTP ${page.status}`);
-    const script = await fetch(`${base}/web-build/app.js`, { headers: { cookie } });
+    // The script has a fingerprint in its name (vite.config.mjs); the page links it.
+    const scriptName = (html.match(/web-build\/(app-[A-Za-z0-9_-]+\.js)/) || [])[1];
+    check('the web UI page loads', page.ok && !!scriptName, `HTTP ${page.status}`);
+    const script = await fetch(`${base}/web-build/${scriptName}`, { headers: { cookie } });
     check(
       'the built web UI is in the image',
       script.ok && Number(script.headers.get('content-length') || (await script.arrayBuffer()).byteLength) > 100000,
