@@ -1231,3 +1231,32 @@ body.jp-shell-on .file-grid .file-item-list .thumbnail-container {
   align-self: stretch;
   width: auto;
 }
+
+/* Settings → Organize: the folder levels (upload/Organize.tsx). */
+.jp-organize-layers {
+  margin: 0 0 var(--jp-space-2);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--jp-space-2);
+}
+.jp-organize-layers__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jp-space-2);
+}
+.jp-organize-layers__row select {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.jp-organize-layers__row button,
+#organize-add-layer {
+  width: auto;
+  margin: 0;
+}
+.jp-organize-layers__fixed {
+  color: var(--jp-text-2);
+  font-size: var(--jp-text-meta);
+}

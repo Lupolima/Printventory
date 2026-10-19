@@ -144,11 +144,12 @@ function freeSpace(dir) {
  * Unpack the archives directly in `dir` (or only `only`, paths in `dir`), and the archives inside
  * them, into a folder each; move the originals to archives/ and loose pictures and documents to
  * image/ and document/. `dir` becomes a model folder. Never throws for one archive: what fails is
- * listed. Answers { folder, unpacked: [name], failed: [{ name, error }], images, documents }.
+ * listed. `archives: false` leaves the archives, `media: false` the pictures and documents
+ * (Organize's settings). Answers { folder, unpacked: [name], failed: [{ name, error }], images, documents }.
  * @param {string} dir
- * @param {{ only?: string[] | null }} [options]
+ * @param {{ only?: string[] | null, archives?: boolean, media?: boolean }} [options]
  */
-async function unpackFolder(dir, { only = null } = {}) {
+async function unpackFolder(dir, { only = null, archives = true, media = true } = {}) {
   const modelFolders = require('./model-folders');
   const folder = modelFolders.register(dir);
   const result = { folder, unpacked: /** @type {string[]} */ ([]), failed: /** @type {{ name: string, error: string }[]} */ ([]), images: 0, documents: 0 };
@@ -157,7 +158,8 @@ async function unpackFolder(dir, { only = null } = {}) {
     .readdirSync(folder, { withFileTypes: true })
     .filter((entry) => entry.isFile() && isArchive(entry.name) && !isLaterPart(entry.name))
     .map((entry) => path.join(folder, entry.name))
-    .filter((archive) => !wanted || wanted.has(path.resolve(archive)));
+    .filter((archive) => !wanted || wanted.has(path.resolve(archive)))
+    .filter(() => archives);
 
   for (const archive of top) {
     const name = path.basename(archive);
@@ -195,7 +197,7 @@ async function unpackFolder(dir, { only = null } = {}) {
   }
 
   // Loose pictures and documents become the model's own (its Pictures and Documents).
-  for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+  for (const entry of media ? fs.readdirSync(folder, { withFileTypes: true }) : []) {
     if (!entry.isFile()) continue;
     const kind = modelFolders.kindOf(entry.name);
     if (kind !== 'image' && kind !== 'document') continue;

@@ -29,13 +29,12 @@ import { initPage } from './startup/pageInit';
 import { KeyboardShortcuts, KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { UndoToast } from './library/UndoToast';
 import { ScanToast } from './scan/ScanToast';
-import { OrganizeToast, UploadFolderDialog } from './upload/Organize';
+import { OrganizeSettingsDialog, OrganizeToast } from './upload/Organize';
 import { InstallAppDialog } from './InstallAppDialog';
 import { ManageThumbnailsDialog } from './ManageThumbnailsDialog';
 import { McpServerSettingsDialog } from './McpServerSettingsDialog';
 import { MetadataEditorDialog } from './MetadataEditorDialog';
 import { MultiEditPanel } from './details/MultiEditPanel';
-import { OrganizeLibraryOpener } from './pages/OrganizePage';
 import { PartsManagerDialog } from './PartsManagerDialog';
 import { PerformanceSettingsDialog } from './PerformanceSettingsDialog';
 import { PrinterManagerDialog } from './PrinterManagerDialog';
@@ -121,7 +120,7 @@ function Screens() {
       <PerformanceSettingsDialog />
       <McpServerSettingsDialog />
       <FileTypeSettingsDialog />
-      <UploadFolderDialog />
+      <OrganizeSettingsDialog />
       <HttpsSettingsDialog />
       <AiConfigDialog />
       <PurgeModelsDialog />
@@ -129,7 +128,6 @@ function Screens() {
       <SlicerSettingsDialog />
       <MetadataEditorDialog />
       <StlHomeDialog />
-      <OrganizeLibraryOpener />
       <DuplicatesOpener />
       <ContextMenu />
       <SidebarProgress />

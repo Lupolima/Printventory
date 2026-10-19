@@ -76,6 +76,8 @@ describe('roles', () => {
       'Statistics',
       'Tags',
       'Duplicates',
+      // Editors run Organize; its settings are an admin's (Settings → Scanning → Organize).
+      'Organize',
       'Scan Library',
       'Settings',
       'Help'

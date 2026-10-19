@@ -8,6 +8,8 @@ import { useCan } from '../session';
 import { exposeGlobal, showMessage } from '../page';
 import {
   dismissOrganizeRun,
+  organizeStructure,
+  runOrganize,
   hideUnorganized,
   organizeText,
   organizeUploads,
@@ -17,13 +19,16 @@ import {
   stopOrganizing,
   useOrganizeRun,
   useUploadFolder,
+  type OrganizeOptions,
   type UploadFolderInfo
 } from './inbox';
 
 declare global {
   interface Window {
-    /** Settings → Scanning → Upload Folder. */
-    openUploadFolderSettings?: () => void;
+    /** Settings → Scanning → Organize. */
+    openOrganizeSettings?: () => void;
+    /** Organize (the old menu's Organize Library). */
+    openOrganizeLibrary?: () => void;
   }
 }
 
@@ -33,6 +38,8 @@ const SHOW_MS = 20_000;
 /** The notice for Organize Uploads, on every page: how far it is, then how it ended. */
 export function OrganizeToast() {
   const run = useOrganizeRun();
+  // The old menu's Organize Library runs Organize.
+  useEffect(() => exposeGlobal('openOrganizeLibrary', () => void runOrganize()), []);
   const canEdit = useCan('editor');
   const finished = !!run && !run.running;
 
@@ -102,21 +109,20 @@ export function OrganizeNotice({ directory }: { directory: string }) {
   if (!canEdit || !info || !showsUnorganized(directory, info)) return null;
   const busy = !!run?.running;
   return (
-    <div className="jp-upload-organize" id="jp-organize-uploads" role="region" aria-label="Organize Uploads">
+    <div className="jp-upload-organize" id="jp-organize-uploads" role="region" aria-label="Organize">
       <p className="jp-upload-organize__text">
         {info.waiting
           ? `${info.waiting.toLocaleString()} ${info.waiting === 1 ? 'model is' : 'models are'} waiting in the Upload folder. `
           : 'Nothing is waiting in the Upload folder. '}
-        Organize gives each folder (or model file) its category and moves it to{' '}
-        <code>{info.destination ? `${info.destination}/Category/Subcategory/Model name` : 'Category/Subcategory/Model name'}</code>, archives unpacked and
-        pictures and documents in their folders, then the AI tags it.
+        Organize gives each folder (or model file) its category and moves it to <code>{organizeStructure(info)}</code>, its files named after its Title
+        (Settings → Scanning → Organize).
       </p>
       <Button
         variant="primary"
         icon={busy ? Loader2 : Wand2}
         id="jp-organize-button"
         disabled={busy || !info.waiting || !info.destination}
-        title={info.destination ? undefined : 'Choose a destination in Settings → Scanning → Upload Folder'}
+        title={info.destination ? undefined : 'Choose a destination in Settings → Scanning → Organize'}
         onClick={() => void organizeUploads()}
       >
         {busy ? 'Organizing…' : 'Organize'}
@@ -126,24 +132,30 @@ export function OrganizeNotice({ directory }: { directory: string }) {
 }
 
 /**
- * Settings → Scanning → Upload Folder: where uploads wait ("Not organized"), and where Organize
- * Uploads puts them (empty: the first STL Home folder). Registers window.openUploadFolderSettings.
+ * Settings → Scanning → Organize: the scanned directory (the Upload folder, where uploads wait as
+ * "Not organized"), the destination (empty: the first STL Home folder), the folder levels above
+ * each model's own folder (named after its Title), and Organize's steps. Organize in the sidebar
+ * runs with them. Registers window.openOrganizeSettings.
  */
-export function UploadFolderDialog() {
+export function OrganizeSettingsDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [upload, setUpload] = useState('');
   const [destination, setDestination] = useState('');
   const [fallback, setFallback] = useState('');
+  const [options, setOptions] = useState<OrganizeOptions>({ layers: ['category', 'subcategory'], includeZips: true, tidy: true, tags: true, autoApply: true });
+  const [choices, setChoices] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(
     () =>
-      exposeGlobal('openUploadFolderSettings', () => {
+      exposeGlobal('openOrganizeSettings', () => {
         void callAction<UploadFolderInfo>('get-upload-folder')
           .then((info) => {
             setUpload(info.uploadFolder);
             setDestination(info.chosenDestination);
             setFallback(info.chosenDestination ? '' : info.destination);
+            setOptions(info.options);
+            setChoices(info.layerChoices);
           })
           .catch(() => {})
           .finally(() => {
@@ -158,37 +170,59 @@ export function UploadFolderDialog() {
     if (picked) apply(picked);
   }
 
+  const update = (change: Partial<OrganizeOptions>) => setOptions((previous) => ({ ...previous, ...change }));
+  const setLayer = (index: number, id: string) => update({ layers: options.layers.map((layer, i) => (i === index ? id : layer)) });
+  const moveLayer = (index: number, by: number) => {
+    const next = [...options.layers];
+    const [layer] = next.splice(index, 1);
+    next.splice(index + by, 0, layer);
+    update({ layers: next });
+  };
+  const unused = choices.filter((choice) => !options.layers.includes(choice.id));
+  const label = (id: string) => choices.find((choice) => choice.id === id)?.label || id;
+
   async function save() {
     if (saving) return;
     setSaving(true);
     try {
-      await callAction('save-upload-folder', upload.trim(), destination.trim());
+      await callAction('save-upload-folder', upload.trim(), destination.trim(), options);
       await reloadUploadFolder();
       dialogRef.current?.close();
     } catch (error) {
-      await showMessage('Upload Folder', error instanceof Error ? error.message : String(error));
+      await showMessage('Organize', error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }
   }
 
+  const step = (key: 'includeZips' | 'tidy' | 'tags' | 'autoApply', id: string, title: string, description: string, disabled = false) => (
+    <>
+      <div className="form-group checkbox-container">
+        <input type="checkbox" id={id} checked={options[key]} disabled={disabled} onChange={(event) => update({ [key]: event.target.checked })} />
+        <label htmlFor={id}>{title}</label>
+      </div>
+      <p className="setting-description">{description}</p>
+    </>
+  );
+
   return (
     <ModalDialog
-      id="upload-folder-dialog"
-      title="Upload Folder"
+      id="organize-settings-dialog"
+      title="Organize"
       dialogRef={dialogRef}
       description={
         <p className="setting-description">
-          Uploads go to the Upload folder first and show in the library as <strong>Not organized</strong>. <strong>Organize</strong> (in the library&apos;s Not
-          organized filter and on Home) then moves each folder or model file to its place: <code>Destination/Category/Subcategory/Model name</code>.
+          <strong>Organize</strong> in the sidebar (and in the library&apos;s <strong>Not organized</strong> view and on Home) puts every folder or model file
+          in the scanned directory where it belongs:{' '}
+          <code>{[destination || fallback || 'Destination', ...options.layers.map(label), 'Title', 'file'].join('/')}</code>.
         </p>
       }
       footer={
         <>
-          <button type="button" id="save-upload-folder" className="is-primary" disabled={saving} onClick={() => void save()}>
+          <button type="button" id="save-organize-settings" className="is-primary" disabled={saving} onClick={() => void save()}>
             Save
           </button>
-          <button type="button" id="cancel-upload-folder" onClick={() => dialogRef.current?.close()}>
+          <button type="button" id="cancel-organize-settings" onClick={() => dialogRef.current?.close()}>
             Cancel
           </button>
         </>
@@ -196,25 +230,20 @@ export function UploadFolderDialog() {
     >
       <div className="settings-group">
         <div className="form-group">
-          <label htmlFor="upload-folder-path">Upload folder</label>
+          <label htmlFor="upload-folder-path">Scanned directory (the Upload folder)</label>
           <div className="jp-folder-field">
-            <input
-              type="text"
-              id="upload-folder-path"
-              value={upload}
-              placeholder="No Upload folder: uploads go where you choose"
-              onChange={(event) => setUpload(event.target.value)}
-            />
-            <button type="button" id="choose-upload-folder" onClick={() => void choose(upload, 'Upload Folder', setUpload)}>
+            <input type="text" id="upload-folder-path" value={upload} placeholder="/upload" onChange={(event) => setUpload(event.target.value)} />
+            <button type="button" id="choose-upload-folder" onClick={() => void choose(upload, 'Scanned Directory', setUpload)}>
               Choose…
             </button>
           </div>
         </div>
         <p className="setting-description">
-          The Upload dialog starts here (you can still choose another folder). Made when it does not exist yet. Empty turns the Upload folder off.
+          Uploads go here first (the Upload dialog starts here) and show in the library as Not organized. Made when it does not exist yet. Empty turns Organize
+          off.
         </p>
         <div className="form-group">
-          <label htmlFor="organize-destination-path">Organize into</label>
+          <label htmlFor="organize-destination-path">Destination directory</label>
           <div className="jp-folder-field">
             <input
               type="text"
@@ -223,15 +252,70 @@ export function UploadFolderDialog() {
               placeholder={fallback ? `${fallback} (the first STL Home folder)` : 'The first STL Home folder'}
               onChange={(event) => setDestination(event.target.value)}
             />
-            <button type="button" id="choose-organize-destination" onClick={() => void choose(destination || fallback, 'Organize Into', setDestination)}>
+            <button type="button" id="choose-organize-destination" onClick={() => void choose(destination || fallback, 'Destination', setDestination)}>
               Choose…
             </button>
           </div>
         </div>
+      </div>
+      <div className="settings-group">
+        <h4>Folder structure</h4>
+        <ol className="jp-organize-layers" id="organize-layers">
+          {options.layers.map((layer, index) => (
+            <li key={layer} className="jp-organize-layers__row">
+              <select aria-label={`Folder level ${index + 1}`} value={layer} onChange={(event) => setLayer(index, event.target.value)}>
+                {[layer, ...unused.map((choice) => choice.id)].map((id) => (
+                  <option key={id} value={id}>
+                    {label(id)}
+                  </option>
+                ))}
+              </select>
+              <button type="button" disabled={index === 0} onClick={() => moveLayer(index, -1)}>
+                Up
+              </button>
+              <button type="button" disabled={index === options.layers.length - 1} onClick={() => moveLayer(index, 1)}>
+                Down
+              </button>
+              <button type="button" onClick={() => update({ layers: options.layers.filter((_, i) => i !== index) })}>
+                Remove
+              </button>
+            </li>
+          ))}
+          <li className="jp-organize-layers__row jp-organize-layers__fixed">Title / file</li>
+        </ol>
+        {unused.length > 0 && options.layers.length < 4 && (
+          <button type="button" id="organize-add-layer" onClick={() => update({ layers: [...options.layers, unused[0].id] })}>
+            Add folder level
+          </button>
+        )}
         <p className="setting-description">
-          Where Organize puts the models. Each gets a Category and Subcategory: the site&apos;s, else the AI&apos;s (Settings → AI Tagging), else from the words
-          in its names, else Uncategorized/Other. A name already taken gets a number: <code>Name (2)</code>.
+          Each model gets a folder named after its Title (else its file&apos;s name), and its files are named after the Title too (
+          <code>Articulated Dragon.3mf</code>; <code>(2)</code> when two share it). Without a Category: Uncategorized/Other, after trying its site, the AI and
+          the words in its names.
         </p>
+      </div>
+      <div className="settings-group">
+        <h4>Steps</h4>
+        {step(
+          'includeZips',
+          'organize-include-zips',
+          'Include ZIP files',
+          'ZIP, RAR and 7Z files are unpacked into their model folder (the originals kept in archives/). Off: they stay in the scanned directory.'
+        )}
+        {step(
+          'tidy',
+          'organize-tidy',
+          'Tidy into model folders',
+          "Each model's loose pictures, videos and documents go into its image, video and document folders."
+        )}
+        {step('tags', 'organize-tags', 'Generate tags', 'The AI service (Settings → AI) suggests tags for every model it moved.')}
+        {step(
+          'autoApply',
+          'organize-auto-apply',
+          'Apply the suggested tags',
+          'On: added at once (with AI Tagged). Off: they open for your review, as Generate Tags does.',
+          !options.tags
+        )}
       </div>
     </ModalDialog>
   );

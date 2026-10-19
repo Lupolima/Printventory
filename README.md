@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 8.0.0**
+**Version 8.1.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -18,7 +18,7 @@ JusttPrint is a self-hosted web app for your 3D printing model collection. It ru
 - **Works on phones and tablets**: a bottom bar and full-screen details on phones, an icon rail on tablets, finger-sized controls on touch screens, and **Install App** for the home screen (Android and desktop need HTTPS)
 - **Automatic scanning** of STL, 3MF, ZIP and other model files, with thumbnails rendered by the JusttPrint backend; large pictures show as small copies in the grid, and the originals are kept; files moved to another folder or share outside JusttPrint keep their tags, notes and print history
 - **Upload from the browser**: drop model files on the page (or use **Upload** in the Library) to save them into a library folder; large files (many GB) go in pieces that resume after a lost connection
-- **Upload folder and Organize**: uploads wait in an Upload folder you choose, marked **Not organized**; **Organize** gives each its Category and Subcategory (the site's, the AI's or from its names) and moves it to `Category/Subcategory/Model name`, archives unpacked, pictures and documents in place, then the AI tags it
+- **Upload folder and Organize**: uploads wait in an Upload folder you choose, marked **Not organized**; one click on **Organize** gives each its Category and Subcategory (the site's, the AI's or from its names), moves it to `Category/Subcategory/Title/`, names its files after its Title, unpacks archives, puts pictures and documents in place and AI-tags it, all set up under **Settings → Scanning → Organize**
 - **Archives unpacked, kept together**: an uploaded ZIP, RAR or 7Z (and the archives inside it) is unpacked into the model's folder, a folder per archive, with the originals kept in `archives/` and loose pictures and PDFs as the model's pictures and documents; **Unpack Archives** on a folder's page does the same for archives already in the library
 - **A folder for every model**: uploads and site downloads go into a folder named after the model, with its pictures in `image/`, videos in `video/` and documents in `document/`; the model's page shows them, plays the videos and reads PDFs, Word, Markdown and text files in the page, and you choose the cover picture; **Tidy Into Model Folders** gives models already in the library folders of their own
 - **Add from links**: paste a list of Printables, Thingiverse or MakerWorld links and each model is added with its name, designer, license, picture and source link, and its files downloaded into the library when you want (Thingiverse with your own API token); links already in the library are skipped
@@ -129,7 +129,7 @@ Don't install it by searching for JusttPrint under **Apps** and choosing the Doc
 wget -O /boot/config/plugins/dockerMan/templates-user/my-JusttPrint.xml https://raw.githubusercontent.com/ngolston/JusttPrint/main/unraid/justtprint.xml
 ```
 
-**Unraid Shares** maps `/mnt/user` into the container at the same path, read and write, so delete, move and Organize Library work and folders keep the paths you know. Add or change model folders any time under **Settings → Scanning → STL Home**. Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never shown or scanned. To keep JusttPrint to one share, set both the host and the container path of **Unraid Shares** to it (for example `/mnt/user/models`). Moving a library from an older **Models** mapping (`/mnt/models`) to **Unraid Shares** keeps each model's details: replace the path in the container, then in **Settings → Scanning → STL Home** swap `/mnt/models` for the folder's `/mnt/user/...` path and save; the scan moves each model to its new path.
+**Unraid Shares** maps `/mnt/user` into the container at the same path, read and write, so delete, move and Organize work and folders keep the paths you know. Add or change model folders any time under **Settings → Scanning → STL Home**. Unraid's own shares (`appdata`, `system`, `domains`, `isos`) are never shown or scanned. To keep JusttPrint to one share, set both the host and the container path of **Unraid Shares** to it (for example `/mnt/user/models`). Moving a library from an older **Models** mapping (`/mnt/models`) to **Unraid Shares** keeps each model's details: replace the path in the container, then in **Settings → Scanning → STL Home** swap `/mnt/models` for the folder's `/mnt/user/...` path and save; the scan moves each model to its new path.
 
 More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show more settings**; leave one empty to set it in the web UI instead. For NVIDIA thumbnails, see the template's description.
 
@@ -141,7 +141,7 @@ More settings (ZIP files, AI tagging, backups, reverse proxy) are under **Show m
 | `container_name` | A fixed name, so commands like `docker logs justtprint-server` work. |
 | `ports` | `host:container`. Open the app at the host port. If 5000 is taken (Synology DSM, macOS AirPlay), use `"5055:5000"` and open port 5055. |
 | `./data:/root/.config/justtprint` | Where the database, thumbnails, backups and settings are saved on your computer. **Keep this folder**; it holds your library. |
-| `/path/to/your/models:/mnt/models:ro` | Makes your models folder visible inside the container as `/mnt/models`. `:ro` is read-only; remove it to allow delete, move and Organize Library. Add more lines for more folders. |
+| `/path/to/your/models:/mnt/models:ro` | Makes your models folder visible inside the container as `/mnt/models`. `:ro` is read-only; remove it to allow delete, move and Organize. Add more lines for more folders. |
 | `environment` | Settings, see [Environment variables](#environment-variables). |
 | `restart: unless-stopped` | Starts JusttPrint again after a reboot or crash. |
 | `mem_limit` / `mem_reservation` | Most RAM the container may use / RAM kept for it. 4 GB or more is recommended for large libraries. |

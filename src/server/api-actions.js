@@ -82,7 +82,7 @@ const ACTIONS = {
   'add-uploaded-files': ['string', 'array?'],
   // The Upload folder and Organize Uploads (ipc/upload-inbox.js)
   'get-upload-folder': [],
-  'save-upload-folder': ['string', 'string'],
+  'save-upload-folder': ['string', 'string', 'object?'],
   'organize-uploads': ['object?'],
   'get-organize-uploads': [],
   'stop-organize-uploads': [],

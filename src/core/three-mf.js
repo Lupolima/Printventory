@@ -74,7 +74,8 @@ function parse3MFModelXML(xmlContent) {
       if (fieldName === 'Designer' && fieldValue) {
         metadata.designer = fieldValue;
       } else if (fieldName === 'Title' && fieldValue) {
-        metadata.title = fieldValue;
+        // A Title is a name, not a file: "Dragon.3mf" → "Dragon".
+        metadata.title = fieldValue.replace(/\.(3mf|stl|obj|step|stp)$/i, '').trim() || fieldValue;
       } else if (fieldName === 'Description' && fieldValue) {
         metadata.notes = cleanDescriptionText(fieldValue);
       } else if (fieldName === 'License' && fieldValue) {

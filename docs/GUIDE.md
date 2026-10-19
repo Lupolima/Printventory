@@ -144,17 +144,22 @@ Editors and admins can add models from the browser:
 
 ### The Upload folder and Organize
 
-An admin can choose an **Upload folder** under **Settings → Scanning → Upload Folder** (any folder, made if it is not there yet). Uploads go there first, and its models show in the library right away with a **Not organized** badge. **Not organized** in the Library's header shows just them (with how many there are); Home's **Needs attention** lists them too.
+An admin sets up Organize under **Settings → Scanning → Organize**:
 
-**Organize** (in the Not organized view, and next to the item on Home) then puts every one of them where it belongs, without asking:
+- **Scanned directory** (the Upload folder, for example `/upload`; made if it is not there yet): uploads go there first, and its models show in the library right away with a **Not organized** badge. **Not organized** in the Library's header shows just them; Home's **Needs attention** lists them too.
+- **Destination directory** (for example `/mnt/user`; empty means your first STL Home folder).
+- **Folder structure**: the folder levels above each model's own folder, **Category / Subcategory** unless you change them (Designer and License are the other choices, up to four levels). The model's own folder is always last and named after its **Title**: `Destination/Category/Subcategory/Title/file`.
+- **Steps**, all on unless you turn them off: **Include ZIP files**, **Tidy into model folders**, **Generate tags** and **Apply the suggested tags**.
 
-1. Every folder in the Upload folder is one model, with everything in it; a model file or an archive lying on its own gets a folder named after it.
-2. Its archives are unpacked and its loose pictures and documents go into its **Pictures** and **Documents** (as for uploads, above).
-3. It gets a Category and Subcategory: the one its site gives it, else the AI's (when an AI service is set up under **Settings → AI Tagging**), else from the words in its names, else **Uncategorized › Other**.
-4. It moves to `Organize into/Category/Subcategory/Model name/`, with its tags, notes, history and pictures. A name already taken there gets a number: `Dragon Skull (2)`.
-5. With an AI service set up, the AI tags its models, and the tags are added straight away (with **AI Tagged**).
+**Organize** in the sidebar (also in the Not organized view, and next to the item on Home) runs at once, without a page, and puts every model in the scanned directory where it belongs:
 
-**Organize into** is set on the same settings page; empty means your first STL Home folder. A notice shows how far Organize is (**Stop** ends it after the model it is on), and a notification says what moved. A folder with no model files in it, or one that could not be moved, stays in the Upload folder and is listed.
+1. Every folder there is one model, with everything in it; a model file (or, with **Include ZIP files**, an archive) on its own gets a folder named after it.
+2. **Include ZIP files**: its archives are unpacked (the originals kept in `archives/`). **Tidy into model folders**: its loose pictures and documents go into its **Pictures** and **Documents**.
+3. **Generate tags**: the AI tags its models; with **Apply the suggested tags** they are added straight away (with **AI Tagged**), and the AI's Category comes with them. With it off, the suggested tags open for your review once the models are moved.
+4. It gets a Category and Subcategory: the one its site gives it, else the AI's (when an AI service is set up under **Settings → AI Tagging**), else from the words in its names and tags, else **Uncategorized › Other**.
+5. It moves to `Destination/Category/Subcategory/Title/`, with its tags, notes, history and pictures, and **its files are named after its Title**, keeping their extension (`Articulated Dragon.3mf`; `Articulated Dragon (2).3mf` when two files share it). A model without a Title keeps its file names and its folder is named after the file. A folder name already taken gets a number: `Dragon Skull (2)`.
+
+A notice shows how far Organize is (**Stop** ends it after the model it is on), and a notification says what moved. A folder with no model files in it, or one that could not be moved, stays in the scanned directory and is listed. Without a scanned directory and destination, **Organize** opens its settings instead.
 
 ## Adding models from links
 
@@ -251,7 +256,7 @@ Change a role with its menu; **Set Password** gives someone a new password and l
 
 - **Tags** lists every tag with how many models use it. Create, rename (renaming onto an existing tag merges the two), delete, or show a tag's models.
 - **Duplicates** finds identical files by their contents and shows each group side by side. **Find: Same geometry** finds the same model saved as different files instead (an STL and its 3MF, a re-export, a copy turned on the plate); JusttPrint reads each STL and 3MF once for it, and mirrored left and right parts are not matched. **Find: Same shape, any resolution** also finds the same design exported with more or fewer triangles (a smooth and a coarse STL of one part); since a part a few percent bigger, or one that differs only in small details, looks the same to it, check those groups before deleting. **Keep this** marks the other copies for deletion; **Easy** keeps one copy of each group for you (preferring a folder you choose). Nothing is deleted until you confirm **Delete Selected**. You can limit the search to the models currently shown.
-- **Organize** moves the models in a scanned folder into a folder structure you choose (up to four levels, such as designer / title / license). **Preview** shows what will happen first; each original is removed only after its copy is checked, and files that are not in the library stay where they are. The models folder must be mounted without `:ro`.
+- **Organize** puts the models in the scanned directory (the Upload folder) into `Destination/Category/Subcategory/Title/`, their files named after the Title, then tags them; see [The Upload folder and Organize](#the-upload-folder-and-organize). The models folder must be mounted without `:ro`.
 - **AI Tagging** sets up the AI service; then choose models with **Edit**, open a chosen card's **⋯** menu and choose **Generate Tags**, and tick the tags to keep. See [AI tagging](#ai-tagging).
 - **Settings → Library** has the Metadata Manager (rename or remove designers, licenses and titles everywhere), Library Stats, Print Roulette (random models to print), Clear New Flag and Purge Models.
 
@@ -279,7 +284,7 @@ Tips: start with a few models, use **merge** to keep the tags you already have, 
 | General | Performance: the largest file a scan processes |
 | Appearance | Theme: accent color, and the background, model color and lighting of thumbnails |
 | Library | Metadata Manager, Library Stats, View Entire Library, Print Roulette, Clear New Flag, Purge Models |
-| Scanning | STL Home, Upload Folder (where uploads wait, and where Organize puts them), File Types (ZIP files, extra types, skipped folders), Scan a Folder |
+| Scanning | STL Home, Organize (the scanned directory, the destination, the folder structure and its steps), File Types (ZIP files, extra types, skipped folders), Scan a Folder |
 | Slicer | Your slicers, and the helper for Send to Slicer |
 | Printers | A link to that page, and the Parts Manager |
 | Integrations | MCP Server: connect an AI app to your library |

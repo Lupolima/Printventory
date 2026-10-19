@@ -4688,63 +4688,25 @@ async function browserChecks(base, wsUrl, session) {
     for (const key of stlHomeKeys) await invoke(base, session, 'save-setting', [key, savedStlHome[key] == null ? '' : savedStlHome[key]]);
     await page.evaluate(() => window.updateScanStlHomeButtonVisibility?.());
 
-    // Organize Library (React): source picker, folder structure, preview, and a stale preview after a change. Not run.
-    const savedLayers = (await invoke(base, session, 'get-setting', ['organizeLibraryLayers'])).result;
-    // A page on the desktop (#/organize); the Organize row in the sidebar opens it.
+    // Organize (8.1): the sidebar runs it at once; without its folders it opens Settings → Scanning → Organize and says so.
     await page.click('.jp-sidebar .jp-nav__row:has-text("Organize")');
-    await page.waitForSelector('#organize-library-page', { timeout: 10000 }).catch(() => {});
+    const organizeAsk = await page.waitForSelector('dialog[id^="browser-message-"][open]:has-text("scanned directory")', { timeout: 10000 }).catch(() => null);
+    if (organizeAsk) await page.click('dialog[id^="browser-message-"][open] button:text-is("OK")');
+    const organizeForm = await page.waitForSelector('#organize-settings-dialog[open] #organize-layers', { timeout: 10000 }).catch(() => null);
     check(
-      'Organize opens the Organize Library page',
-      /#\/organize$/.test(page.url()) && (await page.isVisible('#organize-library-page h1:text-is("Organize Library")'))
-    );
-    // One column: the title above the cards (7.29.0 laid them out side by side, squeezed).
-    const organizeLayout = await page.evaluate(() => {
-      const title = document.querySelector('#organize-library-page .jp-page__header')?.getBoundingClientRect();
-      const card = document.querySelector('#organize-library-page .jp-organize__card')?.getBoundingClientRect();
-      return title && card ? { titleBottom: Math.round(title.bottom), cardTop: Math.round(card.top) } : null;
-    });
-    check(
-      'the Organize page is one column, the title above its cards',
-      !!organizeLayout && organizeLayout.cardTop >= organizeLayout.titleBottom,
-      JSON.stringify(organizeLayout)
+      'Organize without its folders opens its settings and says so',
+      !!organizeAsk && !!organizeForm && /#\/settings\/organize$/.test(page.url()),
+      page.url()
     );
     check(
-      'Organize Library lists the scanned folders',
-      await page.waitForSelector('#organize-source-button:not([disabled])', { timeout: 10000 }).then(
-        () => true,
-        () => false
-      )
+      'Organize is set up as Category / Subcategory / Title, every step on',
+      !!organizeForm &&
+        (await page.$$eval('#organize-layers select', (selects) => selects.map((select) => select.value))).join('/') === 'category/subcategory' &&
+        (await page.isChecked('#organize-include-zips')) &&
+        (await page.isChecked('#organize-tidy')) &&
+        (await page.isChecked('#organize-tags')) &&
+        (await page.isChecked('#organize-auto-apply'))
     );
-    await page.click('#organize-source-button');
-    await page.fill('#organize-source-search', 'zzz-no-match');
-    check('source search filters the folders', await page.isVisible('#organize-source-empty'));
-    await page.fill('#organize-source-search', LIBRARY);
-    await page.press('#organize-source-search', 'Enter');
-    check(
-      'Enter picks the matching folder',
-      (await page.textContent('#organize-source-label')) === LIBRARY && !(await page.isVisible('#organize-source-menu')),
-      await page.textContent('#organize-source-label')
-    );
-    await page.click('#organize-structure-add');
-    check('structure preview lists the folders', /Root \/ \S.* \/ \S.* \/ file/.test(await page.textContent('#organize-structure-preview')));
-    await page.fill('#organize-dest-input', '/tmp/pv-e2e-organize-preview');
-    await page.click('#organize-preview-button');
-    const planned = await page.waitForSelector('#organize-preview-summary:has-text("will be copied")', { timeout: 15000 }).catch(() => null);
-    check('Organize preview plans copies and allows Copy', !!planned && (await page.isEnabled('#organize-confirm-button')));
-    await page.fill('#organize-dest-input', '/tmp/pv-e2e-organize-other');
-    check(
-      'changing the job asks for a new preview',
-      (await page.textContent('#organize-preview-summary')).includes('Preview again') && !(await page.isEnabled('#organize-confirm-button'))
-    );
-    await page.click('.jp-sidebar .jp-nav__row:has-text("Library")');
-    check(
-      'leaving the page closes Organize Library',
-      await page.waitForSelector('#organize-library-page', { state: 'detached', timeout: 5000 }).then(
-        () => true,
-        () => false
-      )
-    );
-    await invoke(base, session, 'save-setting', ['organizeLibraryLayers', savedLayers == null ? '' : savedLayers]);
 
     // De-Dup (React): a copy of cube.stl shows as a duplicate; Easy with a preferred directory keeps the original; Delete removes the copy.
     const dedupOriginal = path.join(LIBRARY, 'Designer A', 'cube.stl');
@@ -5280,15 +5242,50 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   fs.writeFileSync(path.join(dragonDir, 'photo.png'), png);
   const sentGear = await uploadAs(base, editor, inboxDir, 'Gear Box.stl', cubeBytes);
   await invoke(base, editor, 'add-uploaded-files', [inboxDir, [sentGear.filePath]]);
+  // A model with a Title (one with a file extension, as 3MFs sometimes have): its folder and file take it, without the extension.
+  const sentShip = await uploadAs(base, editor, inboxDir, 'spaceship_v3_final.stl', cubeBytes);
+  await invoke(base, editor, 'add-uploaded-files', [inboxDir, [sentShip.filePath]]);
+  await invoke(base, editor, 'update-models-batch', [[{ filePath: sentShip.filePath, title: 'Space Ship.3mf' }]]);
   const waiting = (await invoke(base, viewer, 'get-upload-folder')).result || {};
-  check('uploads in the Upload folder wait, not organized', waiting.waiting === 2, JSON.stringify(waiting));
+  check('uploads in the Upload folder wait, not organized', waiting.waiting === 3, JSON.stringify(waiting));
   const attention = (await invoke(base, editor, 'get-library-attention')).result || {};
-  check('Home lists the models not organized', attention.unorganized === 2, JSON.stringify(attention.unorganized));
+  check('Home lists the models not organized', attention.unorganized === 3, JSON.stringify(attention.unorganized));
   check('viewers cannot organize', (await invoke(base, viewer, 'organize-uploads')).status === 403);
-  // Without the AI (Puter is left out when this caller has no Puter sign-in): the AI service the
-  // earlier checks set up does not exist, and waiting for it made the run slow on a busy network.
-  const organizeAiBefore = (await invoke(base, admin, 'get-setting', ['aiService'])).result;
-  await invoke(base, admin, 'save-setting', ['aiService', 'puter']);
+  // With a stand-in AI service (custom, as earlier): every answer is a tag and Toys & Games › Puzzles.
+  // Organize tags first (step 2), so the first question comes while the uploads are still in the Upload folder.
+  const organizeAiKeys = ['aiService', 'apiEndpoint', 'aiModel', 'aiTagAllowRetagging'];
+  const organizeAiBefore = {};
+  for (const key of organizeAiKeys) organizeAiBefore[key] = (await invoke(base, admin, 'get-setting', [key])).result;
+  const asked = [];
+  const organizeAi = require('http').createServer((req, res) => {
+    req.resume();
+    asked.push({ uploadsStillWaiting: fs.existsSync(dragonDir) });
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        id: 'e2e',
+        object: 'chat.completion',
+        created: 0,
+        model: 'e2e',
+        choices: [
+          {
+            index: 0,
+            finish_reason: 'stop',
+            message: { role: 'assistant', content: '{"tags":["e2e-organized"],"category":"Toys & Games > Puzzles"}' }
+          }
+        ]
+      })
+    );
+  });
+  await new Promise((resolve) => organizeAi.listen(0, DOCKER_IMAGE ? '0.0.0.0' : '127.0.0.1', resolve));
+  for (const [key, value] of [
+    ['aiService', 'custom'],
+    ['apiEndpoint', `http://${HOST_FOR_SERVER}:${organizeAi.address().port}/v1`],
+    ['aiModel', 'e2e'],
+    ['aiTagAllowRetagging', '1']
+  ]) {
+    await invoke(base, admin, 'save-setting', [key, value]);
+  }
   check('editors organize', !!(await invoke(base, editor, 'organize-uploads')).result?.running);
   const run = await waitFor(
     async () => {
@@ -5296,15 +5293,20 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
       return current && !current.running ? current : null;
     },
     120000,
-    'Organize Uploads'
+    'Organize'
   );
-  await invoke(base, admin, 'save-setting', ['aiService', organizeAiBefore || '']);
-  check('Organize says the AI was left out', /AI was left out/.test(run.warning || ''), run.warning);
+  organizeAi.close();
+  for (const key of organizeAiKeys) await invoke(base, admin, 'save-setting', [key, organizeAiBefore[key] == null ? '' : organizeAiBefore[key]]);
+  check(
+    'Organize tags first, before it chooses categories and moves (the uploads were still waiting)',
+    asked.length > 0 && asked[0].uploadsStillWaiting && run.tagged === 3,
+    JSON.stringify({ asked: asked.length, first: asked[0], tagged: run.tagged, warning: run.warning })
+  );
   const dragonTo = (run.moved || []).find((m) => m.name === 'Dragon Skull');
   const gearTo = (run.moved || []).find((m) => m.name === 'Gear Box.stl');
   check(
     'Organize moves each upload to Category/Subcategory/Model name',
-    run.movedCount === 2 &&
+    run.movedCount === 3 &&
       !!dragonTo &&
       dragonTo.to === path.join(sortedDir, dragonTo.category, dragonTo.subcategory, 'Dragon Skull') &&
       fs.existsSync(path.join(dragonTo.to, 'skull.stl')) &&
@@ -5315,6 +5317,22 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
     'a loose model file gets a folder of its own, named after it',
     !!gearTo && path.basename(gearTo.to) === 'Gear Box' && fs.existsSync(path.join(gearTo.to, 'Gear Box.stl')),
     JSON.stringify(gearTo)
+  );
+  const shipTo = (run.moved || []).find((m) => m.name === 'spaceship_v3_final.stl');
+  check(
+    "a model's folder and file are named after its Title, without the extension",
+    !!shipTo && path.basename(shipTo.to) === 'Space Ship' && fs.readdirSync(shipTo.to).includes('Space Ship.stl') && run.renamed >= 1,
+    JSON.stringify({ to: shipTo && shipTo.to, files: shipTo && fs.existsSync(shipTo.to) ? fs.readdirSync(shipTo.to) : null, renamed: run.renamed })
+  );
+  const dragonModel = (await invoke(base, viewer, 'get-model', [path.join(dragonTo?.to || '', 'skull.stl')])).result || {};
+  check(
+    "the AI's tags are applied and its category is the model's place",
+    !!dragonTo &&
+      dragonTo.category === 'Toys & Games' &&
+      dragonTo.subcategory === 'Puzzles' &&
+      (dragonModel.tags || []).includes('e2e-organized') &&
+      (dragonModel.tags || []).includes('AI Tagged'),
+    JSON.stringify({ category: dragonTo && dragonTo.category, subcategory: dragonTo && dragonTo.subcategory, tags: dragonModel.tags })
   );
   check('its loose pictures become the model folder’s own', !!dragonTo && fs.existsSync(path.join(dragonTo.to, 'image', 'photo.png')));
   const movedModel = (await invoke(base, viewer, 'get-model', [path.join(dragonTo?.to || '', 'skull.stl')])).result;
@@ -5865,7 +5883,8 @@ async function accountChecks(base, wsUrl, admin) {
     );
     check(
       'editors do not see admin pages',
-      !(await editorPage.isVisible('.jp-sidebar .jp-nav__row:has-text("Organize")')) &&
+      !(await editorPage.isVisible('.jp-sidebar .jp-nav__row:has-text("AI Tagging")')) &&
+        (await editorPage.isVisible('.jp-sidebar .jp-nav__row:has-text("Organize")')) &&
         (await editorPage.isVisible('.jp-sidebar .jp-nav__row:has-text("Tags")'))
     );
     // The dialog starts at the last folder used (kept in this browser).
@@ -6047,10 +6066,11 @@ async function accountChecks(base, wsUrl, admin) {
         (await viewerPage.isVisible('.jp-sidebar .jp-nav__row:has-text("Statistics")'))
     );
     await viewerPage.evaluate(() => {
-      window.location.hash = '#/organize';
+      // Tags is an editor's page (Organize, the admin page this opened before 8.1, is no page now).
+      window.location.hash = '#/tags';
     });
     check(
-      'an admin page opened by its address says so',
+      'a page the account may not use, opened by its address, says so',
       await viewerPage.waitForSelector(':text("Not available to your account")', { timeout: 5000 }).then(
         () => true,
         () => false

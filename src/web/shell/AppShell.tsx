@@ -33,7 +33,6 @@ import { HelpPage } from '../pages/HelpPage';
 import { HomePage } from '../pages/HomeDashboard';
 import { LibraryHeader } from '../pages/LibraryPage';
 import { DuplicatesPage } from '../pages/DuplicatesPage';
-import { OrganizePage } from '../pages/OrganizePage';
 import { PrintersPage } from '../pages/PrintersPage';
 import { QueuePage } from '../pages/QueuePage';
 import { TagsPage } from '../pages/TagsPage';
@@ -462,7 +461,6 @@ const PAGE_TITLES: Record<PageId, string> = {
   folder: 'Folder',
   tags: 'Tags',
   duplicates: 'Duplicates',
-  organize: 'Organize Library',
   settings: 'Settings',
   help: 'Help'
 };
@@ -600,7 +598,6 @@ export function AppShell() {
           {allowed && page === 'group' && <GroupPage key={section} groupRef={section} />}
           {allowed && page === 'folder' && <FolderPage key={section} path={section} />}
           {allowed && page === 'duplicates' && <DuplicatesPage />}
-          {allowed && page === 'organize' && <OrganizePage />}
           {allowed && page === 'settings' && <SettingsPage section={section} />}
           {allowed && page === 'help' && <HelpPage />}
         </main>

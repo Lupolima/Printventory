@@ -31,7 +31,7 @@ try {
   initializeDatabase();
   const db = database.db;
   db.exec('DROP INDEX IF EXISTS idx_models_title; ALTER TABLE models DROP COLUMN title;');
-  db.prepare("DELETE FROM settings WHERE key IN ('titleFromParentModel', 'enable3MFTitle')").run();
+  db.prepare("DELETE FROM settings WHERE key IN ('titleFromParentModel', 'enable3MFTitle', 'titleWithoutExtension')").run();
   const save = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
   save.run('enable3MFParentModel', '0');
   save.run('organizeLibraryLayers', JSON.stringify(['designer', 'parentModel']));
@@ -39,7 +39,7 @@ try {
     'CREATE TABLE IF NOT EXISTS model_changes (id INTEGER PRIMARY KEY, model_id INTEGER, field TEXT, old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)'
   );
   const add = db.prepare('INSERT INTO models (filePath, fileName, parentModel) VALUES (?, ?, ?)');
-  const dragon = add.run('/lib/dragon.3mf', 'dragon.3mf', '  Articulated Dragon ').lastInsertRowid;
+  const dragon = add.run('/lib/dragon.3mf', 'dragon.3mf', '  Articulated Dragon.3mf ').lastInsertRowid;
   const plain = add.run('/lib/cube.stl', 'cube.stl', null).lastInsertRowid;
   db.prepare("INSERT INTO model_changes (model_id, field, old_value, new_value, changed_at) VALUES (?, 'parentModel', NULL, 'Dragon', 'now')").run(dragon);
   db.close();
@@ -48,8 +48,8 @@ try {
   const after = database.db;
   test('every Parent Model is copied to the Title; the old column stays', () => {
     const row = after.prepare('SELECT title, parentModel FROM models WHERE id = ?').get(dragon);
-    assert.strictEqual(row.title, 'Articulated Dragon');
-    assert.strictEqual(row.parentModel, '  Articulated Dragon ', 'the group name is left as it was');
+    assert.strictEqual(row.title, 'Articulated Dragon', 'copied, without the file extension');
+    assert.strictEqual(row.parentModel, '  Articulated Dragon.3mf ', 'the group name is left as it was');
     assert.strictEqual(after.prepare('SELECT title FROM models WHERE id = ?').get(plain).title, null);
   });
   test('the settings that named Parent Model name Title', () => {

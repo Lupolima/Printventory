@@ -18,6 +18,25 @@ export interface UploadFolderInfo {
   /** The folder chosen in Settings ('' for the first STL Home folder). */
   chosenDestination: string;
   waiting: number;
+  /** Settings → Scanning → Organize (src/server/upload-inbox.js). */
+  options: OrganizeOptions;
+  /** The folder levels Organize can use. */
+  layerChoices: { id: string; label: string }[];
+}
+
+export interface OrganizeOptions {
+  /** The folders above each model's own (named after its Title), e.g. ['category', 'subcategory']. */
+  layers: string[];
+  includeZips: boolean;
+  tidy: boolean;
+  tags: boolean;
+  autoApply: boolean;
+}
+
+/** "Destination/Category/Subcategory/Title/file", from the settings. */
+export function organizeStructure(info: UploadFolderInfo | null): string {
+  const labels = (info?.options.layers || []).map((id) => info?.layerChoices.find((choice) => choice.id === id)?.label || id);
+  return [info?.destination || 'Destination', ...labels, 'Title', 'file'].join('/');
 }
 
 export interface OrganizeRun {
@@ -34,6 +53,10 @@ export interface OrganizeRun {
   movedCount: number;
   movedModels: number;
   tagged: number;
+  /** Files renamed after their model's Title. */
+  renamed: number;
+  /** Auto-apply off: the tags went to a review in the browser that started it. */
+  reviewing: boolean;
   failed: { name: string; error: string }[];
   warning: string | null;
 }
@@ -133,11 +156,26 @@ export async function organizeUploads() {
   try {
     // Puter answers through this browser: without its sign-in here the server leaves the AI out.
     const result = await callAction<OrganizeRun | { busy: true }>('organize-uploads', { puterSignedIn: !!currentToken() });
-    if ('busy' in result) await showMessage('Organize Uploads', 'Organize Uploads is already running.');
+    if ('busy' in result) await showMessage('Organize', 'Organize is already running.');
     else set({ run: result });
   } catch (error) {
-    await showMessage('Organize Uploads', error instanceof Error ? error.message : String(error));
+    await showMessage('Organize', error instanceof Error ? error.message : String(error));
   }
+}
+
+/**
+ * Organize (the sidebar): runs at once with its settings; without the Upload folder and a
+ * destination it opens Settings → Scanning → Organize instead.
+ */
+export async function runOrganize() {
+  if (!state.info) await reloadUploadFolder();
+  const info = state.info;
+  if (!info?.uploadFolder || !info.destination) {
+    navigate('settings', 'organize');
+    await showMessage('Organize', 'Choose the scanned directory (the Upload folder) and the destination first.');
+    return;
+  }
+  await organizeUploads();
 }
 
 export const stopOrganizing = () => callAction('stop-organize-uploads').catch(() => {});
@@ -152,22 +190,24 @@ const plural = (n: number, one: string) => `${n.toLocaleString()} ${n === 1 ? on
 /** What a run is doing, or how it ended. */
 export function organizeText(run: OrganizeRun): string {
   if (run.running) {
-    if (run.stopping) return 'Stopping Organize Uploads…';
+    if (run.stopping) return 'Stopping Organize…';
     switch (run.phase) {
       case 'prepare':
-        return `Organizing uploads: unpacking and scanning ${run.done} of ${run.total}…`;
+        return `Organizing: unpacking and scanning ${run.done} of ${run.total}…`;
       case 'categorize':
-        return run.useAi ? 'Organizing uploads: the AI is choosing their categories…' : 'Organizing uploads: choosing their categories…';
+        return run.useAi ? 'Organizing: the AI is choosing their categories…' : 'Organizing: choosing their categories…';
       case 'move':
-        return `Organizing uploads: moving ${run.done} of ${run.total}…`;
+        return `Organizing: moving ${run.done} of ${run.total}…`;
       case 'tag':
-        return `Organizing uploads: AI tagging ${run.done} of ${run.total}…`;
+        return `Organizing: AI tagging ${run.done} of ${run.total}…`;
       default:
-        return 'Organizing uploads…';
+        return 'Organizing…';
     }
   }
-  const parts = [`Organize Uploads finished: ${plural(run.movedCount, 'model folder')} moved (${plural(run.movedModels, 'model')})`];
+  const parts = [`Organize finished: ${plural(run.movedCount, 'model folder')} moved (${plural(run.movedModels, 'model')})`];
+  if (run.renamed) parts.push(`${plural(run.renamed, 'file')} named after their Title`);
   if (run.tagged) parts.push(`${plural(run.tagged, 'model')} tagged`);
+  if (run.reviewing) parts.push('the suggested tags are waiting for your review');
   if (run.failed.length) parts.push(`${run.failed.length} not organized: ${run.failed.map((f) => `${f.name} (${f.error})`).join('; ')}`);
   return `${parts.join(', ')}.${run.warning ? ` ${run.warning}` : ''}`;
 }
