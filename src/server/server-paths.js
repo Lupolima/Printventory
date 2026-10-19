@@ -278,6 +278,13 @@ const NETWORK_IPC_PATH_RULES = {
 /** Same idea for MCP tools, keyed by argument name. `dest` is a file the tool writes. */
 const MCP_TOOL_PATH_RULES = {
   check_files_exist: [['filePaths', 'files']],
+  set_model_category: [
+    ['filePath', 'file'],
+    ['filePaths', 'files']
+  ],
+  rename_model: [['filePath', 'file']],
+  get_site_details: [['filePath', 'file']],
+  update_site_details: [['filePath', 'file']],
   pull_3mf_metadata: [
     ['filePath', 'file'],
     ['filePaths', 'files']

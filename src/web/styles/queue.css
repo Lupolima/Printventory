@@ -1,7 +1,8 @@
 /* Print Queue page (pages/QueuePage.tsx; spec §43). */
 
 .jp-queue {
-  max-width: 960px;
+  /* The list pages share one width (Home, Collections, Categories, History, Queue, Printers, Statistics, Tags, Duplicates). */
+  max-width: 1400px;
 }
 .jp-queue__header {
   display: flex;

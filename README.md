@@ -2,7 +2,7 @@
 
 <img src="docs/images/logo-wordmark.png" alt="JusttPrint: your 3D printing library" width="560">
 
-**Version 7.29.4**
+**Version 7.30.0**
 
 JusttPrint is a self-hosted web app for your 3D printing model collection. It runs in Docker on a NAS, home server or PC, and you use it from any browser on your network, including phones and tablets.
 
@@ -227,7 +227,7 @@ You can also set this up with the `JUSTTPRINT_AI_*` [environment variables](#env
 
 ## MCP Server
 
-AI apps can connect to JusttPrint over MCP (Model Context Protocol) to search the library, edit tags and metadata, log prints, add models from Printables, Thingiverse and MakerWorld links, manage a model folder's pictures, videos and documents (list, add from a link or a file, set the cover, remove), and more. For example, ask "tag everything in the Kitchen folder as kitchen".
+AI apps can connect to JusttPrint over MCP (Model Context Protocol) to search the library, edit tags and metadata, log prints, add models from Printables, Thingiverse and MakerWorld links, manage a model folder's pictures, videos and documents (list, add from a link or a file, set the cover, remove), list and set categories and run Categorize Library, rename models, change what a model shows of its site details, and more. For example, ask "tag everything in the Kitchen folder as kitchen".
 
 1. Open **Settings → Integrations → MCP Server**.
 2. Pick your app under **Set up in**: Claude Code, Claude Desktop, Cursor, VS Code, or another MCP client.

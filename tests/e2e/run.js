@@ -5270,6 +5270,10 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   const attention = (await invoke(base, editor, 'get-library-attention')).result || {};
   check('Home lists the models not organized', attention.unorganized === 2, JSON.stringify(attention.unorganized));
   check('viewers cannot organize', (await invoke(base, viewer, 'organize-uploads')).status === 403);
+  // Without the AI (Puter is left out when this caller has no Puter sign-in): the AI service the
+  // earlier checks set up does not exist, and waiting for it made the run slow on a busy network.
+  const organizeAiBefore = (await invoke(base, admin, 'get-setting', ['aiService'])).result;
+  await invoke(base, admin, 'save-setting', ['aiService', 'puter']);
   check('editors organize', !!(await invoke(base, editor, 'organize-uploads')).result?.running);
   const run = await waitFor(
     async () => {
@@ -5279,6 +5283,8 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
     120000,
     'Organize Uploads'
   );
+  await invoke(base, admin, 'save-setting', ['aiService', organizeAiBefore || '']);
+  check('Organize says the AI was left out', /AI was left out/.test(run.warning || ''), run.warning);
   const dragonTo = (run.moved || []).find((m) => m.name === 'Dragon Skull');
   const gearTo = (run.moved || []).find((m) => m.name === 'Gear Box.stl');
   check(
@@ -5301,6 +5307,54 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   check('nothing waits any more', (await invoke(base, viewer, 'get-upload-folder')).result?.waiting === 0);
   // The Upload folder off again, so the checks after these see the library as before.
   await invoke(base, admin, 'save-upload-folder', ['', '']);
+
+  // MCP: categories, Categorize Library and renaming (mcp-tools.js), on the model Organize just moved.
+  const mcpToken = (await invoke(base, admin, 'get-server-access-info')).result?.apiToken;
+  const mcpCall = async (name, args = {}) => {
+    const res = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${mcpToken}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })
+    });
+    const body = await res.json().catch(() => ({}));
+    const text = body.result?.content?.[0]?.text || '';
+    let value = null;
+    try {
+      value = JSON.parse(text);
+    } catch (_) {
+      /* an error message */
+    }
+    return { error: !!body.result?.isError, text, value };
+  };
+  const gearFile = gearTo ? path.join(gearTo.to, 'Gear Box.stl') : '';
+  const listed = await mcpCall('list_categories');
+  const toys = (listed.value?.categories || []).find((c) => c.name === 'Toys & Games');
+  check('MCP lists the categories with their subcategories', !!toys && toys.subcategories.some((s) => s.name === 'Puzzles'), listed.text.slice(0, 200));
+  const placed = await mcpCall('set_model_category', { filePath: gearFile, category: 'Puzzles' });
+  check(
+    'MCP gives a model its category',
+    placed.value?.models?.[0]?.subcategory === 'Puzzles' && placed.value.models[0].category === 'Toys & Games',
+    placed.text.slice(0, 200)
+  );
+  check('MCP refuses a category that is not on the list', (await mcpCall('set_model_category', { filePath: gearFile, category: 'Spaceships' })).error);
+  const renamed = await mcpCall('rename_model', { filePath: gearFile, name: 'Gear Box Mk 2' });
+  check(
+    'MCP renames a model and its file (and its own folder)',
+    !!renamed.value?.filePath &&
+      path.basename(renamed.value.filePath) === 'Gear Box Mk 2.stl' &&
+      fs.existsSync(renamed.value.filePath) &&
+      !fs.existsSync(gearFile),
+    renamed.text.slice(0, 200)
+  );
+  const categorized = await mcpCall('categorize_library', { wait: true });
+  check('MCP runs Categorize Library', categorized.value?.done === true && categorized.value.job?.running === false, categorized.text.slice(0, 200));
+  check('MCP follows Categorize Library', (await mcpCall('get_categorize_status')).value?.job?.id === categorized.value?.job?.id);
+  // Puter answers only through a signed-in browser: the AI step is refused, nothing starts.
+  const aiServiceBefore = (await invoke(base, admin, 'get-setting', ['aiService'])).result;
+  await invoke(base, admin, 'save-setting', ['aiService', 'puter']);
+  const puterRun = await mcpCall('categorize_library', { useAi: true });
+  await invoke(base, admin, 'save-setting', ['aiService', aiServiceBefore || '']);
+  check('MCP leaves the AI out when it is Puter (it needs a browser)', puterRun.error && /Puter/.test(puterRun.text), puterRun.text.slice(0, 200));
 }
 
 /**
