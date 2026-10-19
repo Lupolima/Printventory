@@ -430,6 +430,9 @@ async function tracking(ids, by, run) {
  * @param {'folder' | 'site'} scope
  * @param {string} target the folder, or the site link
  * @param {string} label what the History page calls it
+ * @param {Record<string, string>} before
+ * @param {Record<string, string>} after
+ * @param {string | null} [by] who made the change
  */
 function recordDetailChanges(scope, target, label, before, after, by = null) {
   if (!before || !after) return 0;

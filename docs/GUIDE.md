@@ -299,7 +299,7 @@ Slicers run on your computer, not in the JusttPrint backend. **Open in Slicer** 
 
 ### MCP server
 
-AI apps (Claude Code, Claude Desktop, Cursor, VS Code and others) can connect to JusttPrint at `http://<docker-host-ip>:5000/mcp` to search the library, edit tags and metadata, log prints, set thumbnails, and add models from Printables, Thingiverse and MakerWorld links (`import_model_links`, with an optional library folder to download the files into). **Settings → Integrations → MCP Server** shows the setup for the app you pick, with the address and API token filled in. Anyone with the token can read and change your library.
+AI apps (Claude Code, Claude Desktop, Cursor, VS Code and others) can connect to JusttPrint at `http://<docker-host-ip>:5000/mcp` to search the library, edit tags and metadata, log prints, set thumbnails, list and set categories (`list_categories`, `set_model_category`, `categorize_library`), rename models (`rename_model`), change a model's site details (`get_site_details`, `update_site_details`), and add models from Printables, Thingiverse and MakerWorld links (`import_model_links`, with an optional library folder to download the files into). **Settings → Integrations → MCP Server** shows the setup for the app you pick, with the address and API token filled in. Anyone with the token can read and change your library.
 
 ## Keyboard
 

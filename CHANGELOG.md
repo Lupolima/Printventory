@@ -2,6 +2,14 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.30.0] - 2026-10-18
+
+**Changes:**
+- **MCP: categories, renaming and site details.** New tools: `list_categories` (the Categories and Subcategories with their model counts), `set_model_category` (one model or several; a Subcategory, a Category, or empty to clear), `categorize_library` and `get_categorize_status` (Categorize Library, optionally waiting for it; the AI step works with every AI service except Puter.com, which needs a browser), `rename_model` (the model and its file, and its own model folder), `get_site_details` and `update_site_details` (what a model shows of its MakerWorld, Printables or Thingiverse details, or `reset`). Changes made through them show on the History page, by MCP.
+- **The list pages have one width:** History, Tags, Categories, Queue and Printers are as wide as Home, Collections, Statistics and Duplicates (they were 960–1280 pixels, leaving much of a wide screen empty). Organize, Settings and Help keep their narrower reading width.
+
+**Upgrading:** no changes needed. MCP clients see the new tools once they reconnect.
+
 ## [7.29.4] - 2026-10-18
 
 **Fixes:**

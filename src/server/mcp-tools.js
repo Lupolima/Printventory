@@ -745,8 +745,98 @@ function getMcpToolContext() {
         await fs.promises.copyFile(dbPath, destPath);
       }
       return { success: true, filePath: destPath };
+    },
+
+    // Categories (src/core/categories.js) and Categorize Library (category-scan.js), as the
+    // Categories page and the Edit dialog do; changes are written down for History, by "MCP".
+    listCategories: async () => {
+      const categories = require('../core/categories');
+      return { categories: categories.categoryTree(), uncategorized: categories.uncategorizedCount() };
+    },
+    setModelCategory: async (args) => {
+      const categories = require('../core/categories');
+      const name = String(args.category || '').trim();
+      if (name && !categories.findCategory(name)) throw new Error(`Not a category: ${name} (list_categories lists them)`);
+      // One model (id or filePath) or several (ids, filePaths).
+      const targets = resolveMcpFilePaths(args).map((filePath) => resolveModelForMcp({ filePath }));
+      if (!targets.length) throw new Error('Provide id, filePath, ids or filePaths');
+      const history = require('./model-versions');
+      await history.tracking(
+        targets.map((model) => model.id),
+        'MCP',
+        async () => {
+          for (const model of targets) categories.setModelPlace(model.id, name || null, 'manual');
+        }
+      );
+      events.broadcast('categories-changed');
+      events.broadcast('refresh-grid');
+      return {
+        success: true,
+        models: targets.map((model) => ({ id: model.id, filePath: model.filePath, ...categories.modelPlace(model.id) }))
+      };
+    },
+    categorizeLibrary: async (args) => {
+      const scan = require('./category-scan');
+      const useAi = !!args.useAi;
+      if (useAi) {
+        if (!scan.aiReady()) throw new Error('Set up the AI service first (Settings → AI Tagging)');
+        // Puter answers through a signed-in browser, which an MCP call does not have.
+        if (require('./ipc/ai').getAISettings().aiService === 'puter') {
+          throw new Error('The AI service is Puter.com, which runs in a browser: run Categorize Library with the AI from the Categories page, or useAi: false');
+        }
+      }
+      const started = scan.start({ by: 'MCP', useAi, again: !!args.again });
+      if (!started) return { busy: true, job: scan.summary() };
+      if (args.wait) {
+        await scan._job().promise;
+        return { done: true, job: scan.summary() };
+      }
+      return { started: true, job: started };
+    },
+    getCategorizeStatus: async () => ({ job: require('./category-scan').summary() }),
+
+    // The Edit dialog's other changes: the model's name (and file), and its site details.
+    renameModel: async (args) => {
+      const model = resolveModelForMcp(args);
+      const name = String(args.name || '').trim();
+      if (!name) throw new Error('name is required');
+      const history = require('./model-versions');
+      const result = await history.tracking([model.id], 'MCP', async () => require('./model-rename').renameModel(model.filePath, name));
+      events.broadcast('refresh-grid');
+      return { success: true, id: model.id, ...result };
+    },
+    getSiteDetails: async (args) => {
+      const model = resolveModelForMcp(args);
+      const url = siteLinkOf(model);
+      const siteDetails = require('./site-details');
+      return { id: model.id, url, details: await siteDetails.getDetails(url, { refresh: !!args.refresh }), editable: siteDetails.editableValues(url) };
+    },
+    updateSiteDetails: async (args) => {
+      const model = resolveModelForMcp(args);
+      const url = siteLinkOf(model);
+      const siteDetails = require('./site-details');
+      const before = siteDetails.editableValues(url);
+      const changes = args.reset ? null : args.changes;
+      if (!args.reset && (!changes || typeof changes !== 'object' || Array.isArray(changes))) {
+        throw new Error('Provide changes (an object such as { "title": "…", "tags": ["…"] }) or reset: true');
+      }
+      const details = await siteDetails.saveSiteEdits(url, changes);
+      const after = siteDetails.editableValues(url);
+      require('./model-versions').recordDetailChanges('site', url, after.title || before.title || url, before, after, 'MCP');
+      events.broadcast('model-history-changed', {});
+      events.broadcast('site-details-changed', { url });
+      return { success: true, id: model.id, url, details, editable: after };
     }
   };
+}
+
+/** A model's MakerWorld, Printables or Thingiverse link (its source, or a link-only model's address). */
+function siteLinkOf(model) {
+  const { parseModelLink } = require('../core/link-import');
+  const candidates = [model.source, String(model.filePath || '').startsWith('url::') ? String(model.filePath).slice(5) : ''];
+  const url = candidates.find((text) => text && parseModelLink(text));
+  if (!url) throw new Error('This model has no MakerWorld, Printables or Thingiverse link (its Source)');
+  return url;
 }
 
 module.exports = { getMcpToolContext };

@@ -675,6 +675,87 @@ const TOOL_DEFINITIONS = [
         limit: { type: 'integer', description: 'Max results (default 50, max 500)' }
       }
     }
+  },
+  {
+    name: 'list_categories',
+    description:
+      "List the Categories, each with its Subcategories and their model counts, and how many models have no Subcategory yet. Every model has one place: a Category and one of its Subcategories (MakerWorld's list).",
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'set_model_category',
+    description:
+      'Give one model (id or filePath) or several (ids or filePaths) a place: a Subcategory name (its Category comes with it) or a Category alone, as the Edit dialog does. An empty category clears the place. Names as list_categories gives them.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'Model id' },
+        filePath: { type: 'string', description: 'Model file path (instead of id)' },
+        ids: { type: 'array', items: { type: 'integer' } },
+        filePaths: { type: 'array', items: { type: 'string' } },
+        category: { type: 'string', description: 'A Subcategory (e.g. "Puzzles") or a Category (e.g. "Toys & Games"); empty clears it' }
+      },
+      required: ['category']
+    }
+  },
+  {
+    name: 'categorize_library',
+    description:
+      'Run Categorize Library: every model without a Subcategory gets one, from its site (MakerWorld, Printables, Thingiverse), and with useAi from the AI service in Settings (not Puter.com, which needs a browser); without the AI, from words in its folder, tags and name. One run at a time; get_categorize_status follows it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        useAi: { type: 'boolean', description: 'Ask the AI service about the models the free step leaves (it may cost)' },
+        again: { type: 'boolean', description: 'Sort every model again, except the places a person chose' },
+        wait: { type: 'boolean', description: 'Answer when the run is done (default: answer at once)' }
+      }
+    }
+  },
+  {
+    name: 'get_categorize_status',
+    description: 'The Categorize Library run: how far it is, how many models were placed and how (site, words, AI), and any error. null when none ran.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'rename_model',
+    description:
+      'Rename a model and its file (the extension stays). The only model in its own model folder renames that folder too. Files inside a ZIP and ZIP files keep their names.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'Model id' },
+        filePath: { type: 'string', description: 'Model file path (instead of id)' },
+        name: { type: 'string', description: 'The new name, without the extension' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'get_site_details',
+    description:
+      "A model's details from its MakerWorld, Printables or Thingiverse link (its Source): title, designer, license, description, categories, tags and print profiles, with the values it shows after your edits.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'Model id' },
+        filePath: { type: 'string', description: 'Model file path (instead of id)' },
+        refresh: { type: 'boolean', description: 'Fetch them from the site again' }
+      }
+    }
+  },
+  {
+    name: 'update_site_details',
+    description:
+      'Change what a model shows of its site details, as the Edit dialog does (the site itself is not changed): changes such as { title, designer, license, description, categories: [..], tags: [..], profiles: { <id>: name } }. reset: true forgets every change.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'Model id' },
+        filePath: { type: 'string', description: 'Model file path (instead of id)' },
+        changes: { type: 'object', description: 'The fields to change' },
+        reset: { type: 'boolean', description: 'Forget the changes, back to what the site gives' }
+      }
+    }
   }
 ];
 
@@ -888,6 +969,20 @@ async function callTool(name, args, ctx) {
       return ctx.backupDatabase({ destPath: a.destPath });
     case 'get_models_with_default_thumbnails':
       return ctx.getModelsMissingThumbnails(clampLimit(a.limit, 50, 500));
+    case 'list_categories':
+      return ctx.listCategories();
+    case 'set_model_category':
+      return ctx.setModelCategory(a);
+    case 'categorize_library':
+      return ctx.categorizeLibrary(a);
+    case 'get_categorize_status':
+      return ctx.getCategorizeStatus();
+    case 'rename_model':
+      return ctx.renameModel(a);
+    case 'get_site_details':
+      return ctx.getSiteDetails(a);
+    case 'update_site_details':
+      return ctx.updateSiteDetails(a);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

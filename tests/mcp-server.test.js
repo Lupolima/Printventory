@@ -275,6 +275,47 @@ async function runAsync() {
       assert.ok(listed.includes(name), name);
   });
 
+  await test('categories, Categorize Library, renaming and site details are tools', async () => {
+    const calls = [];
+    const ctx = mockCtx({
+      listCategories: async () => (calls.push(['list']), { categories: [], uncategorized: 0 }),
+      setModelCategory: async (a) => (calls.push(['set', a.filePath, a.category]), { success: true }),
+      categorizeLibrary: async (a) => (calls.push(['categorize', !!a.useAi, !!a.wait]), { started: true }),
+      getCategorizeStatus: async () => (calls.push(['status']), { job: null }),
+      renameModel: async (a) => (calls.push(['rename', a.id, a.name]), { success: true }),
+      getSiteDetails: async (a) => (calls.push(['site', a.id]), {}),
+      updateSiteDetails: async (a) => (calls.push(['site-edit', a.id, !!a.reset]), {})
+    });
+    const call = (name, args) => handleMcpJsonRpc({ jsonrpc: '2.0', id: 60, method: 'tools/call', params: { name, arguments: args } }, ctx);
+    await call('list_categories', {});
+    await call('set_model_category', { filePath: '/lib/a.stl', category: 'Puzzles' });
+    await call('categorize_library', { useAi: false, wait: true });
+    await call('get_categorize_status', {});
+    await call('rename_model', { id: 3, name: 'Gear' });
+    await call('get_site_details', { id: 3 });
+    await call('update_site_details', { id: 3, reset: true });
+    assert.deepStrictEqual(calls, [
+      ['list'],
+      ['set', '/lib/a.stl', 'Puzzles'],
+      ['categorize', false, true],
+      ['status'],
+      ['rename', 3, 'Gear'],
+      ['site', 3],
+      ['site-edit', 3, true]
+    ]);
+    const listed = (await handleMcpJsonRpc({ jsonrpc: '2.0', id: 61, method: 'tools/list' }, mockCtx())).result.tools.map((t) => t.name);
+    for (const name of [
+      'list_categories',
+      'set_model_category',
+      'categorize_library',
+      'get_categorize_status',
+      'rename_model',
+      'get_site_details',
+      'update_site_details'
+    ])
+      assert.ok(listed.includes(name), name);
+  });
+
   await test('tools/call find_duplicates', async () => {
     const res = await handleMcpJsonRpc(
       {
