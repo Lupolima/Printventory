@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Camera,
@@ -167,6 +167,7 @@ function Sidebar({ page, onClose }: { page: PageId; onClose: () => void }) {
 }
 
 function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean }) {
+  const phone = usePhoneLayout();
   const input = useRef<HTMLInputElement>(null);
   const user = useCurrentUser();
   const [text, setText] = useState('');
@@ -240,7 +241,8 @@ function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean })
         className="jp-topbar__search"
         label="Search the library"
         value={text}
-        placeholder="Search models, designers, tags, or anything..."
+        // A phone's bar has room for a word: the long text showed as "Search moc".
+        placeholder={phone ? 'Search…' : 'Search models, designers, tags, or anything...'}
         title={'Search every field, or type a query: tag:robot creator:"M Armory" -tag:broken (category:Toys OR category:Art) is:unprinted rating:4+'}
         shortcut={shortcutLabel(navigator.platform)}
         onChange={(event) => setText(event.target.value)}
@@ -407,6 +409,19 @@ function DetailsPlaceholder() {
 
 /** The window is at most this wide (a media query). */
 const narrow = (query: string) => typeof window !== 'undefined' && window.matchMedia(query).matches;
+
+/** Whether the window has the phone layout (responsive.css: at most 700 px), following resizes. */
+const PHONE_QUERY = '(max-width: 700px)';
+function usePhoneLayout(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(PHONE_QUERY);
+      query.addEventListener('change', listener);
+      return () => query.removeEventListener('change', listener);
+    },
+    () => narrow(PHONE_QUERY)
+  );
+}
 
 /** Skip link (spec §37): past the sidebar and top bar to the page's content. */
 function SkipLink({ page }: { page: PageId }) {

@@ -3241,6 +3241,13 @@ async function browserChecks(base, wsUrl, session) {
         !(await page.isVisible('#setting-makerworld')) &&
         (await page.evaluate(() => !document.querySelector('#performance-settings-dialog:modal')))
     );
+    // In the page, a form's Close and Cancel only reopened it: they are hidden (EmbeddedDialog.tsx).
+    const dismissShown = await page.evaluate(() =>
+      [...document.querySelectorAll('.jp-settings-embed dialog.is-embedded[open] .dialog-buttons > button')]
+        .filter((button) => button.offsetParent && /^(Close|Cancel)$/.test((button.textContent || '').trim()))
+        .map((button) => button.textContent.trim())
+    );
+    check('Settings forms in the page have no Close or Cancel', dismissShown.length === 0, JSON.stringify(dismissShown));
     await page.click('.jp-settings-subtabs [role=tab]:has-text("MakerWorld")');
     check(
       'Settings → MakerWorld shows the sign-in and the translation choice',
@@ -3586,6 +3593,8 @@ async function browserChecks(base, wsUrl, session) {
     phone.on('pageerror', (error) => errors.push(`phone: ${error.message}`));
     await phone.goto(base + '/');
     await phone.waitForFunction(() => window._electronBridgeReady === true, null, { timeout: 60000 });
+    // The long search text showed as "Search moc" on a phone.
+    check('the phone search box says Search…', (await phone.getAttribute('.jp-topbar input', 'placeholder')) === 'Search…');
     const phoneHome = {
       nav: await phone.waitForSelector('#jp-bottom-nav', { timeout: 10000 }).then(
         () => true,

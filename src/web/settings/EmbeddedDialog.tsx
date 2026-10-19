@@ -8,7 +8,27 @@ type WithShowModal = HTMLDialogElement & { showModal: () => void };
  * moved into this box and opened in place (non-modal) through its usual opener, so it loads its
  * saved values as always. When its own Save, Cancel or Close closes it, it opens again with the
  * saved values. On unmount it closes and goes back, and opens as a modal again elsewhere.
+ * Its Close and Cancel buttons are hidden while it is in the page: there they only reopened it.
  */
+
+/** Mark the footer's Close and Cancel buttons (hidden by settings.css while embedded); answers a function that unmarks them. */
+function hideDismissButtons(dialog: HTMLDialogElement): () => void {
+  const mark = () => {
+    for (const button of dialog.querySelectorAll<HTMLButtonElement>('.dialog-buttons > button')) {
+      const label = (button.textContent || '').trim();
+      if (label === 'Close' || label === 'Cancel') button.setAttribute('data-embedded-hide', '');
+      else button.removeAttribute('data-embedded-hide');
+    }
+  };
+  mark();
+  // Footers change as the form loads (React re-renders them).
+  const observer = new MutationObserver(mark);
+  observer.observe(dialog, { childList: true, subtree: true, characterData: true });
+  return () => {
+    observer.disconnect();
+    dialog.querySelectorAll('[data-embedded-hide]').forEach((button) => button.removeAttribute('data-embedded-hide'));
+  };
+}
 export function EmbeddedDialog({ dialogId, opener }: { dialogId: string; opener: string }) {
   const [host, setHost] = useState<HTMLDivElement | null>(null);
 
@@ -32,6 +52,7 @@ export function EmbeddedDialog({ dialogId, opener }: { dialogId: string; opener:
       if (!dialog.open) dialog.show();
     };
     dialog.classList.add('is-embedded');
+    const unhide = hideDismissButtons(dialog);
     const onClose = () => {
       if (alive)
         setTimeout(() => {
@@ -57,6 +78,7 @@ export function EmbeddedDialog({ dialogId, opener }: { dialogId: string; opener:
       } else {
         delete (dialog as Partial<WithShowModal>).showModal;
       }
+      unhide();
       dialog.classList.remove('is-embedded');
       restore?.();
     };
