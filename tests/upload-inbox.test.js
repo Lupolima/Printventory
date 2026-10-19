@@ -13,7 +13,7 @@ const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-inbox-')))
 const database = require('../src/core/database');
 database.db = new Database(path.join(tmp, 'test.db'));
 database.db.exec(
-  'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, thumbnail TEXT, size INTEGER, source TEXT)'
+  'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); CREATE TABLE models (id INTEGER PRIMARY KEY, filePath TEXT UNIQUE, fileName TEXT, thumbnail TEXT, size INTEGER, source TEXT, title TEXT, designer TEXT, license TEXT)'
 );
 const setSetting = (key, value) => database.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
 const inbox = require('../src/server/upload-inbox');
@@ -125,9 +125,58 @@ try {
     assert.strictEqual(saved.uploadFolder, made);
     assert.strictEqual(saved.destination, home);
   });
+
+  test('Organize is set up as asked by default: Category / Subcategory / Title, every step on', () => {
+    const options = inbox.organizeOptions();
+    assert.deepStrictEqual(options, { layers: ['category', 'subcategory'], includeZips: true, tidy: true, tags: true, autoApply: true });
+    inbox.saveFolders(uploads, '', { layers: ['designer', 'category', 'nonsense', 'designer'], autoApply: false });
+    assert.deepStrictEqual(inbox.organizeOptions().layers, ['designer', 'category'], 'unknown and repeated levels are left out');
+    assert.strictEqual(inbox.organizeOptions().autoApply, false);
+    assert.strictEqual(inbox.organizeOptions().tags, true, 'what was not sent stays');
+    inbox.saveFolders(uploads, '', { layers: ['category', 'subcategory'], autoApply: true });
+  });
+
+  test("a model's folders: its levels, then its Title without the file's extension", () => {
+    const id = Number(addModel(path.join(tmp, 'q', 'dragon.3mf')));
+    database.db.prepare('UPDATE models SET title = ?, designer = ? WHERE id = ?').run('Articulated Dragon.3mf', 'Alice', id);
+    assert.strictEqual(inbox.titleOf([{ id }]), 'Articulated Dragon');
+    assert.deepStrictEqual(inbox.layerFolders([{ id }], ['designer', 'license', 'category']), ['Alice', 'No License', 'Uncategorized']);
+    assert.strictEqual(inbox.withoutExtension('Kit.STL'), 'Kit');
+  });
 } finally {
-  database.db.close();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  // Below: renaming files (async), then the clean-up.
 }
-// Folder watching restarts a moment after a setting changed; nothing to wait for here.
-setTimeout(() => process.exit(), 50).unref();
+
+(async () => {
+  try {
+    // Files are named after the Title, keeping their extension; two files with it get "(2)".
+    const kit = path.join(home, 'Kit Folder');
+    fs.mkdirSync(kit, { recursive: true });
+    const files = ['part_a_v3.stl', 'part_b_final.stl'].map((name) => path.join(kit, name));
+    for (const file of files) fs.writeFileSync(file, 'solid x\nendsolid x\n');
+    const ids = files.map((file) => Number(addModel(file)));
+    const renamed = await inbox.renameToTitle(
+      ids.map((id, i) => ({ id, filePath: files[i] })),
+      'Robot Arm',
+      'test'
+    );
+    const names = fs.readdirSync(kit).sort();
+    assert.strictEqual(renamed, 2);
+    assert.deepStrictEqual(names, ['Robot Arm (2).stl', 'Robot Arm.stl']);
+    assert.ok(database.db.prepare('SELECT 1 FROM models WHERE filePath = ?').get(path.join(kit, 'Robot Arm.stl')), 'the record follows');
+    assert.strictEqual(
+      await inbox.renameToTitle([{ id: ids[0], filePath: path.join(kit, 'Robot Arm.stl') }], 'Robot Arm', 'test'),
+      0,
+      'a file already named after the Title stays'
+    );
+    console.log('ok files are named after the Title, keeping their extension');
+  } catch (err) {
+    console.error('FAIL files are named after the Title:', err.message);
+    process.exitCode = 1;
+  } finally {
+    database.db.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+    // Folder watching restarts a moment after a setting changed; nothing to wait for here.
+    setTimeout(() => process.exit(), 50).unref();
+  }
+})();

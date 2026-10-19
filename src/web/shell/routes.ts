@@ -16,7 +16,6 @@ export const PAGES = [
   'stats',
   'tags',
   'duplicates',
-  'organize',
   'settings',
   'help',
   'model',

@@ -2,6 +2,18 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [8.1.0] - 2026-10-19
+
+**Changes:**
+- **One Organize, in one click.** **Organize** in the sidebar runs at once (no page): it takes every model in the scanned directory (the Upload folder) to `Destination/Category/Subcategory/Title/`, **names its files after its Title** (keeping the extension: `Articulated Dragon.3mf`, `… (2).3mf` when two share it), in this order: unpacks its archives and puts its pictures and documents in place, AI-tags it (applying the tags; the AI's category comes with them), chooses its category (the site's, the AI's, else the words in its names and tags), then moves it and renames its files. Editors can run it. It replaces the Organize Library page and Tidy Into Model Folders, and is what **Organize** in the Not organized view and on Home does too.
+- **Its settings are in Settings → Scanning → Organize** (was Upload Folder): the scanned directory, the destination (empty: the first STL Home folder), the folder levels above each model's Title folder (Category / Subcategory unless changed; Designer and License too), and its steps, each on unless turned off: Include ZIP files, Tidy into model folders, Generate tags, Apply the suggested tags (off: they open for review). Without its folders, Organize opens these settings.
+- **A Title is a name, not a file:** a 3MF's title ending in `.3mf` (or `.stl`, …) is read without it, and the Titles already in the library lose it once.
+
+**Fixes:**
+- A model folder for a name with nothing usable in it (`???`) is called "Model", not "MakerWorld model"; a missing folder level is named after the level ("No License").
+
+**Upgrading:** no changes needed. Open **Settings → Scanning → Organize** once to check the scanned directory (`/upload`) and the destination (`/mnt/user`). The Organize Library page and its saved folder levels are gone.
+
 ## [8.0.0] - 2026-10-19
 
 **Breaking changes:**

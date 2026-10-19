@@ -296,7 +296,32 @@ function migrateTitleColumn() {
     }
     database.db.prepare('CREATE INDEX IF NOT EXISTS idx_models_title ON models(title)').run();
     const done = database.db.prepare("SELECT value FROM settings WHERE key = 'titleFromParentModel'").get();
-    if (done && done.value === '1') return;
+    if (!done || done.value !== '1') copyParentModelToTitle();
+    // 8.1: a Title is a name, not a file: "Dragon.3mf" → "Dragon" (once).
+    const cleaned = database.db.prepare("SELECT value FROM settings WHERE key = 'titleWithoutExtension'").get();
+    if (!cleaned) {
+      const strip = database.db.prepare('UPDATE models SET title = ? WHERE id = ?');
+      let count = 0;
+      for (const row of database.db.prepare("SELECT id, title FROM models WHERE title IS NOT NULL AND title != ''").all()) {
+        const next = String(row.title)
+          .replace(/\.(3mf|stl|obj|step|stp)$/i, '')
+          .trim();
+        if (next && next !== row.title) {
+          strip.run(next, row.id);
+          count++;
+        }
+      }
+      database.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('titleWithoutExtension', '1')").run();
+      if (count) console.log(`Took the file extension off ${count} Title(s)`);
+    }
+  } catch (error) {
+    console.error('Title column migration failed:', error);
+  }
+}
+
+/** 8.0, once: every Parent Model becomes the Title; settings and history that named Parent Model name Title. */
+function copyParentModelToTitle() {
+  try {
     database.db.transaction(() => {
       const copied = database.db
         .prepare(

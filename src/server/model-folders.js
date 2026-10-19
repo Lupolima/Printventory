@@ -184,7 +184,9 @@ function mediaTarget(dir) {
 function makeFolder(parent, name) {
   const { folderName } = require('../core/makerworld');
   const { isInsideOrSame } = require('./server-paths');
-  const base = folderName(String(name || '').trim()) || 'Model';
+  // Nothing usable in the name ("???"): "Model", not the MakerWorld import's default.
+  const usable = String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f.\s]+/g, '');
+  const base = (usable && folderName(String(name).trim())) || 'Model';
   for (let n = 1; n < 1000; n++) {
     const candidate = path.join(parent, n === 1 ? base : `${base} (${n})`);
     try {

@@ -1,19 +1,22 @@
 'use strict';
 
 /**
- * The Upload folder and Organize Uploads. Uploads wait in the Upload folder (a folder chosen in
- * Settings → Scanning → Upload Folder), in the library with a "Not organized" badge. Organize
- * Uploads then puts each of them where it belongs, without asking:
+ * Organize (the sidebar; Settings → Scanning → Organize). Uploads wait in the Upload folder (the
+ * scanned directory), in the library with a "Not organized" badge. Organize then puts each of them
+ * where it belongs, without asking:
  *
- * 1. Every top-level item is one model: a folder with everything in it, or a model file (or an
- *    archive) on its own, which gets a folder named after it.
- * 2. Its archives are unpacked and its loose pictures and documents go into image/ and
- *    document/ (unpack-archives.js); the folder is scanned and gets a cover.
- * 3. Its Category and Subcategory: the site's, else the AI's (when an AI service is set up,
- *    category-scan.js), else words in its names, else "Uncategorized › Other".
- * 4. It moves to <destination>/<Category>/<Subcategory>/<model name>/ ("Name (2)" when taken),
- *    with its tags, notes, history and pictures (model-folders.js pathsMoved).
- * 5. The AI tags its models (when an AI service is set up), applied at once with "AI Tagged".
+ * 1. Every top-level item is one model: a folder with everything in it, or a model file (or, with
+ *    Include ZIP files, an archive) on its own, which gets a folder named after it.
+ * 2. Include ZIP files: its archives are unpacked; Tidy into model folders: its loose pictures and
+ *    documents go into image/ and document/ (unpack-archives.js). The folder is scanned and gets a cover.
+ * 3. Generate tags: the AI tags its models, applied at once with "AI Tagged" (the AI's Category
+ *    comes in the same answer). With Auto-apply off they are offered for review in the browser that
+ *    started it, after the moves.
+ * 4. Its Category and Subcategory: the site's, else the AI's (when an AI service is set up,
+ *    category-scan.js), else words in its names and tags, else "Uncategorized › Other".
+ * 5. It moves to <destination>/<the folder levels>/<Title>/ ("Name (2)" when taken), with its tags,
+ *    notes, history and pictures (model-folders.js pathsMoved), and its files are named after the
+ *    Title, keeping their extension.
  *
  * The destination is a folder chosen in Settings, else the first STL Home folder. One run at a
  * time; every open page follows it ('organize-uploads' events). What fails stays in the Upload
@@ -28,6 +31,22 @@ const events = require('./events');
 const UPLOAD_SETTING = 'uploadFolder';
 const DESTINATION_SETTING = 'organizeDestination';
 const UNCATEGORIZED = ['Uncategorized', 'Other'];
+
+/**
+ * Organize's settings (Settings → Organize): the folder levels above each model's own folder
+ * (that one is named after its Title), and its steps. Every step is on unless switched off ('0').
+ */
+const LAYERS_SETTING = 'organizeLayers';
+const STEP_SETTINGS = { includeZips: 'organizeIncludeZips', tidy: 'organizeTidy', tags: 'organizeTags', autoApply: 'organizeAutoApply' };
+/** The folder levels Organize can use, and the folder for a model without that value. */
+const LAYERS = {
+  category: { label: 'Category', empty: UNCATEGORIZED[0] },
+  subcategory: { label: 'Subcategory', empty: UNCATEGORIZED[1] },
+  designer: { label: 'Designer', empty: 'No Designer' },
+  license: { label: 'License', empty: 'No License' }
+};
+const DEFAULT_LAYERS = ['category', 'subcategory'];
+const MAX_LAYERS = 4;
 /** At most this many moved models are listed in the result (the count is complete). */
 const MAX_LISTED = 200;
 
@@ -68,17 +87,54 @@ function waitingCount(inbox = uploadFolder()) {
   return Number(database.db.prepare("SELECT COUNT(*) AS n FROM models WHERE filePath LIKE ? ESCAPE '\\'").get(`${escapeLike(inbox)}${path.sep}%`).n) || 0;
 }
 
-/** The settings page's and the library's view: { uploadFolder, destination, chosenDestination, waiting }. */
+/** The folder levels from a list (unknown, repeated and extra ones left out). */
+function cleanLayers(list) {
+  const out = [];
+  for (const id of Array.isArray(list) ? list : []) {
+    const key = String(id || '');
+    if (LAYERS[key] && !out.includes(key) && out.length < MAX_LAYERS) out.push(key);
+  }
+  return out;
+}
+
+/** Organize's settings: { layers, includeZips, tidy, tags, autoApply }. */
+function organizeOptions() {
+  let layers = DEFAULT_LAYERS;
+  const saved = setting(LAYERS_SETTING);
+  if (saved) {
+    try {
+      layers = cleanLayers(JSON.parse(saved));
+    } catch (_) {
+      /* the default */
+    }
+  }
+  const step = (key) => setting(STEP_SETTINGS[key]) !== '0';
+  return { layers, includeZips: step('includeZips'), tidy: step('tidy'), tags: step('tags'), autoApply: step('autoApply') };
+}
+
+/** The settings page's and the library's view: { uploadFolder, destination, chosenDestination, waiting, options, layerChoices }. */
 function info() {
   const inbox = uploadFolder();
-  return { uploadFolder: inbox, destination: destination(), chosenDestination: setting(DESTINATION_SETTING), waiting: waitingCount(inbox) };
+  return {
+    uploadFolder: inbox,
+    destination: destination(),
+    chosenDestination: setting(DESTINATION_SETTING),
+    waiting: waitingCount(inbox),
+    options: organizeOptions(),
+    layerChoices: Object.entries(LAYERS).map(([id, layer]) => ({ id, label: layer.label }))
+  };
 }
 
 /**
  * Save the Upload folder and the destination ('' for none, or the first STL Home folder). The
  * Upload folder is made when missing; the destination may not be inside it.
  */
-function saveFolders(upload, dest) {
+/**
+ * @param {string} upload
+ * @param {string} dest
+ * @param {{ layers?: string[], includeZips?: boolean, tidy?: boolean, tags?: boolean, autoApply?: boolean } | null} [options]
+ */
+function saveFolders(upload, dest, options = null) {
   const { isInsideOrSame } = require('./server-paths');
   const inbox = String(upload || '')
     .trim()
@@ -93,11 +149,17 @@ function saveFolders(upload, dest) {
     const homes = require('../core/library-paths').readStlHomeDirectories();
     if (homes.some((home) => isInsideOrSame(home, inbox))) throw new Error('The Upload folder cannot hold an STL Home folder: choose a folder of its own');
     const into = target || destination();
-    if (into && isInsideOrSame(into, inbox)) throw new Error('Organize Uploads cannot put models inside the Upload folder: choose another destination');
+    if (into && isInsideOrSame(into, inbox)) throw new Error('Organize cannot put models inside the Upload folder: choose another destination');
   }
   const save = database.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
   save.run(UPLOAD_SETTING, inbox);
   save.run(DESTINATION_SETTING, target);
+  if (options && typeof options === 'object') {
+    if (Array.isArray(options.layers)) save.run(LAYERS_SETTING, JSON.stringify(cleanLayers(options.layers)));
+    for (const [key, settingKey] of Object.entries(STEP_SETTINGS)) {
+      if (typeof options[key] === 'boolean') save.run(settingKey, options[key] ? '1' : '0');
+    }
+  }
   // The Upload folder is scanned and watched with STL Home (stl-home.js scanRoots).
   require('./stl-home').settingChanged(UPLOAD_SETTING);
   events.broadcast('upload-folder-changed', info());
@@ -105,12 +167,17 @@ function saveFolders(upload, dest) {
 }
 
 /** The top-level items of the Upload folder that are models: folders, and model files or archives. */
-function itemsIn(inbox) {
+function itemsIn(inbox, { includeZips = true } = {}) {
   const { allowedUploadExtensions } = require('./uploads');
   const modelFolders = require('./model-folders');
   const skipped = new Set([...modelFolders.KIND_NAMES.map((kind) => modelFolders.KINDS[kind].dir), require('./unpack-archives').ARCHIVES_DIR]);
   const extensions = new Set(allowedUploadExtensions());
-  for (const ext of require('./unpack-archives').ARCHIVE_EXTENSIONS) extensions.add(ext);
+  const archives = require('./unpack-archives').ARCHIVE_EXTENSIONS;
+  for (const ext of archives) {
+    // Include ZIP files off: archives stay in the Upload folder.
+    if (includeZips) extensions.add(ext);
+    else extensions.delete(ext);
+  }
   return fs
     .readdirSync(inbox, { withFileTypes: true })
     .filter((entry) => !entry.name.startsWith('.') && !skipped.has(entry.name))
@@ -141,8 +208,73 @@ function placeOf(models) {
   return best ? best[0].split('\u0000') : UNCATEGORIZED;
 }
 
+/** A Title without a model file's extension ("Dragon.3mf" → "Dragon"): files keep their own. */
+const withoutExtension = (text) =>
+  String(text || '')
+    .trim()
+    .replace(/\.(3mf|stl|obj|step|stp|amf|ply|gcode|lys|lyt|f3d|f3z|zip)$/i, '')
+    .trim();
+
+/** The value most of these models have for `column` (null when none has one). */
+function mostCommon(models, column) {
+  const rows = models.length
+    ? database.db.prepare(`SELECT ${column} AS value FROM models WHERE id IN (${models.map(() => '?').join(',')})`).all(...models.map((m) => m.id))
+    : [];
+  const counts = new Map();
+  for (const row of rows) {
+    const value = String(row.value || '').trim();
+    if (value) counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  const best = [...counts].sort((a, b) => b[1] - a[1])[0];
+  return best ? best[0] : null;
+}
+
+/** The model's Title, for its folder and file names (without an extension), or null. */
+const titleOf = (models) => withoutExtension(mostCommon(models, 'title')) || null;
+
+/** The folders above a model's own: one per level (Settings → Organize), a value missing named after the level. */
+function layerFolders(models, layers) {
+  const [category, subcategory] = placeOf(models);
+  const values = { category, subcategory, designer: mostCommon(models, 'designer'), license: mostCommon(models, 'license') };
+  return layers.map((id) => safeName(values[id], LAYERS[id].empty));
+}
+
+/**
+ * Name each model file after the model's Title ("Articulated Dragon.3mf"; "… (2).3mf" when two
+ * files share it), keeping its extension. Files inside a ZIP keep their names. Answers how many were renamed.
+ */
+async function renameToTitle(models, title, by) {
+  const { renameModel } = require('./model-rename');
+  const history = require('./model-versions');
+  let renamed = 0;
+  for (const model of models) {
+    const filePath = String(model.filePath);
+    if (filePath.includes('::') || path.extname(filePath).toLowerCase() === '.zip') continue;
+    const stem = path.basename(filePath, path.extname(filePath));
+    if (stem === title || new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(\\d+\\)$`).test(stem)) continue;
+    for (let n = 1; n < 100; n++) {
+      const name = n === 1 ? title : `${title} (${n})`;
+      try {
+        await history.tracking([model.id], by, async () => renameModel(filePath, name));
+        renamed++;
+        break;
+      } catch (error) {
+        if (!/already a file named/i.test(error.message)) {
+          console.warn(`[Organize] Could not rename ${filePath}: ${error.message}`);
+          break;
+        }
+      }
+    }
+  }
+  return renamed;
+}
+
 /** A folder name made safe ("Hobby & DIY" stays, "a/b" becomes "a b"). */
-const safeName = (name, fallback) => require('../core/makerworld').folderName(String(name || '')) || fallback;
+const safeName = (name, fallback) => {
+  // Nothing usable in it ("", "???"): the fallback, not the MakerWorld import's own default.
+  const text = String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f.\s]+/g, '');
+  return text ? require('../core/makerworld').folderName(String(name)) || fallback : fallback;
+};
 
 /** "name", else "name (2)", … : a folder in `parent` that is not taken. */
 function freeFolder(parent, name) {
@@ -242,7 +374,7 @@ async function tagModels(models, event) {
         if (/rate limit|authentication|api key/i.test(error.message || '') || require('../core/aitagging').PUTER_STOP.test(error.message || '')) {
           stopped = error.message;
         } else {
-          console.warn(`[Organize Uploads] Could not tag ${model.filePath}: ${error.message}`);
+          console.warn(`[Organize] Could not tag ${model.filePath}: ${error.message}`);
         }
       }
       job.tagged = tagged;
@@ -255,7 +387,7 @@ async function tagModels(models, event) {
 }
 
 /** Get one item ready: its own model folder, archives unpacked, scanned. Answers the folder. */
-async function prepare(item, inbox) {
+async function prepare(item, inbox, options = organizeOptions()) {
   const modelFolders = require('./model-folders');
   let folder = item.path;
   if (item.isFile) {
@@ -276,7 +408,8 @@ async function prepare(item, inbox) {
   } else {
     modelFolders.register(folder);
   }
-  const unpack = await require('./unpack-archives').unpackFolder(folder);
+  // Include ZIP files: its archives unpacked; Tidy Into Model Folders: its pictures and documents in place.
+  const unpack = await require('./unpack-archives').unpackFolder(folder, { archives: options.includeZips, media: options.tidy });
   const { rootFor } = require('./uploads');
   const { networkPathContext } = require('./path-context');
   const { isInsideOrSame } = require('./server-paths');
@@ -298,11 +431,12 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
   if (running()) return null;
   const inbox = uploadFolder();
   const dest = destination();
-  if (!inbox) throw new Error('Choose the Upload folder first (Settings → Scanning → Upload Folder)');
+  if (!inbox) throw new Error('Choose the scanned directory (the Upload folder) first (Settings → Scanning → Organize)');
   if (!fs.existsSync(inbox)) throw new Error(`The Upload folder is not there: ${inbox}`);
-  if (!dest) throw new Error('Choose where Organize Uploads puts models (Settings → Scanning → Upload Folder), or set up STL Home');
+  if (!dest) throw new Error('Choose where Organize puts models (Settings → Scanning → Organize), or set up STL Home');
   if (require('./server-paths').isInsideOrSame(dest, inbox)) throw new Error('The destination is inside the Upload folder: choose another one');
-  const items = itemsIn(inbox);
+  const options = organizeOptions();
+  const items = itemsIn(inbox, options);
   const service = require('./ipc/ai').getAISettings().aiService;
   const puterMissing = service === 'puter' && !puterSignedIn;
   const aiReady = require('./category-scan').aiReady() && !puterMissing;
@@ -320,18 +454,20 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
     movedCount: 0,
     movedModels: 0,
     tagged: 0,
+    renamed: 0,
+    reviewing: false,
     failed: /** @type {{ name: string, error: string }[]} */ ([]),
     warning: /** @type {string | null} */ (puterMissing ? 'The AI was left out: sign in to Puter in this browser first (Settings → AI Tagging).' : null)
   };
   const current = job;
   current.promise = (async () => {
     try {
-      // 1–2: each item its own model folder, unpacked and scanned.
+      // 1: each item its own model folder, unpacked and tidied, scanned.
       const ready = [];
       for (const item of items) {
         if (current.stopping) break;
         try {
-          const { folder, unpackFailed } = await prepare(item, inbox);
+          const { folder, unpackFailed } = await prepare(item, inbox, options);
           for (const failed of unpackFailed) current.failed.push({ name: `${path.basename(folder)}/${failed.name}`, error: failed.error });
           if (modelsUnder(folder).length) ready.push({ name: item.name, folder });
           else current.failed.push({ name: item.name, error: 'no model files in it (it stays in the Upload folder)' });
@@ -341,7 +477,18 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
         current.done++;
         announce();
       }
-      // 3: their places (the AI's first, then words in their names).
+      // 2: tags, applied at once (the AI's category comes with them, and the tags help the words in step 3).
+      // With Auto-apply off they are offered for review after the moves (the files' paths change in step 4).
+      const prepared = ready.flatMap((r) => modelsUnder(r.folder));
+      if (options.tags && options.autoApply && aiReady && prepared.length && !current.stopping) {
+        current.phase = 'tag';
+        current.done = 0;
+        current.total = prepared.length;
+        announce();
+        const { stopped } = await tagModels(prepared, event);
+        if (stopped) current.warning = `AI tagging stopped: ${stopped}. Organize went on without it; tag the rest with Generate Tags.`;
+      }
+      // 3: their places (the site's, the AI's for the models the tags did not place, then words in their names and tags).
       const ids = ready.flatMap((r) => modelsUnder(r.folder).map((m) => m.id));
       if (ids.length && !current.stopping) {
         current.phase = 'categorize';
@@ -363,11 +510,15 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
         try {
           const models = modelsUnder(folder);
           const [category, subcategory] = placeOf(models);
-          const parent = path.join(dest, safeName(category, UNCATEGORIZED[0]), safeName(subcategory, UNCATEGORIZED[1]));
+          // Destination / the levels / the model's own folder, named after its Title (else the item's name).
+          const title = titleOf(models);
+          const parent = path.join(dest, ...layerFolders(models, options.layers));
           const to = await require('./stl-home').withoutScans(async () => {
             fs.mkdirSync(parent, { recursive: true });
-            return moveFolder(folder, freeFolder(parent, safeName(path.basename(folder), 'Model')));
+            return moveFolder(folder, freeFolder(parent, safeName(title || path.basename(folder), 'Model')));
           });
+          // Its files take the Title as their name.
+          if (title) current.renamed += await renameToTitle(modelsUnder(to), safeName(title, 'Model'), by);
           current.movedCount++;
           current.movedModels += models.length;
           if (current.moved.length < MAX_LISTED) current.moved.push({ name, to, category, subcategory, models: models.length });
@@ -380,29 +531,28 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
       }
       events.broadcast('refresh-grid');
       events.broadcast('categories-changed');
-      // 5: tags.
-      if (aiReady && movedModels.length && !current.stopping) {
-        current.phase = 'tag';
-        current.done = 0;
-        current.total = movedModels.length;
-        announce();
-        const { stopped } = await tagModels(movedModels, event);
-        if (stopped) current.warning = `AI tagging stopped: ${stopped}. The models are moved; tag the rest with Generate Tags.`;
-        events.broadcast('refresh-grid');
+      // Auto-apply off: the suggested tags for the moved models, in a review in the browser that asked.
+      if (options.tags && !options.autoApply && aiReady && movedModels.length && !current.stopping) {
+        if (!require('./ai-tag-job').running()) {
+          current.reviewing = true;
+          const paths = movedModels.map((model) => model.filePath);
+          const { generateTagsFromMenu } = require('./ipc/context-menu-generate-tags');
+          generateTagsFromMenu(event, event, event && event.sender, paths).catch((error) => console.warn(`[Organize] Tag review: ${error.message}`));
+        }
       }
     } catch (error) {
-      console.error('[Organize Uploads] failed:', error);
-      current.failed.push({ name: 'Organize Uploads', error: error.message });
+      console.error('[Organize] failed:', error);
+      current.failed.push({ name: 'Organize', error: error.message });
     } finally {
       current.running = false;
       current.phase = 'done';
       announce();
       const { plural } = require('./notifications');
       console.log(
-        `[Organize Uploads] Moved ${current.movedCount} folder(s) (${current.movedModels} models) into ${dest}; tagged ${current.tagged}; ${current.failed.length} not organized`
+        `[Organize] Moved ${current.movedCount} folder(s) (${current.movedModels} models) into ${dest}; renamed ${current.renamed}; tagged ${current.tagged}; ${current.failed.length} not organized`
       );
       require('./notifications').notify({
-        title: `Organize Uploads finished: ${plural(current.movedCount, 'model folder')} moved`,
+        title: `Organize finished: ${plural(current.movedCount, 'model folder')} moved`,
         body:
           `${plural(current.movedModels, 'model')} into ${dest}` +
           (current.tagged ? `, ${plural(current.tagged, 'model')} tagged` : '') +
@@ -428,7 +578,14 @@ function stop() {
 }
 
 module.exports = {
+  LAYERS,
+  cleanLayers,
   destination,
+  layerFolders,
+  organizeOptions,
+  renameToTitle,
+  titleOf,
+  withoutExtension,
   info,
   isWaiting,
   itemsIn,

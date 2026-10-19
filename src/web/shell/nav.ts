@@ -58,6 +58,7 @@ import { findMenuAction } from './menu';
 import { navigate, type PageId } from './routes';
 import { getCurrentUser, roleAllows, type Role } from '../session';
 import { openFolderSetup } from '../startup/FolderSetup';
+import { runOrganize } from '../upload/inbox';
 
 /** Run an old menu action by its label, looked up when clicked. */
 const menu = (label: string) => () => {
@@ -126,7 +127,8 @@ export const NAV: NavSection[] = [
     items: [
       { id: 'tags', label: 'Tags', icon: Tags, page: 'tags', replaces: ['Tag Manager'], role: 'editor' },
       { id: 'duplicates', label: 'Duplicates', icon: Copy, page: 'duplicates', replaces: ['De-Dup'], role: 'editor' },
-      { id: 'organize', label: 'Organize', icon: FolderTree, page: 'organize', replaces: ['Organize Library'], role: 'admin' },
+      // Runs Organize at once (upload/inbox.ts), with its settings (Settings → Scanning → Organize).
+      { id: 'organize', label: 'Organize', icon: FolderTree, run: () => void runOrganize(), replaces: ['Organize Library'], role: 'editor' },
       {
         id: 'scan',
         label: 'Scan Library',
@@ -297,12 +299,12 @@ export const SETTINGS: SettingsGroup[] = [
         embed: { dialog: 'stl-home-dialog', open: 'openStlHome' }
       },
       {
-        id: 'upload-folder',
-        label: 'Upload Folder',
-        description: 'Where uploads wait, and where Organize puts them (Category/Subcategory/Model).',
+        id: 'organize',
+        label: 'Organize',
+        description: 'The scanned directory (Upload folder), the destination, the folder structure and what Organize does.',
         icon: FolderInput,
-        run: open('openUploadFolderSettings'),
-        embed: { dialog: 'upload-folder-dialog', open: 'openUploadFolderSettings' }
+        run: open('openOrganizeSettings'),
+        embed: { dialog: 'organize-settings-dialog', open: 'openOrganizeSettings' }
       },
       {
         id: 'file-types',
