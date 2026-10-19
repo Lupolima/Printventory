@@ -2,6 +2,11 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [7.29.1] - 2026-10-18
+
+**Fixes:**
+- **Tests on GitHub:** the check that a model's page shows the groups it is in waits for that line (it loads after the page, and GitHub's slower test machines read it too early). The app is not affected.
+
 ## [7.29.0] - 2026-10-18
 
 **Changes:**
