@@ -12,7 +12,8 @@ export default defineConfig({
   // the helpers that are not modules (XML parser, OpenCascade, the 3MF/LYS/STL helpers).
   worker: {
     format: 'iife',
-    rollupOptions: { output: { entryFileNames: 'parse-worker.js' } }
+    // A fingerprint in the name, like the chunks below.
+    rollupOptions: { output: { entryFileNames: 'parse-worker-[hash].js' } }
   },
   build: {
     outDir: 'web-build',
@@ -25,9 +26,12 @@ export default defineConfig({
       // The app, and the 3D view of share pages (src/web/share/viewer.ts; share-pages.js serves it).
       input: { app: 'src/web/main.tsx', 'share-viewer': 'src/web/share/viewer.ts' },
       output: {
-        // Fixed names, so index.html and share pages can load them; the server sends JS with Cache-Control: no-cache.
-        entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
+        // Names with a fingerprint, so a cache that keeps files longer than the server asks (a proxy
+        // such as Cloudflare) never hands an updated app an old file: app-<fingerprint>.js (the server
+        // writes its name into index.html, http.js) and the chunks it loads. The share pages' viewer
+        // keeps a fixed name (share-pages.js loads it), and the chunks import app.js by its own name.
+        entryFileNames: (chunk) => (chunk.name === 'app' ? 'app-[hash].js' : '[name].js'),
+        chunkFileNames: '[name]-[hash].js',
         // The stylesheet is app.css (index.html links it); fonts keep their names.
         assetFileNames: (asset) => (asset.names?.some((n) => n.endsWith('.css')) ? 'app.css' : '[name][extname]'),
         // three.js in its own chunk (three.js), shared by the 3D preview and the thumbnail renderer.
