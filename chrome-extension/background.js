@@ -22,7 +22,18 @@ const SUPPORTED_SITES = [
 ];
 
 function isInboxSidecar(filename) {
-  return typeof filename === 'string' && filename.toLowerCase().endsWith('.pvimport.json');
+  if (typeof filename !== 'string') return false;
+  const lower = filename.toLowerCase();
+  return lower.endsWith('.pvimport.json') || lower.endsWith('.pvimport');
+}
+
+function eraseInboxSidecarDownload(downloadId) {
+  if (downloadId == null || !chrome.downloads || !chrome.downloads.erase) return;
+  try {
+    chrome.downloads.erase({ id: downloadId }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (e) { /* ignore */ }
 }
 
 function isAlwaysQueueFile(filename) {
@@ -409,13 +420,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (message.action === 'ensurePickableFolder') {
+    const ensure = PrintventoryInbox && PrintventoryInbox.ensurePickableFolder;
+    if (typeof ensure !== 'function') {
+      sendResponse({ ok: false, error: 'ensurePickableFolder unavailable' });
+      return;
+    }
+    ensure().then(sendResponse).catch((err) => {
+      sendResponse({ ok: false, error: err && err.message ? err.message : String(err) });
+    });
+    return true;
+  }
 });
 
 chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason !== 'install') return;
-  chrome.storage.local.get({ printventoryFolderConfigured: false }, (items) => {
-    if (!items.printventoryFolderConfigured) chrome.runtime.openOptionsPage();
-  });
+  // No folder setup required — Downloads/PrintventoryInbox works out of the box.
+  if (details.reason === 'install') {
+    chrome.storage.local.set({ printventoryFolderConfigured: false });
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -436,6 +459,11 @@ chrome.downloads.onChanged.addListener((delta) => {
   chrome.downloads.search({ id: delta.id }, async (items) => {
     const item = items && items[0];
     if (!item) return;
+    // Sidecar is only for Printventory; hide it from the browser Downloads UI (file stays on disk).
+    if (isInboxSidecar(item.filename)) {
+      eraseInboxSidecarDownload(item.id);
+      return;
+    }
     const tabUrl = await getDownloadTabUrl(item);
     if (!shouldQueueDownload(item, tabUrl)) return;
     const baseName = (item.filename || '').split(/[/\\]/).pop();

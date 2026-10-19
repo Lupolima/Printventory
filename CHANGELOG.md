@@ -4,6 +4,11 @@ All notable changes contributed via pull request are documented in this file.
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-10-18
+
+- Upgrading from 2.x keeps models that were marked Printed. The 3.0.0 migration had filled every row with Unprinted because SQLite applies `DEFAULT` on `ADD COLUMN`, so the backfill never ran. Opening 3.0.1 also repairs databases that already hit that bug (`printed = 1` still in the DB).
+- Printventory Watcher inbox sidecars use `.pvimport` (legacy `.pvimport.json` still imports). The extension’s pickable folder is `Downloads/Printventory`, and the app also watches `Downloads/Printventory/PrintventoryInbox` and `Documents/Printventory/PrintventoryInbox`.
+
 ## [3.0.0] - 2026-10-17
 
 ### Print lifecycle & history

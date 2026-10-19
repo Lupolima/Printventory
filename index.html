@@ -1246,12 +1246,12 @@
         <div class="settings-group">
           <div class="form-group">
             <label for="extension-inbox-directory">Inbox directory:</label>
-            <input type="text" id="extension-inbox-directory" placeholder="Downloads/PrintventoryInbox">
+            <input type="text" id="extension-inbox-directory" placeholder="Downloads/Printventory/PrintventoryInbox">
             <div class="dialog-buttons" style="margin-top: 8px; justify-content: flex-start;">
               <button type="button" id="choose-extension-inbox-directory">Choose folder</button>
               <button type="button" id="import-extension-inbox-now">Import now</button>
             </div>
-            <p class="setting-description">Optional override. Printventory always also checks <code>Downloads/PrintventoryInbox</code> and <code>PrintventoryInbox</code> next to <code>printventory.db</code> (the folder the Chrome extension asks you to pick).</p>
+            <p class="setting-description">Optional override. Printventory always also checks <code>Downloads/PrintventoryInbox</code>, <code>Downloads/Printventory/PrintventoryInbox</code> (extension folder pick), <code>Documents/Printventory/PrintventoryInbox</code>, and <code>PrintventoryInbox</code> next to <code>printventory.db</code>.</p>
             <p class="setting-description" id="extension-inbox-last-status"></p>
           </div>
           <p class="setting-description" style="margin-top: 12px; font-weight: 500;">Path mapping (optional, Docker/NAS)</p>

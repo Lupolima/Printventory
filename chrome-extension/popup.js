@@ -103,7 +103,7 @@ $('addPage').addEventListener('click', () => {
       return;
     }
     if (response && response.ok) {
-      setStatus('ok', 'Queued. Printventory will import within a minute of opening.');
+      setStatus('ok', 'Queued to Downloads/PrintventoryInbox. Printventory imports within a minute.');
     } else {
       setStatus('err', (response && response.error) || 'Failed to write inbox file');
     }
@@ -115,39 +115,4 @@ $('openOptions').addEventListener('click', (e) => {
   chrome.runtime.openOptionsPage();
 });
 
-function refreshSetupBanner() {
-  chrome.storage.local.get({ printventoryFolderConfigured: false }, (items) => {
-    $('setupBanner').classList.toggle('visible', !items.printventoryFolderConfigured);
-  });
-}
-
-$('chooseFolder').addEventListener('click', async () => {
-  if (!window.showDirectoryPicker) {
-    chrome.runtime.openOptionsPage();
-    return;
-  }
-  try {
-    const handle = await window.showDirectoryPicker({ id: 'pv-printventory-dir', mode: 'readwrite' });
-    const granted = await PrintventoryFolder.ensureWritePermission(handle);
-    if (!granted) {
-      setStatus('err', 'Folder permission was not granted');
-      return;
-    }
-    const hasDb = await PrintventoryFolder.folderHasDatabase(handle);
-    await PrintventoryFolder.setDirectoryHandle(handle);
-    chrome.storage.local.set({
-      printventoryFolderConfigured: true,
-      printventoryFolderName: handle.name,
-      printventoryFolderHasDb: hasDb
-    }, refreshSetupBanner);
-    setStatus(hasDb ? 'ok' : '', hasDb
-      ? 'Folder saved. Inbox will go next to Printventory.'
-      : 'Folder saved, but printventory.db was not found there.');
-  } catch (err) {
-    if (err && err.name === 'AbortError') return;
-    setStatus('err', err && err.message ? err.message : String(err));
-  }
-});
-
-refreshSetupBanner();
 loadActive();

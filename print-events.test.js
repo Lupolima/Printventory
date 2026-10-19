@@ -78,6 +78,65 @@ test('migration sets printed=1 rows to printed status without inventing history'
   db.close();
 });
 
+test('upgrade from legacy schema backfills print_status despite ADD COLUMN DEFAULT', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.prepare(`
+    CREATE TABLE models (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filePath TEXT UNIQUE,
+      fileName TEXT,
+      printed INTEGER
+    )
+  `).run();
+  db.prepare(`
+    CREATE TABLE filaments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      vendor TEXT,
+      material TEXT,
+      color_hex TEXT,
+      diameter REAL,
+      spoolman_id INTEGER,
+      source TEXT
+    )
+  `).run();
+  db.prepare(`
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `).run();
+  db.prepare("INSERT INTO models (filePath, fileName, printed) VALUES ('legacy-printed.stl', 'legacy-printed.stl', 1)").run();
+  db.prepare("INSERT INTO models (filePath, fileName, printed) VALUES ('legacy-unprinted.stl', 'legacy-unprinted.stl', 0)").run();
+  printEvents.migratePrintLifecycle(db);
+  const printed = db.prepare("SELECT * FROM models WHERE filePath = 'legacy-printed.stl'").get();
+  const unprinted = db.prepare("SELECT * FROM models WHERE filePath = 'legacy-unprinted.stl'").get();
+  assert.strictEqual(printed.print_status, 'printed');
+  assert.strictEqual(printed.print_count, 0);
+  assert.strictEqual(printed.last_printed_at, null);
+  assert.strictEqual(unprinted.print_status, 'unprinted');
+  db.close();
+});
+
+test('migration repairs broken 3.0.0 upgrade that left printed=1 as unprinted', () => {
+  const db = createDb();
+  db.prepare(
+    "INSERT INTO models (filePath, fileName, printed, print_status, print_count) VALUES ('broken.stl', 'broken.stl', 1, 'unprinted', 0)"
+  ).run();
+  db.prepare(
+    "INSERT INTO models (filePath, fileName, printed, print_status, print_count) VALUES ('intentional.stl', 'intentional.stl', 0, 'unprinted', 0)"
+  ).run();
+  db.prepare(
+    "INSERT INTO models (filePath, fileName, printed, print_status, print_count) VALUES ('want.stl', 'want.stl', 0, 'want', 0)"
+  ).run();
+  printEvents.migratePrintLifecycle(db);
+  assert.strictEqual(db.prepare("SELECT print_status FROM models WHERE filePath = 'broken.stl'").get().print_status, 'printed');
+  assert.strictEqual(db.prepare("SELECT print_status FROM models WHERE filePath = 'intentional.stl'").get().print_status, 'unprinted');
+  assert.strictEqual(db.prepare("SELECT print_status FROM models WHERE filePath = 'want.stl'").get().print_status, 'want');
+  db.close();
+});
+
 test('logging a successful print sets Printed, count, and last_printed_at', () => {
   const db = createDb();
   const id = insertModel(db, { filePath: 'c.stl', printed: 0, print_status: 'want', print_count: 0 });

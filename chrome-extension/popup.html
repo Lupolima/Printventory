@@ -43,17 +43,6 @@
     .status.ok { color: #2d7a2d; }
     .status.err { color: #c9302c; }
     a { color: #0a5; font-size: 12px; }
-    .setup {
-      display: none;
-      background: #fff6e5;
-      border: 1px solid #e6c27a;
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin: 0 0 10px;
-      font-size: 12px;
-    }
-    .setup.visible { display: block; }
-    .setup button { margin-top: 8px; width: 100%; }
   </style>
 </head>
 <body>
@@ -61,11 +50,11 @@
     <img src="icon128.png" alt="Printventory">
     <h1>Add to Printventory</h1>
   </div>
-  <div class="setup" id="setupBanner">
-    Choose your Printventory data folder (the one with <code>printventory.db</code>) so inbox files land next to the app.
-    <button type="button" id="chooseFolder">Choose Printventory folder</button>
-  </div>
-  <p class="hint" id="pageHint">Open a model page, check the fields, then add. Printventory imports this queue every minute (and on launch).</p>
+  <p class="hint" id="pageHint">
+    Open a model page, check the fields, then add.
+    This writes an inbox file to <code>Downloads/PrintventoryInbox</code> — not your database.
+    Printventory imports it on launch and about every minute.
+  </p>
   <label for="parentModel">Title</label>
   <input id="parentModel" autocomplete="off">
   <label for="designer">Designer</label>
@@ -81,9 +70,8 @@
     <button type="button" id="refresh" class="secondary">Re-scan</button>
   </div>
   <p class="status" id="status"></p>
-  <p class="hint">Any download from this site is queued. STL/OBJ/3MF is queued from any site. <a href="#" id="openOptions">Options</a></p>
+  <p class="hint">Downloads from this site are queued automatically. STL/OBJ/3MF from any site too. <a href="#" id="openOptions">How it works</a></p>
   <script src="extractors.js"></script>
-  <script src="folder-handle.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

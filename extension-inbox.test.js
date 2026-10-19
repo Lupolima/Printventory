@@ -70,6 +70,18 @@ function memFs(files) {
     assert.strictEqual(uniq.length, 1);
   });
 
+  await test('documents Printventory inbox is OS Documents default', () => {
+    const dir = inbox.documentsInboxDirectory({ homedir: '/home/sam' });
+    assert.ok(dir.replace(/\\/g, '/').endsWith('/Documents/Printventory/PrintventoryInbox'));
+    const custom = inbox.documentsInboxDirectory({ documentsDir: 'D:\\Docs' });
+    assert.ok(custom.replace(/\\/g, '/').endsWith('/Docs/Printventory/PrintventoryInbox'));
+  });
+
+  await test('downloads Printventory inbox is pickable extension default', () => {
+    const dir = inbox.downloadsPrintventoryInboxDirectory('/home/sam');
+    assert.ok(dir.replace(/\\/g, '/').endsWith('/Downloads/Printventory/PrintventoryInbox'));
+  });
+
   await test('parseInboxPayload url-only', () => {
     const item = inbox.parseInboxPayload({
       version: 1,
@@ -81,9 +93,17 @@ function memFs(files) {
     assert.strictEqual(item.fileName, 'Clip');
   });
 
+  await test('isInboxFileName accepts .pvimport and legacy .pvimport.json', () => {
+    assert.ok(inbox.isInboxFileName('a.pvimport'));
+    assert.ok(inbox.isInboxFileName('a.pvimport.json'));
+    assert.ok(!inbox.isInboxFileName('a.json'));
+    assert.strictEqual(inbox.inboxFileExtension('x.pvimport.json'), '.pvimport.json');
+    assert.strictEqual(inbox.inboxFileExtension('x.pvimport'), '.pvimport');
+  });
+
   await test('importInbox saves ready files and moves to processed', async () => {
     const dir = path.join(os.tmpdir(), 'pv-inbox-test');
-    const file = path.join(dir, 'a.pvimport.json');
+    const file = path.join(dir, 'a.pvimport');
     const stl = path.join(dir, 'part.stl');
     const fsApi = memFs({
       [dir]: '',
@@ -107,13 +127,38 @@ function memFs(files) {
     assert.strictEqual(saved[0].parentModel, 'Part');
     assert.strictEqual(saved[0].filePath, stl);
     assert.strictEqual(saved[0].markAsNew, true);
-    const processed = path.join(dir, 'processed', 'a.pvimport.json');
+    const processed = path.join(dir, 'processed', 'a.pvimport');
     assert.ok(fsApi._store[processed]);
+  });
+
+  await test('importInbox still accepts legacy .pvimport.json', async () => {
+    const dir = path.join(os.tmpdir(), 'pv-inbox-legacy');
+    const file = path.join(dir, 'legacy.pvimport.json');
+    const stl = path.join(dir, 'part.stl');
+    const fsApi = memFs({
+      [dir]: '',
+      [file]: JSON.stringify({
+        version: 1,
+        filePath: stl,
+        parentModel: 'Legacy',
+        source: 'https://example.com/m'
+      }),
+      [stl]: 'solid'
+    });
+    const result = await inbox.importInbox({
+      inboxDir: dir,
+      fs: fsApi,
+      path,
+      saveModel: async () => ({ ok: true }),
+      nowMs: Date.now()
+    });
+    assert.strictEqual(result.imported, 1);
+    assert.ok(fsApi._store[path.join(dir, 'processed', 'legacy.pvimport.json')]);
   });
 
   await test('importInbox missing model file goes to failed', async () => {
     const dir = path.join(os.tmpdir(), 'pv-inbox-fail');
-    const file = path.join(dir, 'b.pvimport.json');
+    const file = path.join(dir, 'b.pvimport');
     const fsApi = memFs({
       [dir]: '',
       [file]: JSON.stringify({
@@ -130,7 +175,7 @@ function memFs(files) {
       nowMs: Date.now()
     });
     assert.strictEqual(result.failed, 1);
-    assert.ok(fsApi._store[path.join(dir, 'failed', 'b.pvimport.json')]);
+    assert.ok(fsApi._store[path.join(dir, 'failed', 'b.pvimport')]);
   });
 
   if (process.exitCode) process.exit(process.exitCode);

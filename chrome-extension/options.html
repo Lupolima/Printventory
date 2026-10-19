@@ -15,10 +15,13 @@
     .brand { text-align: center; margin-bottom: 16px; }
     .brand img { width: 96px; height: 96px; border-radius: 16px; }
     h1 { font-size: 18px; margin: 10px 0 12px; }
-    .hint { font-size: 13px; color: #666; line-height: 1.45; }
+    h2 { font-size: 14px; margin: 20px 0 8px; color: #222; }
+    .hint { font-size: 13px; color: #666; line-height: 1.45; margin: 0 0 10px; }
+    .how ol { margin: 8px 0 0; padding-left: 1.25em; color: #444; font-size: 13px; line-height: 1.5; }
+    .how li { margin: 4px 0; }
     label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .field { margin: 16px 0; }
-    code { font-size: 12px; }
+    code { font-size: 12px; word-break: break-all; }
     button {
       padding: 8px 14px;
       background: #2d2d2d;
@@ -34,6 +37,14 @@
     .folder-status.ok { color: #2d7a2d; }
     .folder-status.warn { color: #b26b00; }
     .folder-status.err { color: #c9302c; }
+    .path-box {
+      margin: 10px 0;
+      padding: 10px 12px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
   </style>
 </head>
 <body>
@@ -41,16 +52,36 @@
     <img src="icon128.png" alt="Printventory">
     <h1>Printventory Watcher</h1>
   </div>
-  <p class="hint">Choose the Printventory <strong>data</strong> folder — the one that contains <code>printventory.db</code>. The extension writes a <code>PrintventoryInbox</code> folder there. Printventory imports it on launch and every minute.</p>
-  <p class="hint">Windows default: <code>%LOCALAPPDATA%\Printventory\data</code></p>
+
+  <h2>How it works</h2>
+  <div class="how hint">
+    <ol>
+      <li>This extension does <strong>not</strong> open or edit <code>printventory.db</code>. Chrome blocks that folder (“system files”).</li>
+      <li>When you add a page or download a model, the extension writes a small inbox file to <code>Downloads/PrintventoryInbox</code>.</li>
+      <li>The Printventory app watches that folder, imports the file into your library, and updates the database itself.</li>
+    </ol>
+  </div>
+
+  <div class="path-box">
+    <div>Inbox folder: <code id="downloadsInbox">…</code></div>
+    <div style="margin-top:6px">Database (app only — not used by the extension): <code id="dataDir">…</code></div>
+  </div>
+
+  <p class="hint">No setup required. Keep Printventory installed; it imports on launch and about every minute while open.</p>
+
+  <h2>Optional silent folder</h2>
+  <p class="hint">To avoid inbox files showing in the browser Downloads list, you can grant access to <code>Downloads/Printventory</code> once. Click Choose, then select the <strong>Printventory</strong> folder (created automatically under Downloads).</p>
   <div class="field">
     <div class="row">
-      <button type="button" id="chooseFolder">Choose Printventory folder</button>
+      <button type="button" id="chooseFolder">Choose Downloads/Printventory</button>
       <button type="button" id="clearFolder" class="secondary">Clear</button>
     </div>
-    <p class="folder-status" id="folderStatus">No folder selected yet. Inbox files will go to Downloads until you choose one.</p>
+    <p class="folder-status" id="folderStatus">Loading…</p>
   </div>
-  <p class="hint">Use the toolbar popup on a model page to confirm title/designer. Any download from a supported model site is queued. STL, OBJ, and 3MF are queued from any site.</p>
+
+  <h2>Usage</h2>
+  <p class="hint">Use the toolbar popup on a model page to confirm title/designer. Downloads from supported sites are queued automatically. STL, OBJ, and 3MF are queued from any site.</p>
+
   <div class="field">
     <label>
       <input type="checkbox" id="extensionDebug">
@@ -58,6 +89,7 @@
     </label>
   </div>
   <script src="debug.js"></script>
+  <script src="paths.js"></script>
   <script src="folder-handle.js"></script>
   <script src="options.js"></script>
 </body>

@@ -332,6 +332,9 @@ function migratePrintLifecycle(db) {
     ['print_count', 'INTEGER DEFAULT 0'],
     ['last_printed_at', 'DATETIME']
   ];
+  // SQLite fills existing rows with DEFAULT on ADD COLUMN, so a later
+  // WHERE print_status IS NULL backfill never matches (#117).
+  const addedPrintStatus = !names.has('print_status');
   for (const [col, ddl] of additions) {
     if (!names.has(col)) {
       db.prepare(`ALTER TABLE models ADD COLUMN ${col} ${ddl}`).run();
@@ -342,14 +345,35 @@ function migratePrintLifecycle(db) {
   db.prepare('CREATE INDEX IF NOT EXISTS idx_models_print_count ON models(print_count)').run();
   db.prepare('CREATE INDEX IF NOT EXISTS idx_models_last_printed_at ON models(last_printed_at)').run();
 
-  db.prepare(`
-    UPDATE models
-    SET print_status = CASE
-      WHEN printed = 1 THEN 'printed'
-      ELSE 'unprinted'
-    END
-    WHERE print_status IS NULL OR print_status = ''
-  `).run();
+  if (addedPrintStatus) {
+    db.prepare(`
+      UPDATE models
+      SET print_status = CASE
+        WHEN printed = 1 THEN 'printed'
+        ELSE 'unprinted'
+      END
+    `).run();
+  } else {
+    db.prepare(`
+      UPDATE models
+      SET print_status = CASE
+        WHEN printed = 1 THEN 'printed'
+        ELSE 'unprinted'
+      END
+      WHERE print_status IS NULL OR print_status = ''
+    `).run();
+    // Repair DBs that already ran the broken 3.0.0 migration: DEFAULT left
+    // print_status='unprinted' while the legacy printed flag stayed 1 and no
+    // lifecycle history exists yet. After normal app use, setPrintStatus keeps
+    // printed in sync, so this signature only matches the bad upgrade.
+    db.prepare(`
+      UPDATE models
+      SET print_status = 'printed'
+      WHERE printed = 1
+        AND print_status = 'unprinted'
+        AND COALESCE(print_count, 0) = 0
+    `).run();
+  }
   db.prepare(`
     UPDATE models
     SET print_count = 0

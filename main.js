@@ -1697,11 +1697,34 @@ function getExtensionInboxDirectory() {
   return extensionInbox.resolveInboxDirectory(getSettingValueOr('extensionInboxDirectory', ''));
 }
 
+function getDocumentsPrintventoryDirectory() {
+  try {
+    return path.join(app.getPath('documents'), 'Printventory');
+  } catch (e) {
+    return extensionInbox.documentsPrintventoryDirectory();
+  }
+}
+
+function ensureDocumentsExtensionInbox() {
+  const inboxDir = path.join(getDocumentsPrintventoryDirectory(), extensionInbox.INBOX_FOLDER_NAME);
+  try {
+    if (!fs.existsSync(inboxDir)) {
+      fs.mkdirSync(inboxDir, { recursive: true });
+    }
+  } catch (e) {
+    console.warn('[Extension inbox] Could not create Documents inbox:', e && e.message ? e.message : e);
+  }
+  return inboxDir;
+}
+
 function getExtensionInboxDirectories() {
   const custom = (getSettingValueOr('extensionInboxDirectory', '') || '').trim();
+  const documentsInbox = ensureDocumentsExtensionInbox();
   return extensionInbox.uniqueInboxDirectories([
     custom || null,
     extensionInbox.defaultInboxDirectory(),
+    extensionInbox.downloadsPrintventoryInboxDirectory(),
+    documentsInbox,
     extensionInbox.inboxDirectoryBesideDatabase(getDatabasePath())
   ]);
 }

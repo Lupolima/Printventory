@@ -5,11 +5,33 @@ const path = require('path');
 const fs = require('fs');
 
 const INBOX_FOLDER_NAME = 'PrintventoryInbox';
-const INBOX_EXT = '.pvimport.json';
+/** Preferred sidecar extension (avoids Edge treating *.json as "ask what to do"). */
+const INBOX_EXT = '.pvimport';
+/** Legacy sidecars written by older extension builds. */
+const INBOX_EXT_LEGACY = '.pvimport.json';
 const POLL_INTERVAL_MS = 60 * 1000;
 
 function defaultInboxDirectory(homedir) {
   return path.join(homedir || os.homedir(), 'Downloads', INBOX_FOLDER_NAME);
+}
+
+/**
+ * OS Documents/Printventory — browser-pickable default for the extension
+ * (Chromium blocks AppData/Library where printventory.db lives).
+ */
+function documentsPrintventoryDirectory(options) {
+  const documentsDir = (options && options.documentsDir)
+    || path.join((options && options.homedir) || os.homedir(), 'Documents');
+  return path.join(documentsDir, 'Printventory');
+}
+
+function documentsInboxDirectory(options) {
+  return path.join(documentsPrintventoryDirectory(options), INBOX_FOLDER_NAME);
+}
+
+/** Pickable extension default: Downloads/Printventory/PrintventoryInbox */
+function downloadsPrintventoryInboxDirectory(homedir) {
+  return path.join(homedir || os.homedir(), 'Downloads', 'Printventory', INBOX_FOLDER_NAME);
 }
 
 function resolveInboxDirectory(custom, options) {
@@ -55,8 +77,16 @@ async function importInboxMany(options) {
   return combined;
 }
 
+function inboxFileExtension(name) {
+  if (typeof name !== 'string') return null;
+  const lower = name.toLowerCase();
+  if (lower.endsWith(INBOX_EXT_LEGACY)) return INBOX_EXT_LEGACY;
+  if (lower.endsWith(INBOX_EXT)) return INBOX_EXT;
+  return null;
+}
+
 function isInboxFileName(name) {
-  return typeof name === 'string' && name.toLowerCase().endsWith(INBOX_EXT);
+  return inboxFileExtension(name) != null;
 }
 
 function parseInboxPayload(raw, fileName) {
@@ -120,7 +150,7 @@ function moveInboxFile(fsApi, pathApi, fromPath, destDir, destName) {
   let target = pathApi.join(destDir, destName);
   if (fsApi.existsSync(target)) {
     const stamp = Date.now();
-    const ext = destName.toLowerCase().endsWith(INBOX_EXT) ? INBOX_EXT : pathApi.extname(destName);
+    const ext = inboxFileExtension(destName) || pathApi.extname(destName);
     const stem = destName.slice(0, destName.length - ext.length);
     target = pathApi.join(destDir, stem + '-' + stamp + ext);
   }
@@ -144,8 +174,8 @@ function isUrlModelPath(filePath) {
 }
 
 /**
- * Import *.pvimport.json from inboxDir. Successful files go to processed/,
- * failures to failed/. Inject fs/path/saveModel for tests.
+ * Import *.pvimport (and legacy *.pvimport.json) from inboxDir.
+ * Successful files go to processed/, failures to failed/. Inject fs/path/saveModel for tests.
  */
 async function importInbox(options) {
   const fsApi = (options && options.fs) || fs;
@@ -204,11 +234,16 @@ async function importInbox(options) {
 module.exports = {
   INBOX_FOLDER_NAME,
   INBOX_EXT,
+  INBOX_EXT_LEGACY,
   POLL_INTERVAL_MS,
   defaultInboxDirectory,
+  documentsPrintventoryDirectory,
+  documentsInboxDirectory,
+  downloadsPrintventoryInboxDirectory,
   resolveInboxDirectory,
   inboxDirectoryBesideDatabase,
   uniqueInboxDirectories,
+  inboxFileExtension,
   isInboxFileName,
   parseInboxPayload,
   toModelData,

@@ -1,50 +1,53 @@
 'use strict';
 
+let cachedPaths = null;
+
 function setFolderStatus(kind, text) {
   const el = document.getElementById('folderStatus');
   el.className = 'folder-status' + (kind ? ' ' + kind : '');
   el.textContent = text;
 }
 
+function refreshPathLabels() {
+  return PrintventoryPaths.resolvePaths().then((paths) => {
+    cachedPaths = paths;
+    document.getElementById('downloadsInbox').textContent = paths.downloadsInbox;
+    document.getElementById('dataDir').textContent = paths.dataDirectory;
+    return paths;
+  });
+}
+
 function refreshFolderStatus() {
   chrome.storage.local.get(
-    { printventoryFolderConfigured: false, printventoryFolderName: '', printventoryFolderHasDb: false },
+    { printventoryFolderConfigured: false, printventoryFolderName: '' },
     (items) => {
       if (!items.printventoryFolderConfigured) {
-        setFolderStatus('', 'No folder selected yet. Inbox files will go to Downloads until you choose one.');
+        setFolderStatus(
+          'ok',
+          'Using default inbox (Downloads/PrintventoryInbox). No link required.'
+        );
         return;
       }
       const name = items.printventoryFolderName || 'selected folder';
-      if (items.printventoryFolderHasDb) {
-        setFolderStatus('ok', 'Using “' + name + '” (found printventory.db). Inbox: ' + name + '\\PrintventoryInbox');
-      } else {
-        setFolderStatus('warn', 'Using “' + name + '”, but printventory.db was not in that folder. Printventory must watch this same path, or pick the data folder that contains the database.');
-      }
+      setFolderStatus('ok', 'Silent writes to “' + name + '”/PrintventoryInbox');
     }
   );
 }
 
 async function chooseFolder() {
-  if (!window.showDirectoryPicker) {
-    setFolderStatus('err', 'This browser cannot pick a folder. Use Chrome or Edge.');
-    return;
-  }
+  setFolderStatus('', 'Creating Downloads/Printventory, then select that folder…');
   try {
-    const handle = await window.showDirectoryPicker({ id: 'pv-printventory-dir', mode: 'readwrite' });
-    const granted = await PrintventoryFolder.ensureWritePermission(handle);
-    if (!granted) {
-      setFolderStatus('err', 'Permission was not granted for that folder.');
-      return;
-    }
-    const hasDb = await PrintventoryFolder.folderHasDatabase(handle);
-    await PrintventoryFolder.setDirectoryHandle(handle);
+    const result = await PrintventoryFolder.chooseSilentInboxFolder();
     chrome.storage.local.set({
       printventoryFolderConfigured: true,
-      printventoryFolderName: handle.name,
-      printventoryFolderHasDb: hasDb
+      printventoryFolderName: result.folderName,
+      printventoryFolderHasDb: false
     }, refreshFolderStatus);
   } catch (err) {
-    if (err && err.name === 'AbortError') return;
+    if (err && err.name === 'AbortError') {
+      refreshFolderStatus();
+      return;
+    }
     setFolderStatus('err', err && err.message ? err.message : String(err));
   }
 }
@@ -71,4 +74,4 @@ chrome.storage.sync.get({ extensionDebug: false }, (items) => {
   if (typeof pvSetDebug === 'function') pvSetDebug(!!items.extensionDebug);
 });
 
-refreshFolderStatus();
+refreshPathLabels().then(refreshFolderStatus);
