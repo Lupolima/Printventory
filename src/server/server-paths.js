@@ -233,8 +233,6 @@ const NETWORK_IPC_PATH_RULES = {
   'tidy-model-folders-preview': [[0, 'dir']],
   'tidy-model-folders': [[0, 'dir']],
   'get-assembly': [[0, 'modelDir']],
-  'get-folder-archives': [[0, 'modelDir']],
-  'unpack-folder-archives': [[0, 'modelDir']],
   'get-model-history': [[0, 'file']],
   'replace-model-file': [
     [0, 'file'],

@@ -283,9 +283,6 @@ export const uploads = {
       inLibrary: number;
       media?: number;
       notAdded?: { name: string; reason: string }[];
-      /** Archives unpacked into the model's folder, and the ones that could not be. */
-      unpacked?: string[];
-      unpackFailed?: { name: string; error: string }[];
     }>('add-uploaded-files', folder, filePaths)
 };
 

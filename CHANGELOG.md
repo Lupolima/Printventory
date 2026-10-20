@@ -2,6 +2,14 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [8.2.0] - 2026-10-19
+
+**Changes:**
+- **Unpacking archives is removed.** Uploaded ZIP, RAR and 7Z files are no longer unpacked; the folder page's **Unpack Archives**, the **Unpack uploaded ZIP, RAR and 7Z files** setting (Settings → Scanning → File Types) and Organize's **Include ZIP files** step are gone. A ZIP is kept as it is: uploads take it when ZIP scanning is on (its models are listed from inside it, as before 7.28), and Organize moves it with its model folder, or gives a ZIP lying alone in the scanned directory a folder of its own. RAR and 7Z files are no longer accepted as uploads, and Organize leaves them where they are. **Tidy into model folders** still puts loose pictures and documents in place.
+- **Docker image:** `bsdtar` (libarchive-tools) is no longer installed.
+
+**Upgrading:** no changes needed. Folders unpacked by 7.28–8.1 stay as they are, and their `archives/` folders are still left out of scans.
+
 ## [8.1.0] - 2026-10-19
 
 **Changes:**

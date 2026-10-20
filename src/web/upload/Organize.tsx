@@ -142,7 +142,7 @@ export function OrganizeSettingsDialog() {
   const [upload, setUpload] = useState('');
   const [destination, setDestination] = useState('');
   const [fallback, setFallback] = useState('');
-  const [options, setOptions] = useState<OrganizeOptions>({ layers: ['category', 'subcategory'], includeZips: true, tidy: true, tags: true, autoApply: true });
+  const [options, setOptions] = useState<OrganizeOptions>({ layers: ['category', 'subcategory'], tidy: true, tags: true, autoApply: true });
   const [choices, setChoices] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -195,7 +195,7 @@ export function OrganizeSettingsDialog() {
     }
   }
 
-  const step = (key: 'includeZips' | 'tidy' | 'tags' | 'autoApply', id: string, title: string, description: string, disabled = false) => (
+  const step = (key: 'tidy' | 'tags' | 'autoApply', id: string, title: string, description: string, disabled = false) => (
     <>
       <div className="form-group checkbox-container">
         <input type="checkbox" id={id} checked={options[key]} disabled={disabled} onChange={(event) => update({ [key]: event.target.checked })} />
@@ -296,12 +296,6 @@ export function OrganizeSettingsDialog() {
       </div>
       <div className="settings-group">
         <h4>Steps</h4>
-        {step(
-          'includeZips',
-          'organize-include-zips',
-          'Include ZIP files',
-          'ZIP, RAR and 7Z files are unpacked into their model folder (the originals kept in archives/). Off: they stay in the scanned directory.'
-        )}
         {step(
           'tidy',
           'organize-tidy',

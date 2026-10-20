@@ -5,10 +5,10 @@
  * scanned directory), in the library with a "Not organized" badge. Organize then puts each of them
  * where it belongs, without asking:
  *
- * 1. Every top-level item is one model: a folder with everything in it, or a model file (or, with
- *    Include ZIP files, an archive) on its own, which gets a folder named after it.
- * 2. Include ZIP files: its archives are unpacked; Tidy into model folders: its loose pictures and
- *    documents go into image/ and document/ (unpack-archives.js). The folder is scanned and gets a cover.
+ * 1. Every top-level item is one model: a folder with everything in it, or a model file (a ZIP too,
+ *    when ZIP scanning is on) on its own, which gets a folder named after it. Archives stay as they are.
+ * 2. Tidy into model folders: its loose pictures and documents go into image/ and document/
+ *    (model-folders.js tidyMedia). The folder is scanned and gets a cover.
  * 3. Generate tags: the AI tags its models, applied at once with "AI Tagged" (the AI's Category
  *    comes in the same answer). With Auto-apply off they are offered for review in the browser that
  *    started it, after the moves.
@@ -37,7 +37,7 @@ const UNCATEGORIZED = ['Uncategorized', 'Other'];
  * (that one is named after its Title), and its steps. Every step is on unless switched off ('0').
  */
 const LAYERS_SETTING = 'organizeLayers';
-const STEP_SETTINGS = { includeZips: 'organizeIncludeZips', tidy: 'organizeTidy', tags: 'organizeTags', autoApply: 'organizeAutoApply' };
+const STEP_SETTINGS = { tidy: 'organizeTidy', tags: 'organizeTags', autoApply: 'organizeAutoApply' };
 /** The folder levels Organize can use, and the folder for a model without that value. */
 const LAYERS = {
   category: { label: 'Category', empty: UNCATEGORIZED[0] },
@@ -97,7 +97,7 @@ function cleanLayers(list) {
   return out;
 }
 
-/** Organize's settings: { layers, includeZips, tidy, tags, autoApply }. */
+/** Organize's settings: { layers, tidy, tags, autoApply }. */
 function organizeOptions() {
   let layers = DEFAULT_LAYERS;
   const saved = setting(LAYERS_SETTING);
@@ -109,7 +109,7 @@ function organizeOptions() {
     }
   }
   const step = (key) => setting(STEP_SETTINGS[key]) !== '0';
-  return { layers, includeZips: step('includeZips'), tidy: step('tidy'), tags: step('tags'), autoApply: step('autoApply') };
+  return { layers, tidy: step('tidy'), tags: step('tags'), autoApply: step('autoApply') };
 }
 
 /** The settings page's and the library's view: { uploadFolder, destination, chosenDestination, waiting, options, layerChoices }. */
@@ -132,7 +132,7 @@ function info() {
 /**
  * @param {string} upload
  * @param {string} dest
- * @param {{ layers?: string[], includeZips?: boolean, tidy?: boolean, tags?: boolean, autoApply?: boolean } | null} [options]
+ * @param {{ layers?: string[], tidy?: boolean, tags?: boolean, autoApply?: boolean } | null} [options]
  */
 function saveFolders(upload, dest, options = null) {
   const { isInsideOrSame } = require('./server-paths');
@@ -166,18 +166,12 @@ function saveFolders(upload, dest, options = null) {
   return info();
 }
 
-/** The top-level items of the Upload folder that are models: folders, and model files or archives. */
-function itemsIn(inbox, { includeZips = true } = {}) {
+/** The top-level items of the Upload folder that are models: folders, and model files (a ZIP when ZIP scanning is on). */
+function itemsIn(inbox) {
   const { allowedUploadExtensions } = require('./uploads');
   const modelFolders = require('./model-folders');
-  const skipped = new Set([...modelFolders.KIND_NAMES.map((kind) => modelFolders.KINDS[kind].dir), require('./unpack-archives').ARCHIVES_DIR]);
+  const skipped = new Set([...modelFolders.KIND_NAMES.map((kind) => modelFolders.KINDS[kind].dir), modelFolders.ARCHIVES_DIR]);
   const extensions = new Set(allowedUploadExtensions());
-  const archives = require('./unpack-archives').ARCHIVE_EXTENSIONS;
-  for (const ext of archives) {
-    // Include ZIP files off: archives stay in the Upload folder.
-    if (includeZips) extensions.add(ext);
-    else extensions.delete(ext);
-  }
   return fs
     .readdirSync(inbox, { withFileTypes: true })
     .filter((entry) => !entry.name.startsWith('.') && !skipped.has(entry.name))
@@ -386,14 +380,13 @@ async function tagModels(models, event) {
   return { tagged, stopped };
 }
 
-/** Get one item ready: its own model folder, archives unpacked, scanned. Answers the folder. */
+/** Get one item ready: its own model folder, tidied (Settings), scanned. Answers the folder. */
 async function prepare(item, inbox, options = organizeOptions()) {
   const modelFolders = require('./model-folders');
   let folder = item.path;
   if (item.isFile) {
-    const archives = require('./unpack-archives');
-    // "Gear Box.stl" → "Gear Box/", "Kit.part1.rar" → "Kit/".
-    const name = archives.isArchive(item.name) ? archives.folderNameFor(item.name) : path.basename(item.name, path.extname(item.name));
+    // "Gear Box.stl" → "Gear Box/", "Kit.zip" → "Kit/".
+    const name = path.basename(item.name, path.extname(item.name));
     folder = modelFolders.makeFolder(inbox, name || 'Model');
     const moved = path.join(folder, item.name);
     // A model already in the library keeps its records.
@@ -408,8 +401,8 @@ async function prepare(item, inbox, options = organizeOptions()) {
   } else {
     modelFolders.register(folder);
   }
-  // Include ZIP files: its archives unpacked; Tidy Into Model Folders: its pictures and documents in place.
-  const unpack = await require('./unpack-archives').unpackFolder(folder, { archives: options.includeZips, media: options.tidy });
+  // Tidy into model folders: its pictures and documents in place.
+  if (options.tidy) modelFolders.tidyMedia(folder);
   const { rootFor } = require('./uploads');
   const { networkPathContext } = require('./path-context');
   const { isInsideOrSame } = require('./server-paths');
@@ -418,7 +411,7 @@ async function prepare(item, inbox, options = organizeOptions()) {
     .some((home) => isInsideOrSame(folder, home));
   await require('./stl-home').scanUploadedFolder(folder, rootFor(folder, networkPathContext().roots), { isStlHomeScan });
   await modelFolders.coverIfNone(folder).catch(() => {});
-  return { folder, unpackFailed: unpack.failed };
+  return { folder };
 }
 
 /**
@@ -436,7 +429,7 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
   if (!dest) throw new Error('Choose where Organize puts models (Settings → Scanning → Organize), or set up STL Home');
   if (require('./server-paths').isInsideOrSame(dest, inbox)) throw new Error('The destination is inside the Upload folder: choose another one');
   const options = organizeOptions();
-  const items = itemsIn(inbox, options);
+  const items = itemsIn(inbox);
   const service = require('./ipc/ai').getAISettings().aiService;
   const puterMissing = service === 'puter' && !puterSignedIn;
   const aiReady = require('./category-scan').aiReady() && !puterMissing;
@@ -462,13 +455,12 @@ function start({ by = null, event = null, puterSignedIn = false } = {}) {
   const current = job;
   current.promise = (async () => {
     try {
-      // 1: each item its own model folder, unpacked and tidied, scanned.
+      // 1: each item its own model folder, tidied, scanned.
       const ready = [];
       for (const item of items) {
         if (current.stopping) break;
         try {
-          const { folder, unpackFailed } = await prepare(item, inbox, options);
-          for (const failed of unpackFailed) current.failed.push({ name: `${path.basename(folder)}/${failed.name}`, error: failed.error });
+          const { folder } = await prepare(item, inbox, options);
           if (modelsUnder(folder).length) ready.push({ name: item.name, folder });
           else current.failed.push({ name: item.name, error: 'no model files in it (it stays in the Upload folder)' });
         } catch (error) {

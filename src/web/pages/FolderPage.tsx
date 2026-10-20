@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Boxes, FileArchive, FolderOpen, FolderPlus, Library, Pencil } from 'lucide-react';
+import { ArrowLeft, Boxes, FolderOpen, FolderPlus, Library, Pencil } from 'lucide-react';
 import { isPreviewablePath } from '../preview/studio';
 import { callAction, LIBRARY_CHANGED } from '../api';
 import { Button, cx } from '../components/Button';
@@ -145,60 +145,6 @@ function FolderNotes({ folder, onSaved }: { folder: Folder; onSaved: () => void 
 }
 
 /**
- * The archives (ZIP, RAR, 7Z) directly in a folder, with Unpack Archives for editors: each is
- * unpacked into a folder of its own here (archives inside them too), the originals kept in
- * archives/ (src/server/unpack-archives.js). Nothing when there are none.
- */
-function UnpackArchives({ path, canEdit, onDone }: { path: string; canEdit: boolean; onDone: () => void }) {
-  const [archives, setArchives] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const load = useCallback(() => {
-    callAction<{ archives: string[] }>('get-folder-archives', path).then(
-      (found) => setArchives(found.archives || []),
-      () => setArchives([])
-    );
-  }, [path]);
-  useEffect(load, [load]);
-  if (!archives.length) return null;
-
-  async function unpack() {
-    setBusy(true);
-    try {
-      const result = await callAction<{ unpacked: string[]; failed: { name: string; error: string }[]; newModels: number; models: number }>(
-        'unpack-folder-archives',
-        path
-      );
-      const lines = [
-        `Unpacked ${result.unpacked.length} ${result.unpacked.length === 1 ? 'archive' : 'archives'}: the folder now has ${result.models} ${result.models === 1 ? 'model' : 'models'} (${result.newModels} new; models already in the library kept their details). The originals are kept in archives/.`,
-        ...result.failed.map((failed) => `${failed.name}: ${failed.error}`)
-      ];
-      await showMessage('Unpack Archives', lines.join('\n'));
-    } catch (error) {
-      await showMessage('Unpack Archives', error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-      load();
-      onDone();
-    }
-  }
-
-  const names = archives.slice(0, 6).join(', ') + (archives.length > 6 ? ` and ${archives.length - 6} more` : '');
-  return (
-    <section className="jp-card jp-model-page__panel jp-unpack" id="jp-folder-archives" aria-label="Archives">
-      <p className="jp-meta">
-        <FileArchive size={16} aria-hidden="true" /> {archives.length} {archives.length === 1 ? 'archive' : 'archives'} in this folder: {names}. Their models
-        (and the archives inside them) can be unpacked into folders here, so they all show in the library; the archives are kept in archives/.
-      </p>
-      {canEdit && (
-        <Button variant="primary" icon={FileArchive} id="jp-unpack-archives" disabled={busy} onClick={() => void unpack()}>
-          {busy ? 'Unpacking…' : 'Unpack Archives'}
-        </Button>
-      )}
-    </section>
-  );
-}
-
-/**
  * A folder shown as one model (#/folder/<path>, Folders as models): its pictures, notes, kit
  * progress and files on the left; what its files share and actions for all of them on the right.
  */
@@ -240,10 +186,9 @@ export function FolderPage({ path }: { path: string }) {
   if (!folder) {
     return (
       <div className="jp-page__inner jp-model-page">
-        <UnpackArchives path={path} canEdit={canEdit} onDone={load} />
         <Panel>
           <EmptyState icon={FolderOpen} title="No models in this folder" action={<Button onClick={() => navigate('library')}>Back to the Library</Button>}>
-            The folder may have been moved or emptied, or its models are still inside archives (above, when it has some).
+            The folder may have been moved or emptied.
           </EmptyState>
         </Panel>
       </div>
@@ -288,7 +233,6 @@ export function FolderPage({ path }: { path: string }) {
         <span className="jp-model-page__crumb-here">{folder.name}</span>
       </nav>
 
-      <UnpackArchives path={folder.path} canEdit={canEdit} onDone={load} />
       <header className="jp-model-page__header">
         <h1 className="jp-page-title" id="jp-folder-title">
           {folder.name}

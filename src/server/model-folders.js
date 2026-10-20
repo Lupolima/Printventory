@@ -158,8 +158,37 @@ function mediaFolders(dir) {
   return [...new Set(rows)].flatMap((folder) => SKIPPED_DIRS().map((name) => path.join(folder, name)));
 }
 
-/** A model folder's subfolders that scans leave out: its media, and the archives unpacked into it (unpack-archives.js). */
-const SKIPPED_DIRS = () => [...KIND_NAMES.map((kind) => KINDS[kind].dir), require('./unpack-archives').ARCHIVES_DIR];
+/**
+ * The archives/ subfolder where 7.28–8.1 kept the archives they unpacked into a model folder (unpacking is
+ * gone since 8.2; the folders stay, and scans still leave them out so their archives do not count twice).
+ */
+const ARCHIVES_DIR = 'archives';
+/** A model folder's subfolders that scans leave out: its media, and archives/. */
+const SKIPPED_DIRS = () => [...KIND_NAMES.map((kind) => KINDS[kind].dir), ARCHIVES_DIR];
+
+/**
+ * Organize's Tidy into model folders: the loose pictures and documents directly in a model folder
+ * go into its image/ and document/ folders ("name (2).png" when taken). Answers { images, documents }.
+ */
+function tidyMedia(dir) {
+  const folder = register(dir);
+  const out = { images: 0, documents: 0 };
+  for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const kind = kindOf(entry.name);
+    if (kind !== 'image' && kind !== 'document') continue;
+    const into = path.join(folder, KINDS[kind].dir);
+    fs.mkdirSync(into, { recursive: true });
+    const ext = path.extname(entry.name);
+    const stem = ext ? entry.name.slice(0, -ext.length) : entry.name;
+    let target = path.join(into, entry.name);
+    for (let n = 2; fs.existsSync(target) && n < 1000; n++) target = path.join(into, `${stem} (${n})${ext}`);
+    fs.renameSync(path.join(folder, entry.name), target);
+    if (kind === 'image') out.images++;
+    else out.documents++;
+  }
+  return out;
+}
 
 /** Whether `dir` is the image, video or document subfolder of a model folder. */
 function isMediaFolder(dir) {
@@ -708,6 +737,7 @@ function reapplyAllCovers() {
 }
 
 module.exports = {
+  ARCHIVES_DIR,
   KINDS,
   KIND_NAMES,
   MIME_TYPES,
@@ -740,5 +770,6 @@ module.exports = {
   resolveFolder,
   saveFromSite,
   setCover,
+  tidyMedia,
   youtubeId
 };
