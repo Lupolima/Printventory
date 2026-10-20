@@ -830,3 +830,18 @@ body.jp-shell-on #model-details .details-name-field {
   gap: 8px;
   margin: 0;
 }
+
+/* Multi-edit's Delete (details/MultiEditPanel.tsx). */
+.jp-multi__delete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jp-space-2);
+}
+.jp-multi__delete .jp-btn {
+  flex: 1 1 140px;
+  width: auto;
+  margin: 0;
+}
+.jp-multi__note {
+  margin: var(--jp-space-2) 0 0;
+}

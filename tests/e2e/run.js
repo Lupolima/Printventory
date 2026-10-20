@@ -2246,6 +2246,10 @@ async function browserChecks(base, wsUrl, session) {
       const tagOffBoth = await waitFor(async () => ((await pairModels()).every((m) => !hasTag(m)) ? true : null), 10000, 'multi untag').catch(() => false);
       check('multi-edit removes a tag from every selected model after asking', !!confirmRemoveTag && tagOffBoth === true);
       check('multi-edit has no Filament section', !(await page.$('#multi-filament-select')));
+      check(
+        'multi-edit can delete the chosen models from the library or from disk',
+        (await page.isVisible('#multi-delete-library')) && (await page.isVisible('#multi-delete-disk'))
+      );
       // Create Group (Multi-edit): name it; the models become one group card, which stays chosen.
       await page.click('#multi-create-group');
       const nameField = await page.waitForSelector('#jp-group-name-input', { timeout: 10000 }).catch(() => null);
@@ -5385,6 +5389,37 @@ async function modelFolderChecks(base, { admin, editor, viewer }, cubeBytes) {
   const puterRun = await mcpCall('categorize_library', { useAi: true });
   await invoke(base, admin, 'save-setting', ['aiService', aiServiceBefore || '']);
   check('MCP leaves the AI out when it is Puter (it needs a browser)', puterRun.error && /Puter/.test(puterRun.text), puterRun.text.slice(0, 200));
+
+  // Multi-edit's Delete (src/server/delete-models.js): from the library the files move to a trash folder no scan looks in; from disk they are deleted.
+  const deleteDir = path.join(uploadLibrary, 'E2E Delete');
+  fs.mkdirSync(deleteDir, { recursive: true });
+  const toLibraryTrash = await uploadAs(base, editor, deleteDir, 'Keep File.stl', cubeBytes);
+  const toDisk = await uploadAs(base, editor, deleteDir, 'Gone File.stl', cubeBytes);
+  await invoke(base, editor, 'add-uploaded-files', [deleteDir, [toLibraryTrash.filePath, toDisk.filePath]]);
+  check('viewers cannot delete models', (await invoke(base, viewer, 'delete-models', [[toLibraryTrash.filePath], 'library'])).status === 403);
+  const fromLibrary = (await invoke(base, editor, 'delete-models', [[toLibraryTrash.filePath], 'library'])).result || {};
+  const trashed = path.join(uploadLibrary, '.JusttPrint Trash', 'E2E Delete', 'Keep File.stl');
+  check(
+    'Delete from Library keeps the file in a trash folder that is not scanned, and the model leaves the library',
+    fromLibrary.removed === 1 &&
+      fs.existsSync(trashed) &&
+      !fs.existsSync(toLibraryTrash.filePath) &&
+      !(await invoke(base, viewer, 'get-model', [toLibraryTrash.filePath])).result,
+    JSON.stringify(fromLibrary)
+  );
+  await invoke(base, admin, 'scan-directory', [uploadLibrary]);
+  check('a scan does not bring it back', !(await invoke(base, viewer, 'get-model', [trashed])).result);
+  check(
+    'editors cannot delete models from disk until an admin allows it',
+    /admins and the editors allowed/.test((await invoke(base, editor, 'delete-models', [[toDisk.filePath], 'disk'])).error || '') &&
+      fs.existsSync(toDisk.filePath)
+  );
+  const fromDisk = (await invoke(base, admin, 'delete-models', [[toDisk.filePath], 'disk'])).result || {};
+  check(
+    'Delete from Disk deletes the file for good',
+    fromDisk.removed === 1 && !fs.existsSync(toDisk.filePath) && !fs.existsSync(path.join(uploadLibrary, '.JusttPrint Trash', 'E2E Delete', 'Gone File.stl')),
+    JSON.stringify(fromDisk)
+  );
 }
 
 /**

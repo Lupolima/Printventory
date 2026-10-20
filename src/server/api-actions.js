@@ -120,6 +120,7 @@ const ACTIONS = {
 
   // Files
   'trash-file': ['string'],
+  'delete-models': ['array', 'string'],
   'delete-file': ['string'],
   'purge-models': ['object?'],
   'move-files': ['array', 'string'],
@@ -420,6 +421,7 @@ const EDITOR_ACTIONS = new Set([
   'remove-missing-models',
   'save-directory',
   'trash-file',
+  'delete-models',
   'delete-file',
   'move-files',
   'rename-model',

@@ -243,6 +243,7 @@ const NETWORK_IPC_PATH_RULES = {
   'set-kit-part': [[0, 'file']],
   'get-kit-summaries': [[0, 'files']],
   'delete-file': [[0, 'file']],
+  'delete-models': [[0, 'files']],
   'show-context-menu': [[0, 'contextFiles']],
   get3MFImages: [[0, 'file']],
   getLYSImages: [[0, 'file']],
