@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ClipboardPen, ExternalLink, FolderInput, Layers, List, ListChecks, Plus, Tags, X } from 'lucide-react';
+import { ArchiveX, ClipboardPen, ExternalLink, FolderInput, Layers, List, ListChecks, Plus, Tags, Trash2, X } from 'lucide-react';
 import { callAction, categories as categoryApi, groups as groupsApi, libraryValues, models, tags as tagApi } from '../api';
 import { askText, exposeGlobal, onServerEvent, showMessage } from '../page';
 import { selection } from '../selection';
+import { useCanDeleteFiles } from '../session';
 import { STATUSES, STATUS_LABELS } from '../print/printStatus';
 import { Button } from '../components/Button';
 import { pickFromList, type ListField } from '../components/ListPicker';
@@ -118,6 +119,8 @@ export function MultiEditPanel() {
   const sourceTimer = useRef<number | undefined>(undefined);
   const selectionLoad = useRef(0);
   const host = window.multiEditHost;
+  const canDeleteFiles = useCanDeleteFiles();
+  const [deleting, setDeleting] = useState(false);
 
   const reloadOptions = () => {
     loadOptions()
@@ -240,6 +243,45 @@ export function MultiEditPanel() {
   }
 
   /** Create Group: name it (or take a suggestion), then the chosen models and groups go in it. */
+  /**
+   * Delete the chosen models (src/server/delete-models.js): out of the library, their files moved to
+   * the ".JusttPrint Trash" folder no scan looks in ('library'), or deleted for good ('disk').
+   */
+  async function deleteSelected(mode: 'library' | 'disk') {
+    const paths = host?.selectedPaths() || [];
+    if (!paths.length || deleting) return;
+    const name = (p: string) => p.split('::').pop()?.split(/[/\\]/).pop() || p;
+    const list = paths.slice(0, 15).map(name).join('\n') + (paths.length > 15 ? `\n… and ${paths.length - 15} more` : '');
+    const models = `${paths.length} ${paths.length === 1 ? 'model' : 'models'}`;
+    const message =
+      mode === 'disk'
+        ? `Delete ${models} from disk? Their files are deleted for good (a model folder whose models are all chosen goes as a whole, with its pictures and documents; a model inside a ZIP deletes the whole ZIP). This cannot be undone.\n\n${list}`
+        : `Delete ${models} from the library? Their files are kept, moved to the ".JusttPrint Trash" folder of their library folder, which no scan looks in (a model folder whose models are all chosen moves as a whole; a model inside a ZIP moves the whole ZIP). Their tags, notes and history are removed.\n\n${list}`;
+    const yes = mode === 'disk' ? 'Delete from Disk' : 'Delete from Library';
+    if ((await showMessage(mode === 'disk' ? 'Delete from Disk' : 'Delete from Library', message, [yes, 'Cancel'])) !== yes) return;
+    setDeleting(true);
+    try {
+      const result = await callAction<{ removed: number; items: { target: string; to?: string }[]; failed: { name: string; error: string }[] }>(
+        'delete-models',
+        paths,
+        mode
+      );
+      selection.clear();
+      groupSelection.clear();
+      const failed = result.failed.length ? `\n\nNot deleted: ${result.failed.map((f) => `${f.name} (${f.error})`).join('; ')}` : '';
+      const where =
+        mode === 'library' && result.items[0]?.to ? `\n\nThe files are in ${result.items[0].to.replace(/([/\\]\.JusttPrint Trash)[/\\].*$/, '$1')}.` : '';
+      await showMessage(
+        mode === 'disk' ? 'Deleted from Disk' : 'Deleted from Library',
+        `${result.removed} ${result.removed === 1 ? 'model' : 'models'} deleted ${mode === 'disk' ? 'from disk' : 'from the library'}.${where}${failed}`
+      );
+    } catch (error) {
+      await showMessage('Delete', error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function startCreate() {
     const paths = host?.selectedPaths() || [];
     const suggested = await groupsApi.suggestNames(paths.slice(0, 200)).catch(() => [] as string[]);
@@ -565,6 +607,24 @@ export function MultiEditPanel() {
         <Button id="multi-edit-tags-button" variant="ghost" size="sm" icon={Tags} className="jp-multi__manage" onClick={() => window.openTagManager?.()}>
           Manage Tags
         </Button>
+      </section>
+
+      <section className="jp-details__section" id="multi-delete">
+        <h3 className="jp-details__heading">Delete</h3>
+        <div className="jp-multi__delete">
+          <Button id="multi-delete-library" icon={ArchiveX} disabled={!count || deleting} onClick={() => void deleteSelected('library')}>
+            Delete from Library
+          </Button>
+          {canDeleteFiles && (
+            <Button id="multi-delete-disk" variant="danger" icon={Trash2} disabled={!count || deleting} onClick={() => void deleteSelected('disk')}>
+              Delete from Disk
+            </Button>
+          )}
+        </div>
+        <p className="jp-meta jp-multi__note">
+          From the library: the files are kept, moved to a .JusttPrint Trash folder that is not scanned.
+          {canDeleteFiles ? ' From disk: deleted for good.' : ''}
+        </p>
       </section>
 
       <div className="jp-details__footer">

@@ -255,3 +255,16 @@ const getFileStatsHandler = async (event, filePath) => {
 };
 
 ipcMain.handle('get-file-stats', getFileStatsHandler);
+
+/**
+ * Multi-edit's Delete (src/server/delete-models.js): the chosen models out of the library, their
+ * files moved to a trash folder no scan looks in ('library'), or deleted for good ('disk': admins and
+ * the editors allowed to delete files).
+ */
+ipcMain.handle('delete-models', async (event, filePaths, mode) => {
+  const user = event && event.user;
+  if (mode === 'disk' && user && !require('../users').canDeleteFiles(user)) {
+    throw new Error('Deleting files from disk is for admins and the editors allowed to (Settings → Users)');
+  }
+  return require('../delete-models').deleteModels(filePaths, mode);
+});

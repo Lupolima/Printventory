@@ -2,6 +2,14 @@
 
 All notable changes contributed via pull request are documented in this file.
 
+## [8.3.0] - 2026-10-20
+
+**Changes:**
+- **Delete the chosen models in Multi-edit.** In Edit mode, choose models (or groups) and use **Delete** at the bottom of the Multi-edit panel, after a confirmation that lists them:
+  - **Delete from Library**: the models leave the library (their tags, notes and history with them) and their files are kept, moved to a `.JusttPrint Trash` folder at the top of their library folder, keeping their path inside it. No scan looks in it, so they do not come back; move one out by hand and scan to bring it back.
+  - **Delete from Disk**: the files are deleted for good (admins, and the editors an admin allows).
+  - A model folder whose models are all chosen goes as a whole, with its pictures and documents; a model inside a ZIP takes its whole ZIP; a link-only model just leaves the library.
+
 ## [8.2.0] - 2026-10-19
 
 **Changes:**
