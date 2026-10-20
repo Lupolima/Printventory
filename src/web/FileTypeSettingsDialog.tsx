@@ -20,8 +20,6 @@ type MetadataKey = (typeof METADATA_FIELDS)[number][0];
 
 interface FileTypeSettings {
   zip: boolean;
-  /** Uploaded ZIP, RAR and 7Z files are unpacked into their model's folder (src/server/unpack-archives.js). */
-  unpack: boolean;
   scanTypes: string[];
   excludeFolders: string;
   autoTagFromFolder: boolean;
@@ -30,7 +28,6 @@ interface FileTypeSettings {
 
 const DEFAULTS: FileTypeSettings = {
   zip: false,
-  unpack: true,
   scanTypes: [],
   excludeFolders: '',
   autoTagFromFolder: false,
@@ -48,9 +45,8 @@ function parseIds(raw: string | null): string[] {
 
 async function loadSettings(): Promise<{ values: FileTypeSettings; saved: string[] }> {
   const get = (key: string) => settings.get<string | null>(key);
-  const [zip, unpack, scanTypes, excludeFolders, autoTag, ...metadata] = await Promise.all([
+  const [zip, scanTypes, excludeFolders, autoTag, ...metadata] = await Promise.all([
     get('enableZipArchives'),
-    get('unpackArchivesOnUpload'),
     get('scanAdditionalFileTypes'),
     get('scanExcludeFolders'),
     get('autoTagFromFolderOnScan'),
@@ -62,7 +58,6 @@ async function loadSettings(): Promise<{ values: FileTypeSettings; saved: string
     values: {
       zip: zip === '1',
       // Unset means on.
-      unpack: unpack !== '0',
       scanTypes: saved,
       excludeFolders: excludeFolders || '',
       autoTagFromFolder: autoTag === '1',
@@ -136,7 +131,6 @@ export function FileTypeSettingsDialog() {
       // Keep the catalog order, and drop ids the catalog no longer has.
       const scanTypes = catalog.length ? catalog.map((entry) => entry.id).filter((id) => values.scanTypes.includes(id)) : values.scanTypes;
       await settings.save('enableZipArchives', values.zip ? '1' : '0');
-      await settings.save('unpackArchivesOnUpload', values.unpack ? '1' : '0');
       await settings.save('scanAdditionalFileTypes', JSON.stringify(scanTypes));
       for (const [key] of METADATA_FIELDS) await settings.save(key, values.metadata[key] ? '1' : '0');
       await settings.save('scanExcludeFolders', values.excludeFolders);
@@ -181,14 +175,6 @@ export function FileTypeSettingsDialog() {
         </div>
         <p className="setting-description">
           When enabled, JusttPrint will scan inside ZIP files for 3D models (STL and 3MF files). Each model found within a ZIP file will be indexed separately.
-        </p>
-        <div className="form-group checkbox-container">
-          <input type="checkbox" id="unpack-archives-on-upload" checked={values.unpack} onChange={(event) => update({ unpack: event.target.checked })} />
-          <label htmlFor="unpack-archives-on-upload">Unpack uploaded ZIP, RAR and 7Z files</label>
-        </div>
-        <p className="setting-description">
-          An uploaded archive is unpacked into the model&apos;s folder (archives inside it too, each into a folder of its own), so all its models are in the
-          library; the original is kept in archives/. Pictures and PDFs next to it become the model&apos;s Pictures and Documents.
         </p>
       </div>
       <div className="settings-group">

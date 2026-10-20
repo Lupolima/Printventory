@@ -55,7 +55,7 @@ try {
     setSetting('organizeDestination', '');
   });
 
-  test('every top-level folder, model file and archive is one model; pictures, hidden and media folders are not', () => {
+  test('every top-level folder and model file is one model; archives, pictures, hidden and media folders are not', () => {
     fs.mkdirSync(path.join(uploads, 'Robot'), { recursive: true });
     fs.writeFileSync(path.join(uploads, 'Robot', 'arm.stl'), 'solid a\nendsolid a\n');
     fs.writeFileSync(path.join(uploads, 'Benchy.stl'), 'solid b\nendsolid b\n');
@@ -65,7 +65,8 @@ try {
     fs.mkdirSync(path.join(uploads, 'image'));
     assert.deepStrictEqual(
       inbox.itemsIn(uploads).map((item) => item.name),
-      ['Benchy.stl', 'Kit.7z', 'Robot']
+      ['Benchy.stl', 'Robot'],
+      'a 7Z is left as it is (unpacking is gone since 8.2)'
     );
   });
 
@@ -128,7 +129,7 @@ try {
 
   test('Organize is set up as asked by default: Category / Subcategory / Title, every step on', () => {
     const options = inbox.organizeOptions();
-    assert.deepStrictEqual(options, { layers: ['category', 'subcategory'], includeZips: true, tidy: true, tags: true, autoApply: true });
+    assert.deepStrictEqual(options, { layers: ['category', 'subcategory'], tidy: true, tags: true, autoApply: true });
     inbox.saveFolders(uploads, '', { layers: ['designer', 'category', 'nonsense', 'designer'], autoApply: false });
     assert.deepStrictEqual(inbox.organizeOptions().layers, ['designer', 'category'], 'unknown and repeated levels are left out');
     assert.strictEqual(inbox.organizeOptions().autoApply, false);

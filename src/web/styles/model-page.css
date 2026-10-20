@@ -893,19 +893,3 @@ dialog.assembly-dialog {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Archives in a folder (pages/FolderPage.tsx UnpackArchives) */
-.jp-unpack {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--jp-space-3);
-}
-.jp-unpack .jp-meta {
-  flex: 1 1 320px;
-  margin: 0;
-}
-.jp-unpack .jp-meta svg {
-  vertical-align: -3px;
-}

@@ -20,8 +20,6 @@ jobs:
         env:
           # The unit tests do not start a browser.
           PUPPETEER_SKIP_DOWNLOAD: '1'
-      - name: Install bsdtar (unpacking archives)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libarchive-tools
       - name: Unit tests
         run: npm test
 
@@ -38,8 +36,6 @@ jobs:
         env:
           # The runner's Google Chrome renders thumbnails and drives the browser checks.
           PUPPETEER_SKIP_DOWNLOAD: '1'
-      - name: Install bsdtar (unpacking archives)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libarchive-tools
       - name: End-to-end tests
         run: npm run test:e2e
         env:

@@ -139,8 +139,6 @@ Editors and admins can add models from the browser:
 - Scans skip files over the size limit under **Settings → General → Performance** (50 MB unless changed). The dialog warns about such files: they are saved, and appear once an admin raises the limit and scans again.
 - Nothing is replaced: when a name is taken, the upload is saved as `Name (2).stl`.
 - After the upload, the folder is scanned, so the models appear with thumbnails.
-- **Archives** (ZIP, RAR, 7Z) are unpacked into the model's folder: each into a folder of its own named after it (`arm.zip` → `arm/`), archives inside them too, and the original kept in `archives/` (scans skip it). Pictures and PDFs next to them become the model's **Pictures** and **Documents**, so a kit downloaded as a pile of archives becomes one model with all its parts (turn on **Folders as models** to see it as one card). Turn this off under **Settings → Scanning → File Types** (**Unpack uploaded ZIP, RAR and 7Z files**). A password-protected or damaged archive is listed in the summary and stays as it is.
-- **Archives already in the library**: a folder's page lists the archives in it with **Unpack Archives**, which does the same. Models that were found inside a ZIP keep their tags, notes and history once unpacked.
 
 ### The Upload folder and Organize
 
@@ -149,12 +147,12 @@ An admin sets up Organize under **Settings → Scanning → Organize**:
 - **Scanned directory** (the Upload folder, for example `/upload`; made if it is not there yet): uploads go there first, and its models show in the library right away with a **Not organized** badge. **Not organized** in the Library's header shows just them; Home's **Needs attention** lists them too.
 - **Destination directory** (for example `/mnt/user`; empty means your first STL Home folder).
 - **Folder structure**: the folder levels above each model's own folder, **Category / Subcategory** unless you change them (Designer and License are the other choices, up to four levels). The model's own folder is always last and named after its **Title**: `Destination/Category/Subcategory/Title/file`.
-- **Steps**, all on unless you turn them off: **Include ZIP files**, **Tidy into model folders**, **Generate tags** and **Apply the suggested tags**.
+- **Steps**, all on unless you turn them off: **Tidy into model folders**, **Generate tags** and **Apply the suggested tags**.
 
 **Organize** in the sidebar (also in the Not organized view, and next to the item on Home) runs at once, without a page, and puts every model in the scanned directory where it belongs:
 
-1. Every folder there is one model, with everything in it; a model file (or, with **Include ZIP files**, an archive) on its own gets a folder named after it.
-2. **Include ZIP files**: its archives are unpacked (the originals kept in `archives/`). **Tidy into model folders**: its loose pictures and documents go into its **Pictures** and **Documents**.
+1. Every folder there is one model, with everything in it; a model file on its own (a ZIP too, when ZIP scanning is on) gets a folder named after it. Archives are kept as they are, never unpacked.
+2. **Tidy into model folders**: its loose pictures and documents go into its **Pictures** and **Documents**.
 3. **Generate tags**: the AI tags its models; with **Apply the suggested tags** they are added straight away (with **AI Tagged**), and the AI's Category comes with them. With it off, the suggested tags open for your review once the models are moved.
 4. It gets a Category and Subcategory: the one its site gives it, else the AI's (when an AI service is set up under **Settings → AI Tagging**), else from the words in its names and tags, else **Uncategorized › Other**.
 5. It moves to `Destination/Category/Subcategory/Title/`, with its tags, notes, history and pictures, and **its files are named after its Title**, keeping their extension (`Articulated Dragon.3mf`; `Articulated Dragon (2).3mf` when two files share it). A model without a Title keeps its file names and its folder is named after the file. A folder name already taken gets a number: `Dragon Skull (2)`.

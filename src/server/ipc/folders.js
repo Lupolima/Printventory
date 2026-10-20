@@ -40,34 +40,6 @@ ipcMain.handle('save-folder-notes', async (event, dir, notes) => {
   return result;
 });
 
-// Archives in a folder (unpack-archives.js): which there are, and unpacking them into the folder.
-ipcMain.handle('get-folder-archives', async (event, dir) => ({ archives: require('../unpack-archives').archivesIn(folders.folderKey(dir)) }));
-ipcMain.handle('unpack-folder-archives', async (event, dir) => {
-  const key = folders.folderKey(dir);
-  const { readStlHomeDirectories } = require('../../core/library-paths');
-  const { isInsideOrSame } = require('../server-paths');
-  // The folder becomes one model: never a whole STL Home folder.
-  if (readStlHomeDirectories().some((home) => folders.folderKey(home) === key)) {
-    throw new Error('Unpack Archives is for one model’s folder, not a whole STL Home folder: move the archives into a folder of their own first');
-  }
-  const result = await require('../unpack-archives').unpackFolder(key);
-  const { rootFor } = require('../uploads');
-  const { networkPathContext } = require('../path-context');
-  const isStlHomeScan = readStlHomeDirectories().some((home) => isInsideOrSame(key, home));
-  const newModels = await require('../stl-home').scanUploadedFolder(key, rootFor(key, networkPathContext().roots), { isStlHomeScan });
-  await require('../model-folders')
-    .coverIfNone(key)
-    .catch(() => {});
-  events.broadcast('folder-changed', { path: key });
-  events.broadcast('refresh-grid');
-  // How many models the folder holds now (models from its archives that were in the library moved, not new).
-  const escapeLike = (text) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
-  const models = database.db
-    .prepare("SELECT COUNT(*) AS n FROM models WHERE filePath LIKE ? ESCAPE '\\' AND instr(filePath, '::') = 0")
-    .get(`${escapeLike(key)}${require('path').sep}%`).n;
-  return { ...result, newModels, models };
-});
-
 // Kit progress (src/server/kits.js): a file's or a folder's parts, ticking them, and folder cards' progress.
 const kits = require('../kits');
 ipcMain.handle('get-kit', async (event, target) => kits.getKit(target));

@@ -27,7 +27,6 @@ export interface UploadFolderInfo {
 export interface OrganizeOptions {
   /** The folders above each model's own (named after its Title), e.g. ['category', 'subcategory']. */
   layers: string[];
-  includeZips: boolean;
   tidy: boolean;
   tags: boolean;
   autoApply: boolean;
@@ -193,7 +192,7 @@ export function organizeText(run: OrganizeRun): string {
     if (run.stopping) return 'Stopping Organize…';
     switch (run.phase) {
       case 'prepare':
-        return `Organizing: unpacking and scanning ${run.done} of ${run.total}…`;
+        return `Organizing: preparing ${run.done} of ${run.total}…`;
       case 'categorize':
         return run.useAi ? 'Organizing: the AI is choosing their categories…' : 'Organizing: choosing their categories…';
       case 'move':

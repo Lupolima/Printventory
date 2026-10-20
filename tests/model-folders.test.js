@@ -44,7 +44,7 @@ async function main() {
 
   // Scans leave out the media folders of model folders at or under the scanned folder.
   const skipped = mf.mediaFolders(lib);
-  // Their media folders and archives/ (unpack-archives.js), for each of the two.
+  // Their media folders and archives/ (kept from 7.28–8.1), for each of the two.
   assert.ok(
     skipped.includes(path.join(robot, 'image')) &&
       skipped.includes(path.join(robot, 'document')) &&
