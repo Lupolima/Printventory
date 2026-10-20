@@ -203,6 +203,7 @@
       "printer.png",
       "aitagging.js",
       "thumbnail-compress.js",
+      "webp-thumbnails.js",
       "extract-lys-preview.js",
       "extract-f3d-preview.js",
       "extract-chitubox-preview.js",

@@ -196,6 +196,7 @@ const {
   THUMBNAIL_MAX_STORED_CHARS,
   THUMBNAIL_ABSOLUTE_MAX_LOAD_CHARS
 } = require('./thumbnail-compress');
+const { isOversizedWebp, shrinkWebpThumbnailParts, closeWebpConverter } = require('./webp-thumbnails');
 const { extractLysPreviewEntry } = require('./extract-lys-preview');
 const { extractF3dPreviewEntry } = require('./extract-f3d-preview');
 const { extractChituboxPreviewEntry } = require('./extract-chitubox-preview');
@@ -2752,6 +2753,18 @@ async function compressExistingThumbnailsInBackground(reason) {
   try {
     purgeCorruptThumbnailsOnly();
 
+    // Thumbnails nativeImage cannot decode (WebP pictures inside MakerWorld 3MFs) never shrink, so
+    // the same rows were re-read (hundreds of MB, window not responding) on every start. After a pass
+    // that compressed nothing, skip until the number of oversized thumbnails changes.
+    // octet_length() reads the record header only, so this count does not load the thumbnails.
+    const candidateCount = String(cachedPrepare(
+      'SELECT COUNT(*) AS n FROM models WHERE octet_length(thumbnail) > ?'
+    ).get(THUMBNAIL_MAX_STORED_CHARS).n);
+    if (candidateCount === getSettingValueOr('thumbnailMigrationNoProgressCount', '')) {
+      console.log(`Thumbnail migration skipped: ${candidateCount} oversized thumbnail(s) could not be compressed last time`);
+      return;
+    }
+
     const rows = cachedPrepare(`
       SELECT filePath, octet_length(thumbnail) AS thumbLen
       FROM models
@@ -2779,9 +2792,17 @@ async function compressExistingThumbnailsInBackground(reason) {
 
         const parts = thumbnail.includes('::') ? thumbnail.split('::').filter(Boolean) : [thumbnail];
         const needsWork = parts.some((part) => needsCompression(part));
-        if (!needsWork) continue;
+        const hasOversizedWebp = parts.some(isOversizedWebp);
+        if (!needsWork && !hasOversizedWebp) continue;
 
-        const { value, changed } = compressThumbnailBlob(thumbnail);
+        let { value, changed } = needsWork ? compressThumbnailBlob(thumbnail) : { value: thumbnail, changed: false };
+        if (hasOversizedWebp) {
+          const shrunk = await shrinkWebpThumbnailParts(value);
+          if (shrunk.changed) {
+            value = shrunk.value;
+            changed = true;
+          }
+        }
         if (changed) {
           cachedPrepare('UPDATE models SET thumbnail = ? WHERE filePath = ?').run(value, row.filePath);
           updated++;
@@ -2794,7 +2815,9 @@ async function compressExistingThumbnailsInBackground(reason) {
     if (updated > 0) {
       console.log(`Thumbnail migration complete: ${updated}/${batch.length} model(s) updated`);
     }
+    writeSettingValue('thumbnailMigrationNoProgressCount', updated > 0 ? '' : candidateCount);
   } finally {
+    closeWebpConverter();
     isCompressingThumbnailsBackground = false;
   }
 }
@@ -15474,9 +15497,17 @@ function verifyDatabaseIntegrity() {
     const foreignKeysEnabled = db.pragma('foreign_keys');
     console.log(`Foreign keys enabled: ${foreignKeysEnabled}`);
     
-    // Run integrity check
-    const integrityCheck = db.pragma('integrity_check');
-    console.log(`Integrity check result: ${JSON.stringify(integrityCheck)}`);
+    // Run integrity check. It reads the whole database file on the main process (tens of seconds
+    // with multi-GB thumbnail data, and the window stops responding), so run it at most once a week.
+    const INTEGRITY_CHECK_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+    const lastIntegrityCheck = Date.parse(getSettingValueOr('integrityCheckLastAt', '')) || 0;
+    if (Date.now() - lastIntegrityCheck >= INTEGRITY_CHECK_INTERVAL_MS) {
+      const integrityCheck = db.pragma('integrity_check');
+      console.log(`Integrity check result: ${JSON.stringify(integrityCheck)}`);
+      writeSettingValue('integrityCheckLastAt', new Date().toISOString());
+    } else {
+      console.log(`Integrity check skipped (last run ${new Date(lastIntegrityCheck).toISOString()})`);
+    }
     
     repairModelTagsTable();
     
